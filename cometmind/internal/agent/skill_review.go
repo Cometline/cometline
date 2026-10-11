@@ -23,15 +23,16 @@ type skillReviewStore interface {
 	GetSession(ctx context.Context, sessionID string) (session.Session, error)
 	ListMessageRows(ctx context.Context, sessionID string) ([]db.Message, error)
 	ListToolCallsForSession(ctx context.Context, sessionID string) ([]db.ToolCall, error)
+	ListToolCallsByMessageIDs(ctx context.Context, messageIDs []string) ([]db.ToolCall, error)
 	NewChildSession(ctx context.Context, parent session.Session, purpose, subagentKind string) (session.Session, error)
 	UpdateSessionModel(ctx context.Context, sessionID, modelID, providerID string) (session.Session, error)
 	DeleteSession(ctx context.Context, sessionID string) error
 	AppendUserMessage(ctx context.Context, sessionID, text string) (session.Message, error)
 	WorkspacePath(ctx context.Context, workspaceID string) (string, error)
-	SetSkillReviewLastTargets(ctx context.Context, sessionID, targets string) error
 	AddSkillReviewMutatingCount(ctx context.Context, sessionID string, n int64) (int64, error)
+	AddSkillReviewToolIterations(ctx context.Context, sessionID string, n int64) (int64, error)
 	ResetSkillReviewAfterStart(ctx context.Context, sessionID string, at int64) error
-	SetWikiReviewStartedAt(ctx context.Context, sessionID string, at int64) error
+	ResetWikiReviewAfterStart(ctx context.Context, sessionID string) error
 }
 
 func (r *Runner) reviewNow() time.Time {
@@ -117,6 +118,67 @@ func reviewExtraction(cfg *config.Config) (string, string, bool) {
 		return "", "", false
 	}
 	return providerID, modelID, true
+}
+
+func messageIDs(rows []db.Message) []string {
+	ids := make([]string, len(rows))
+	for i, row := range rows {
+		ids[i] = row.ID
+	}
+	return ids
+}
+
+func rowsSinceLastUser(rows []db.Message) []db.Message {
+	start := 0
+	for i, row := range rows {
+		if row.Role == "user" {
+			start = i
+		}
+	}
+	if len(rows) == 0 {
+		return nil
+	}
+	return rows[start:]
+}
+
+func callsInRows(calls []db.ToolCall, rows []db.Message) []db.ToolCall {
+	if len(rows) == 0 || len(calls) == 0 {
+		return nil
+	}
+	ids := map[string]bool{}
+	for _, row := range rows {
+		ids[row.ID] = true
+	}
+	kept := make([]db.ToolCall, 0, len(calls))
+	for _, call := range calls {
+		if ids[call.MessageID] {
+			kept = append(kept, call)
+		}
+	}
+	return kept
+}
+
+// toolCallingIterations counts assistant steps that issued at least one tool call.
+// A final text-only step does not count. One step with several calls counts once.
+func toolCallingIterations(calls []db.ToolCall, rows []db.Message) int {
+	if len(calls) == 0 {
+		return 0
+	}
+	withCalls := map[string]bool{}
+	for _, call := range calls {
+		withCalls[call.MessageID] = true
+	}
+	role := map[string]string{}
+	for _, row := range rows {
+		role[row.ID] = row.Role
+	}
+	n := 0
+	for id := range withCalls {
+		if role[id] == "assistant" || role[id] == "" {
+			n++
+		}
+	}
+	return n
 }
 
 func toolResultFlags(rows []db.Message) (seen, failed map[string]bool) {
@@ -239,15 +301,4 @@ func collectSkillWrites(ctx context.Context, store skillReviewStore, childID str
 		})
 	}
 	return out
-}
-
-func encodeTargets(targets skillTargets) string {
-	if len(targets.Paths) == 0 && len(targets.Commands) == 0 {
-		return ""
-	}
-	raw, err := json.Marshal(targets)
-	if err != nil {
-		return ""
-	}
-	return string(raw)
 }

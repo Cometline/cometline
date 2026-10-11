@@ -2,13 +2,11 @@ package agent
 
 import (
 	"testing"
-	"time"
+
+	"github.com/Cometline/cometline/cometmind/internal/db"
 )
 
 func TestDecideSkillReview(t *testing.T) {
-	now := time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC)
-	previous := skillTargets{Paths: []string{"src/main.go"}, Commands: []string{"go test ./..."}}
-
 	tests := []struct {
 		name    string
 		in      skillReviewInput
@@ -17,151 +15,22 @@ func TestDecideSkillReview(t *testing.T) {
 		logSkip string
 		wide    bool
 	}{
+		{name: "ninth iteration does not start", in: skillReviewInput{UserChat: true, HasModel: true, Iterations: 9}},
 		{
-			name: "eight mutating calls do not start",
-			in: skillReviewInput{
-				UserChat: true, HasModel: true, Now: now,
-				Calls: mutatingCalls(8, "edit_file", "src/main.go", ""),
-			},
-		},
-		{
-			name: "tenth turn",
-			in: skillReviewInput{
-				UserChat: true, HasModel: true, Now: now,
-				Turns: 10,
-			},
+			name:   "tenth tool iteration",
+			in:     skillReviewInput{UserChat: true, HasModel: true, Iterations: 10},
 			start:  true,
-			reason: "turns",
+			reason: "iterations",
 			wide:   true,
 		},
+		{name: "child session does not start", in: skillReviewInput{UserChat: false, HasModel: true, Iterations: 10}},
 		{
-			name: "eight reads do not start",
-			in: skillReviewInput{
-				UserChat: true, HasModel: true, Now: now,
-				Calls: mutatingCalls(8, "read_file", "src/main.go", ""),
-			},
-		},
-		{
-			name: "seven mutating calls do not start",
-			in: skillReviewInput{
-				UserChat: true, HasModel: true, Now: now,
-				Calls: mutatingCalls(7, "write_file", "src/main.go", ""),
-			},
-		},
-		{
-			name: "failed mutating calls do not count",
-			in: skillReviewInput{
-				UserChat: true, HasModel: true, Now: now,
-				Calls: failedCalls(8, "edit_file", "src/main.go"),
-			},
-		},
-		{
-			name: "correction below the turn count does not start",
-			in: skillReviewInput{
-				UserChat: true, HasModel: true, Now: now,
-				UserText: "please fix src/main.go again",
-				Previous: previous,
-				Calls:    mutatingCalls(1, "edit_file", "src/main.go", ""),
-				Turns:    1,
-			},
-		},
-		{
-			name: "correction mention without a redo does not start",
-			in: skillReviewInput{
-				UserChat: true, HasModel: true, Now: now,
-				UserText: "please fix src/main.go again",
-				Previous: previous,
-				Calls:    mutatingCalls(1, "edit_file", "other.go", ""),
-			},
-		},
-		{
-			name: "unrelated user text does not arm",
-			in: skillReviewInput{
-				UserChat: true, HasModel: true, Now: now,
-				UserText: "that was wrong, redo it",
-				Previous: previous,
-				Calls:    mutatingCalls(1, "edit_file", "src/main.go", ""),
-			},
-		},
-		{
-			name: "command rerun below the turn count does not start",
-			in: skillReviewInput{
-				UserChat: true, HasModel: true, Now: now,
-				UserText: "run go test ./... once more",
-				Previous: previous,
-				Calls:    mutatingCalls(1, "run_command", "", "go test ./..."),
-				Turns:    1,
-			},
-		},
-		{
-			name: "recent review does not block an eligible turn",
-			in: skillReviewInput{
-				UserChat: true, HasModel: true, Now: now,
-				LastStarted: now.Add(-time.Minute),
-				Turns:       10,
-			},
-			start:  true,
-			reason: "turns",
-			wide:   true,
-		},
-		{
-			name: "child session does not start",
-			in: skillReviewInput{
-				UserChat: false, HasModel: true, Now: now,
-				Calls: mutatingCalls(8, "edit_file", "src/main.go", ""),
-			},
-		},
-		{
-			name: "missing extraction model skips",
-			in: skillReviewInput{
-				UserChat: true, HasModel: false, Now: now,
-				Turns: 10,
-			},
+			name:    "missing extraction model skips",
+			in:      skillReviewInput{UserChat: true, HasModel: false, Iterations: 10},
 			logSkip: "skills.review.skipped_no_model",
 		},
-		{
-			name: "missing model below threshold does not log",
-			in: skillReviewInput{
-				UserChat: true, HasModel: false, Now: now,
-				Calls: mutatingCalls(1, "edit_file", "src/main.go", ""),
-			},
-		},
-		{
-			name: "accumulated ten starts with the wider window",
-			in: skillReviewInput{
-				UserChat: true, HasModel: true, Now: now,
-				Turns: 10,
-				Calls: mutatingCalls(4, "edit_file", "src/main.go", ""),
-			},
-			start:  true,
-			reason: "turns",
-			wide:   true,
-		},
-		{
-			name: "eight calls inside an accumulated window stay wide",
-			in: skillReviewInput{
-				UserChat: true, HasModel: true, Now: now,
-				Turns: 12,
-				Calls: mutatingCalls(8, "edit_file", "src/main.go", ""),
-			},
-			start:  true,
-			reason: "turns",
-			wide:   true,
-		},
-		{
-			name: "recent review does not block an accumulated window",
-			in: skillReviewInput{
-				UserChat: true, HasModel: true, Now: now,
-				LastStarted: now.Add(-time.Minute),
-				Turns:       10,
-				Calls:       mutatingCalls(1, "edit_file", "src/main.go", ""),
-			},
-			start:  true,
-			reason: "turns",
-			wide:   true,
-		},
+		{name: "missing model below threshold does not log", in: skillReviewInput{UserChat: true, HasModel: false, Iterations: 1}},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := decideSkillReview(tt.in)
@@ -172,33 +41,21 @@ func TestDecideSkillReview(t *testing.T) {
 	}
 }
 
-func TestTargetsFromCallsKeepSuccessfulMutations(t *testing.T) {
-	got := targetsFromCalls([]skillCall{
-		{Name: "edit_file", Path: "./src/main.go", OK: true},
-		{Name: "read_file", Path: "src/other.go", OK: true},
-		{Name: "run_command", Command: "go test ./...", OK: true},
-		{Name: "write_file", Path: "src/main.go", OK: false},
-	})
-	if len(got.Paths) != 1 || got.Paths[0] != "src/main.go" {
-		t.Fatalf("paths = %#v", got.Paths)
+func TestToolCallingIterationsCountStepsNotCalls(t *testing.T) {
+	rows := []db.Message{
+		{ID: "a1", Role: "assistant"},
+		{ID: "a2", Role: "assistant"},
+		{ID: "a3", Role: "assistant"},
 	}
-	if len(got.Commands) != 1 || got.Commands[0] != "go test ./..." {
-		t.Fatalf("commands = %#v", got.Commands)
+	calls := []db.ToolCall{
+		{ID: "c1", MessageID: "a1", ToolName: "read_file"},
+		{ID: "c2", MessageID: "a1", ToolName: "grep"},
+		{ID: "c3", MessageID: "a2", ToolName: "edit_file"},
 	}
-}
-
-func mutatingCalls(n int, name, path, command string) []skillCall {
-	out := make([]skillCall, n)
-	for i := range out {
-		out[i] = skillCall{Name: name, Path: path, Command: command, OK: true}
+	if got := toolCallingIterations(calls, rows); got != 2 {
+		t.Fatalf("iterations = %d, want 2", got)
 	}
-	return out
-}
-
-func failedCalls(n int, name, path string) []skillCall {
-	out := mutatingCalls(n, name, path, "")
-	for i := range out {
-		out[i].OK = false
+	if got := toolCallingIterations(nil, rows); got != 0 {
+		t.Fatalf("empty iterations = %d", got)
 	}
-	return out
 }

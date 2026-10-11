@@ -59,6 +59,9 @@ func TestTurnReviewCoalescesWhileRunning(t *testing.T) {
 		if err := svc.SetSkillReviewCounter(ctx, parent.ID, 9, 1); err != nil {
 			t.Fatal(err)
 		}
+		if err := svc.SetSkillReviewToolIterations(ctx, parent.ID, 9); err != nil {
+			t.Fatal(err)
+		}
 		return parent
 	}
 	first := mk("first review")
@@ -150,6 +153,9 @@ func TestWikiReviewStartsBesideSkillReview(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := svc.SetSkillReviewCounter(ctx, parent.ID, 9, 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.SetSkillReviewToolIterations(ctx, parent.ID, 9); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := svc.AppendAssistantStep(ctx, parent.ID, "", nil, []cometsdk.ToolCallBlock{{

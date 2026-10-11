@@ -63,25 +63,34 @@ func (r *Runner) reviewAfterTurn(ctx context.Context, turn session.AgentTurn) {
 		logging.L().Warn("review.tools_failed", zap.String("session", turn.ID), zap.Error(err))
 		return
 	}
+	turnRows := rowsSinceLastUser(rows)
+	turnCalls, err := store.ListToolCallsByMessageIDs(ctx, messageIDs(turnRows))
+	if err != nil {
+		logging.L().Warn("review.tools_failed", zap.String("session", turn.ID), zap.Error(err))
+		turnCalls = callsInRows(calls, turnRows)
+	}
 	turns, err := store.AddSkillReviewMutatingCount(ctx, turn.ID, 1)
 	if err != nil {
 		logging.L().Warn("review.count_failed", zap.String("session", turn.ID), zap.Error(err))
 		turns = sess.SkillReviewMutatingCount + 1
 	}
+	added := int64(toolCallingIterations(turnCalls, turnRows))
+	iterations, err := store.AddSkillReviewToolIterations(ctx, turn.ID, added)
+	if err != nil {
+		logging.L().Warn("review.iterations_failed", zap.String("session", turn.ID), zap.Error(err))
+		iterations = sess.SkillReviewToolIterations + added
+	}
 	_, _, hasModel := reviewExtraction(r.Config)
 	skillDecision := decideSkillReview(skillReviewInput{
-		UserChat: true,
-		HasModel: hasModel,
-		Turns:    int(turns),
+		UserChat:   true,
+		HasModel:   hasModel,
+		Iterations: int(iterations),
 	})
 	wikiDecision := decideWikiReview(wikiReviewInput{
 		UserChat: true,
 		HasModel: hasModel,
 		Turns:    int(turns),
 	})
-	if err := store.SetSkillReviewLastTargets(ctx, turn.ID, encodeTargets(skillDecision.Targets)); err != nil {
-		logging.L().Warn("skills.review.targets_failed", zap.String("session", turn.ID), zap.Error(err))
-	}
 	if skillDecision.LogSkip != "" {
 		logging.L().Warn(skillDecision.LogSkip, zap.String("session", turn.ID))
 	}
@@ -184,9 +193,12 @@ func (r *Runner) startTurnReview(ctx context.Context, store skillReviewStore, pa
 		}
 	}
 	if reviewWiki {
-		if err := store.SetWikiReviewStartedAt(ctx, parent.ID, started.UnixMilli()); err != nil {
-			logging.L().Warn("wiki.review.mark_failed", zap.String("session", parent.ID), zap.Error(err))
+		if err := store.ResetWikiReviewAfterStart(ctx, parent.ID); err != nil {
+			logging.L().Warn("wiki.review.reset_failed", zap.String("session", parent.ID), zap.Error(err))
 		}
+	}
+	if reviewSkills {
+		parent.SkillReviewCountResetAt = started.UnixMilli()
 	}
 	runErr := r.ReviewChild(ctx, child, registry, reviewMaxSteps, turnReviewSystemPrompt(reviewSkills, reviewWiki))
 	if runErr != nil {
