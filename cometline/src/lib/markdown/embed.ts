@@ -1,8 +1,8 @@
 /**
  * Rich URL embed chips. A bare URL in a message is rendered as a compact inline
- * chip: a favicon (from a public favicon CDN) plus a label (the site title when
- * known, otherwise the domain). No page scraping is performed here — only the
- * domain and a CDN favicon URL are derived from the link itself.
+ * chip: a favicon (from Google's favicon service) plus a label (the site title
+ * when known, otherwise the domain). No page scraping is performed here — only
+ * the hostname and a favicon URL are derived from the link itself.
  */
 
 /** Escapes text for safe inclusion in an HTML attribute or text node. */
@@ -36,13 +36,13 @@ export function domainFromUrl(url: string): string {
 }
 
 /**
- * Favicon CDN URL for a link's domain. DuckDuckGo's icon proxy is fast, has no
- * rate limit, and returns a correct content-type. Swap this constant to switch
- * providers (e.g. Google's `s2/favicons`).
+ * Favicon URL for a link's hostname. Google's s2/favicons service redirects to
+ * gstatic and, on a cache miss, fetches the site's icon (including SVG icons on
+ * subdomains that a pre-crawled index misses). Only the hostname is sent.
  */
 export function faviconUrl(url: string): string {
 	const domain = domainFromUrl(url);
-	return `https://icons.duckduckgo.com/ip3/${encodeURIComponent(domain)}.ico`;
+	return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32`;
 }
 
 /**

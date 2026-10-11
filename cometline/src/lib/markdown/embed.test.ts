@@ -46,9 +46,15 @@ describe('isHttpUrl', () => {
 });
 
 describe('faviconUrl', () => {
-	it('builds a DuckDuckGo favicon URL for the domain', () => {
+	it('builds a Google favicon URL for the hostname', () => {
 		expect(faviconUrl('https://www.grok.com/x')).toBe(
-			'https://icons.duckduckgo.com/ip3/grok.com.ico'
+			'https://www.google.com/s2/favicons?domain=grok.com&sz=32'
+		);
+	});
+
+	it('keeps subdomains and drops the path', () => {
+		expect(faviconUrl('https://go.sdk.modelcontextprotocol.io/quick_start/')).toBe(
+			'https://www.google.com/s2/favicons?domain=go.sdk.modelcontextprotocol.io&sz=32'
 		);
 	});
 });
@@ -59,7 +65,7 @@ describe('buildEmbedChip', () => {
 		expect(html).toContain('class="link-embed"');
 		expect(html).toContain('href="https://grok.com"');
 		expect(html).toContain('data-embed-url="https://grok.com"');
-		expect(html).toContain('icons.duckduckgo.com/ip3/grok.com.ico');
+		expect(html).toContain('www.google.com/s2/favicons?domain=grok.com&amp;sz=32');
 		expect(html).toContain('>grok.com</span>');
 	});
 
