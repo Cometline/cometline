@@ -62,6 +62,14 @@ func (s *Service) ListToolCallsForSession(ctx context.Context, sessionID string)
 	return s.q.ListToolCallsBySession(ctx, sessionID)
 }
 
+// ListToolCallsByMessageIDs returns tool calls attached to the given messages.
+func (s *Service) ListToolCallsByMessageIDs(ctx context.Context, messageIDs []string) ([]db.ToolCall, error) {
+	if len(messageIDs) == 0 {
+		return nil, nil
+	}
+	return s.q.ListToolCallsByMessageIDs(ctx, messageIDs)
+}
+
 // GroupToolCallsByMessage indexes tool calls by assistant message id.
 func GroupToolCallsByMessage(calls []db.ToolCall) map[string][]db.ToolCall {
 	out := make(map[string][]db.ToolCall, len(calls))

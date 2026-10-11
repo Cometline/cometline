@@ -241,21 +241,17 @@ SET
     updated_at = unixepoch ('now', 'subsec') * 1000
 WHERE id = ?;
 
--- name: SetSkillReviewStartedAt :exec
-UPDATE sessions
-SET skill_review_started_at = ?
-WHERE id = ?;
-
--- name: SetSkillReviewLastTargets :exec
-UPDATE sessions
-SET skill_review_last_targets = ?
-WHERE id = ?;
-
 -- name: AddSkillReviewMutatingCount :one
 UPDATE sessions
 SET skill_review_mutating_count = skill_review_mutating_count + ?
 WHERE id = ?
 RETURNING skill_review_mutating_count;
+
+-- name: AddSkillReviewToolIterations :one
+UPDATE sessions
+SET skill_review_tool_iterations = skill_review_tool_iterations + ?
+WHERE id = ?
+RETURNING skill_review_tool_iterations;
 
 -- name: SetSkillReviewCounter :exec
 UPDATE sessions
@@ -264,15 +260,19 @@ SET
     skill_review_count_reset_at = ?
 WHERE id = ?;
 
--- name: SetWikiReviewStartedAt :exec
+-- name: SetSkillReviewToolIterations :exec
 UPDATE sessions
-SET wiki_review_started_at = ?
+SET skill_review_tool_iterations = ?
+WHERE id = ?;
+
+-- name: ResetWikiReviewAfterStart :exec
+UPDATE sessions
+SET skill_review_mutating_count = 0
 WHERE id = ?;
 
 -- name: ResetSkillReviewAfterStart :exec
 UPDATE sessions
 SET
-    skill_review_mutating_count = 0,
-    skill_review_count_reset_at = ?,
-    skill_review_started_at = ?
+    skill_review_tool_iterations = 0,
+    skill_review_count_reset_at = ?
 WHERE id = ?;

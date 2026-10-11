@@ -62,6 +62,9 @@ func TestSkillReviewForkUsesNarrowSurfaceAndDeletesChild(t *testing.T) {
 	if err := svc.SetSkillReviewCounter(ctx, parent.ID, 9, 1); err != nil {
 		t.Fatal(err)
 	}
+	if err := svc.SetSkillReviewToolIterations(ctx, parent.ID, 9); err != nil {
+		t.Fatal(err)
+	}
 
 	hub := event.NewHub()
 	sub := hub.Subscribe()
@@ -139,8 +142,11 @@ func TestSkillReviewForkUsesNarrowSurfaceAndDeletesChild(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if updated.SkillReviewStartedAt != now.UnixMilli() {
-		t.Fatalf("cooldown = %d", updated.SkillReviewStartedAt)
+	if updated.SkillReviewToolIterations != 0 {
+		t.Fatalf("iterations = %d, want 0 after start", updated.SkillReviewToolIterations)
+	}
+	if updated.SkillReviewCountResetAt != now.UnixMilli() {
+		t.Fatalf("window = %d", updated.SkillReviewCountResetAt)
 	}
 	select {
 	case ev := <-sub.Events:
@@ -163,8 +169,8 @@ func TestSkillReviewForkUsesNarrowSurfaceAndDeletesChild(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if reset.SkillReviewMutatingCount != 0 {
-		t.Fatalf("counter = %d, want 0", reset.SkillReviewMutatingCount)
+	if reset.SkillReviewToolIterations != 0 {
+		t.Fatalf("counter = %d, want 0", reset.SkillReviewToolIterations)
 	}
 }
 
@@ -182,7 +188,7 @@ func TestSkillReviewUsesDefaultModelWhenExtractionUnpinned(t *testing.T) {
 	if err := seedMutatingTurn(ctx, svc, parent.ID, 1); err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.SetSkillReviewCounter(ctx, parent.ID, 9, 1); err != nil {
+	if err := svc.SetSkillReviewToolIterations(ctx, parent.ID, 9); err != nil {
 		t.Fatal(err)
 	}
 	var gotModel, gotProvider string
@@ -218,6 +224,9 @@ func TestSkillReviewSkipsWithoutAnyModel(t *testing.T) {
 	if err := svc.SetSkillReviewCounter(ctx, parent.ID, 9, 1); err != nil {
 		t.Fatal(err)
 	}
+	if err := svc.SetSkillReviewToolIterations(ctx, parent.ID, 9); err != nil {
+		t.Fatal(err)
+	}
 	starts := 0
 	runner := &Runner{
 		Config:   &config.Config{},
@@ -235,11 +244,14 @@ func TestSkillReviewSkipsWithoutAnyModel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if updated.SkillReviewStartedAt != 0 {
-		t.Fatalf("cooldown consumed without a start: %d", updated.SkillReviewStartedAt)
+	if updated.SkillReviewCountResetAt != 1 {
+		t.Fatalf("window moved without a start: %d", updated.SkillReviewCountResetAt)
 	}
 	if updated.SkillReviewMutatingCount != 10 {
-		t.Fatalf("counter = %d, want 10", updated.SkillReviewMutatingCount)
+		t.Fatalf("user turns = %d, want 10", updated.SkillReviewMutatingCount)
+	}
+	if updated.SkillReviewToolIterations != 10 {
+		t.Fatalf("iterations = %d, want 10", updated.SkillReviewToolIterations)
 	}
 }
 
@@ -280,31 +292,55 @@ func TestSkillReviewCounterStartsOnceAcrossTurns(t *testing.T) {
 			return nil
 		},
 	}
-	for i := 1; i <= 10; i++ {
-		if err := seedNamedTurn(ctx, svc, parent.ID, fmt.Sprintf("turn-%d", i), 1); err != nil {
+	for i := 1; i <= 9; i++ {
+		if err := seedNamedTurn(ctx, svc, parent.ID, fmt.Sprintf("turn-%d", i), 2); err != nil {
 			t.Fatal(err)
 		}
 		runner.reviewSkillsAfterTurn(ctx, session.AgentTurnFromSession(parent))
 	}
+	mid, err := svc.GetSession(ctx, parent.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if starts != 0 || mid.SkillReviewToolIterations != 9 {
+		t.Fatalf("starts = %d iterations = %d, want 0 starts and 9 iterations", starts, mid.SkillReviewToolIterations)
+	}
+	if err := seedNamedTurn(ctx, svc, parent.ID, "turn-10", 0); err != nil {
+		t.Fatal(err)
+	}
+	runner.reviewSkillsAfterTurn(ctx, session.AgentTurnFromSession(parent))
+	chatOnly, err := svc.GetSession(ctx, parent.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if starts != 1 {
-		t.Fatalf("starts = %d, want 1", starts)
+		t.Fatalf("starts = %d, want 1 wiki-only review on the tenth user turn", starts)
+	}
+	if chatOnly.SkillReviewToolIterations != 9 || chatOnly.SkillReviewCountResetAt != 0 {
+		t.Fatalf("chat-only consumed skill review: iterations=%d window=%d", chatOnly.SkillReviewToolIterations, chatOnly.SkillReviewCountResetAt)
+	}
+	if chatOnly.SkillReviewMutatingCount != 0 {
+		t.Fatalf("wiki review did not reset user turns: %d", chatOnly.SkillReviewMutatingCount)
+	}
+	if err := seedNamedTurn(ctx, svc, parent.ID, "turn-11", 1); err != nil {
+		t.Fatal(err)
+	}
+	runner.reviewSkillsAfterTurn(ctx, session.AgentTurnFromSession(parent))
+	if starts != 2 {
+		t.Fatalf("starts = %d, want 2", starts)
 	}
 	reset, err := svc.GetSession(ctx, parent.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if reset.SkillReviewMutatingCount != 0 {
-		t.Fatalf("counter = %d, want 0", reset.SkillReviewMutatingCount)
+	if reset.SkillReviewToolIterations != 0 {
+		t.Fatalf("iterations = %d, want 0", reset.SkillReviewToolIterations)
 	}
-	if len(prompts) != 1 || !strings.Contains(prompts[0], "turn-1") || !strings.Contains(prompts[0], "turn-10") {
+	if reset.SkillReviewMutatingCount != 1 {
+		t.Fatalf("user turns = %d, want 1 after the wiki window reset", reset.SkillReviewMutatingCount)
+	}
+	if len(prompts) != 2 || !strings.Contains(prompts[1], "turn-1") || !strings.Contains(prompts[1], "turn-11") {
 		t.Fatalf("window = %#v", prompts)
-	}
-	updated, err := svc.GetSession(ctx, parent.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if updated.SkillReviewMutatingCount != 0 {
-		t.Fatalf("counter = %d, want 0", updated.SkillReviewMutatingCount)
 	}
 }
 
@@ -322,12 +358,15 @@ func TestForkSessionStartsSkillReviewCounterAtZero(t *testing.T) {
 	if err := svc.SetSkillReviewCounter(ctx, parent.ID, 9, 1); err != nil {
 		t.Fatal(err)
 	}
+	if err := svc.SetSkillReviewToolIterations(ctx, parent.ID, 4); err != nil {
+		t.Fatal(err)
+	}
 	forked, err := svc.ForkSession(ctx, parent.ID, ws.Path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if forked.SkillReviewMutatingCount != 0 {
-		t.Fatalf("forked counter = %d", forked.SkillReviewMutatingCount)
+	if forked.SkillReviewMutatingCount != 0 || forked.SkillReviewToolIterations != 0 {
+		t.Fatalf("forked counters = %d/%d", forked.SkillReviewMutatingCount, forked.SkillReviewToolIterations)
 	}
 	if forked.SkillReviewCountResetAt == 0 {
 		t.Fatal("forked window was not reset")
@@ -355,10 +394,14 @@ func seedNamedTurn(ctx context.Context, svc *session.Service, sessionID, text st
 	if _, err := svc.AppendUserMessage(ctx, sessionID, text); err != nil {
 		return err
 	}
+	if n == 0 {
+		_, _, err := svc.AppendAssistantStep(ctx, sessionID, "noted", nil, nil, nil)
+		return err
+	}
 	calls := make([]cometsdk.ToolCallBlock, n)
 	for i := range calls {
 		calls[i] = cometsdk.ToolCallBlock{
-			ID:    fmt.Sprintf("c%d", i),
+			ID:    fmt.Sprintf("%s-%d", text, i),
 			Name:  "edit_file",
 			Input: json.RawMessage(`{"path":"src/main.go"}`),
 		}

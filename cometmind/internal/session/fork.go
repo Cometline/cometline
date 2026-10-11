@@ -44,9 +44,12 @@ func (s *Service) ForkSession(ctx context.Context, sessionID, absPath string) (S
 	if err := s.copyTranscript(ctx, sessionID, forked.ID); err != nil {
 		return Session{}, err
 	}
-	// The copied transcript did not add to this session's counter, so the
-	// window starts after the copy.
+	// The copied transcript did not add to this session's counters, so both
+	// windows start after the copy.
 	if err := s.SetSkillReviewCounter(ctx, forked.ID, 0, time.Now().UnixMilli()); err != nil {
+		return Session{}, err
+	}
+	if err := s.SetSkillReviewToolIterations(ctx, forked.ID, 0); err != nil {
 		return Session{}, err
 	}
 	if err := s.copySessionMedia(ctx, src, forked.ID, ws.ID); err != nil {
