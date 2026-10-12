@@ -45,6 +45,7 @@
 	class:pending={item.pending}
 	class:nested
 	class:content-only={contentOnly}
+	class:expanded={expanded && !toggleDisabled}
 >
 	{#if !contentOnly}
 		<div class="subagent-header">
@@ -148,6 +149,31 @@
 		min-width: 0;
 	}
 
+	/* Nested pills hug their label, same as ToolFoldPanel. A growing toggle
+	   stretches to the activity-group card and leaves an empty track on the right. */
+	.fold-panel.nested {
+		align-self: flex-start;
+		width: fit-content;
+		max-width: 100%;
+	}
+
+	.fold-panel.nested .subagent-header,
+	.fold-panel.nested .subagent-toggle {
+		align-self: flex-start;
+		width: auto;
+		max-width: 100%;
+	}
+
+	.fold-panel.nested.expanded {
+		align-self: stretch;
+		width: 100%;
+	}
+
+	.fold-panel.nested.expanded .subagent-header {
+		align-self: stretch;
+		width: 100%;
+	}
+
 	.content-only-header {
 		justify-content: flex-end;
 		margin-bottom: 6px;
@@ -166,7 +192,9 @@
 
 	.subagent-toggle {
 		min-width: 0;
-		flex: 1;
+		flex: 0 1 auto;
+		width: auto;
+		max-width: 100%;
 	}
 
 	.subagent-toggle span {
