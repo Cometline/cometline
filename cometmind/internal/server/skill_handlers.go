@@ -14,18 +14,19 @@ import (
 )
 
 type skillResource struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Path        string `json:"path"`
-	Source      string `json:"source"`
-	Internal    bool   `json:"internal"`
-	IsSymlink   bool   `json:"is_symlink"`
-	CanDelete   bool   `json:"can_delete"`
-	CanExport   bool   `json:"can_export"`
-	CanEdit     bool   `json:"can_edit"`
-	Origin      string `json:"origin,omitempty"`
-	Status      string `json:"status,omitempty"`
-	Pinned      bool   `json:"pinned,omitempty"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Path        string   `json:"path"`
+	Source      string   `json:"source"`
+	Internal    bool     `json:"internal"`
+	IsSymlink   bool     `json:"is_symlink"`
+	CanDelete   bool     `json:"can_delete"`
+	CanExport   bool     `json:"can_export"`
+	CanEdit     bool     `json:"can_edit"`
+	Origin      string   `json:"origin,omitempty"`
+	Status      string   `json:"status,omitempty"`
+	Pinned      bool     `json:"pinned,omitempty"`
+	Tags        []string `json:"tags,omitempty"`
 }
 
 type skillDetailResponse struct {
@@ -195,6 +196,7 @@ func (a *App) skillResourceFromModel(skill skillpkg.Skill) skillResource {
 		CanExport:   caps.CanExport,
 		CanEdit:     caps.CanEdit,
 		Origin:      skill.Origin,
+		Tags:        skill.Tags,
 	}
 	if a != nil && a.curator != nil && skillpkg.IsSelfImprovement(skill) {
 		resource.Status, resource.Pinned = a.curator.Lookup(context.Background(), skill.Name)

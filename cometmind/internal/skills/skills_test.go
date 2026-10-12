@@ -208,6 +208,27 @@ func writeSkill(t *testing.T, root, name, desc string) {
 	}
 }
 
+func TestReadSkillKeepsFrontmatterTags(t *testing.T) {
+	isolatedSkillsHome(t)
+	root := t.TempDir()
+	dir := filepath.Join(root, "tagged")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	content := "---\nname: tagged\ndescription: has tags\ntags:\n  - Go\n  - go\n  - \"\"\n  - review\n---\n\n# tagged\n"
+	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	skill, err := ReadSkill(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(skill.Tags, ",") != "Go,review" {
+		t.Fatalf("tags = %#v", skill.Tags)
+	}
+}
+
 func TestReadSkillFileRejectsPathTraversal(t *testing.T) {
 	isolatedSkillsHome(t)
 	root := t.TempDir()
