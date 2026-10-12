@@ -5,7 +5,9 @@ function readSeen(): Set<string> {
 	try {
 		const raw = localStorage.getItem(seenKey);
 		const parsed = raw ? (JSON.parse(raw) as unknown) : [];
-		return new Set(Array.isArray(parsed) ? parsed.filter((name) => typeof name === 'string') : []);
+		return new Set(
+			Array.isArray(parsed) ? parsed.filter((name) => typeof name === 'string') : []
+		);
 	} catch {
 		return new Set();
 	}

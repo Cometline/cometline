@@ -45,17 +45,20 @@ describe('filterSkills', () => {
 	});
 
 	it('filters by selected tags, including origin and status', () => {
-		expect(filterSkills(skills, '', ['tag:review']).map((s) => s.name)).toEqual(['beta', 'gamma']);
+		expect(filterSkills(skills, '', ['tag:review']).map((s) => s.name)).toEqual([
+			'beta',
+			'gamma'
+		]);
 		expect(filterSkills(skills, '', ['origin:self-improvement']).map((s) => s.name)).toEqual([
 			'beta'
 		]);
 		expect(filterSkills(skills, 'code', ['tag:go']).map((s) => s.name)).toEqual(['beta']);
-		expect(filterSkills(skills, '', ['tag:review', 'status:stale']).map((s) => s.name)).toEqual([
-			'gamma'
-		]);
-		expect(filterSkills(skills, '', ['flag:symlink', 'flag:read-only']).map((s) => s.name)).toEqual([
-			'delta'
-		]);
+		expect(filterSkills(skills, '', ['tag:review', 'status:stale']).map((s) => s.name)).toEqual(
+			['gamma']
+		);
+		expect(
+			filterSkills(skills, '', ['flag:symlink', 'flag:read-only']).map((s) => s.name)
+		).toEqual(['delta']);
 	});
 
 	it('returns no skills when nothing matches', () => {
