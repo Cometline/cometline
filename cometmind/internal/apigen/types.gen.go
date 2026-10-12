@@ -2020,6 +2020,9 @@ type Skill struct {
 
 	// Status Curator status for a self-improvement skill. Empty for every other skill.
 	Status *SkillStatus `json:"status,omitempty"`
+
+	// Tags Optional tags from the skill frontmatter, used by the skills page filter.
+	Tags *[]string `json:"tags,omitempty"`
 }
 
 // SkillStatus Curator status for a self-improvement skill. Empty for every other skill.

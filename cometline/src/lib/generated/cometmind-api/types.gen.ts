@@ -575,6 +575,10 @@ export type Skill = {
      */
     status?: 'active' | 'stale' | 'archived';
     pinned?: boolean;
+    /**
+     * Optional tags from the skill frontmatter, used by the skills page filter.
+     */
+    tags?: Array<string>;
 };
 
 export type SkillDetailResponse = {

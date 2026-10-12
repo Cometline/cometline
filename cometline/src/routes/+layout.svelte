@@ -20,6 +20,7 @@
 	import { memoryToastStore } from '#lib/stores/memory-toasts.svelte.js';
 	import { inboxStore } from '#lib/stores/inbox.svelte.js';
 	import { skillDraftsStore } from '#lib/stores/skill-drafts.svelte.js';
+	import { skillUpdatesStore } from '#lib/stores/skill-updates.svelte.js';
 	import { startJobNotificationPoller } from '#lib/features/jobs/job-notifications.js';
 	import {
 		notifyBackgroundRunFinished,
@@ -84,7 +85,11 @@
 					memoryToastStore.add(event.changes);
 				}
 				if (event.type === 'skill_review_updated' && !isMiniRoute && !isSettingsRoute) {
+					skillUpdatesStore.note(event.skills.map((skill) => skill.name));
 					notifySkillReview(event.skills);
+				}
+				if (event.type === 'skill_curator_merged' && !isMiniRoute && !isSettingsRoute) {
+					if (event.skill) skillUpdatesStore.note([event.skill]);
 				}
 				if (event.type === 'wiki_review_updated' && !isMiniRoute && !isSettingsRoute) {
 					notifyWikiReview(event.paths);
