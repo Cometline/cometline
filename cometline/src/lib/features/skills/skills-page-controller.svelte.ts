@@ -15,7 +15,8 @@ import {
 	type SkillDraft,
 	type SkillDraftDetailResponse
 } from '#lib/client/cometmind.js';
-import { filterSkills } from '#lib/features/skills/skills-page-filter.js';
+import { availableSkillTags, filterSkills } from '#lib/features/skills/skills-page-filter.js';
+import { skillUpdatesStore } from '#lib/stores/skill-updates.svelte.js';
 import { skillDraftsStore } from '#lib/stores/skill-drafts.svelte.js';
 import { shellStore } from '#lib/stores/shell.svelte.js';
 import type { SkillResource } from '#lib/types.js';
@@ -39,6 +40,7 @@ export function createSkillsPageController(deps: {
 	let selectedSkillName = $state('');
 	let skillContent = $state('');
 	let skillSearch = $state('');
+	let selectedTags = $state<string[]>([]);
 	let busy = $state(false);
 	let contentBusy = $state(false);
 	let saveBusy = $state(false);
@@ -52,7 +54,19 @@ export function createSkillsPageController(deps: {
 	const skillDirty = $derived(selectedSkill !== null && skillContent !== selectedSkill.content);
 	const canEditSkill = $derived(selectedSkill?.skill.can_edit ?? false);
 	const canDeleteSkill = $derived(selectedSkill?.skill.can_delete ?? false);
-	const filteredSkills = $derived(filterSkills(skills, skillSearch));
+	const filteredSkills = $derived(filterSkills(skills, skillSearch, selectedTags));
+	const skillTagOptions = $derived(availableSkillTags(skills));
+
+	function toggleTag(id: string) {
+		selectedTags = selectedTags.includes(id)
+			? selectedTags.filter((tag) => tag !== id)
+			: [...selectedTags, id];
+	}
+
+	function markSkillSeen(name: string) {
+		if (!name) return;
+		skillUpdatesStore.markSeen([name]);
+	}
 
 	async function load() {
 		await refreshDrafts();
@@ -169,6 +183,7 @@ export function createSkillsPageController(deps: {
 	}
 
 	async function openSkill(name: string, options: { force?: boolean } = {}) {
+		markSkillSeen(name);
 		if (!options.force && name === selectedSkillName && selectedSkill) return;
 		if (!options.force && skillDirty) {
 			pendingSkillName = name;
@@ -339,6 +354,13 @@ export function createSkillsPageController(deps: {
 		set skillSearch(value: string) {
 			skillSearch = value;
 		},
+		get selectedTags() {
+			return selectedTags;
+		},
+		get skillTagOptions() {
+			return skillTagOptions;
+		},
+		toggleTag,
 		get busy() {
 			return busy;
 		},

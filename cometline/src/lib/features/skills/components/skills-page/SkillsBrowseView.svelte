@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { SkillsPageController } from '#lib/features/skills/skills-page-controller.svelte.js';
 	import type { SkillResource } from '#lib/types.js';
+	import { skillUpdatesStore } from '#lib/stores/skill-updates.svelte.js';
 	import SkillsListPanel from './SkillsListPanel.svelte';
 	import SkillsListRow from './SkillsListRow.svelte';
 	import SkillsPreviewPanel from './SkillsPreviewPanel.svelte';
@@ -30,18 +31,34 @@
 			class="skill-search"
 			type="search"
 			bind:value={controller.skillSearch}
-			placeholder="Search skills by name, description, or path…"
+			placeholder="Search skills by name, description, path, or tag…"
 			spellcheck="false"
 		/>
+		{#if controller.skillTagOptions.length > 0}
+			<div class="tag-filters" role="group" aria-label="Filter by tag">
+				{#each controller.skillTagOptions as tag (tag.id)}
+					<button
+						type="button"
+						class="tag-filter"
+						class:active={controller.selectedTags.includes(tag.id)}
+						aria-pressed={controller.selectedTags.includes(tag.id)}
+						onclick={() => controller.toggleTag(tag.id)}
+					>
+						{tag.label}
+					</button>
+				{/each}
+			</div>
+		{/if}
 	{/snippet}
 	{#if controller.filteredSkills.length === 0}
-		<p class="page-muted skill-empty">No skills match your search.</p>
+		<p class="page-muted skill-empty">No skills match your search or tags.</p>
 	{:else}
 		{#each controller.filteredSkills as skill (skill.name)}
 			<SkillsListRow
 				name={skill.name}
 				description={skill.description}
 				active={controller.selectedSkillName === skill.name}
+				unseen={skillUpdatesStore.unseen.includes(skill.name)}
 				badges={badgesFor(skill)}
 				onclick={() => void controller.openSkill(skill.name)}
 			/>
@@ -147,6 +164,31 @@
 		font-size: 12px;
 		line-height: 1.5;
 		color: var(--text-muted);
+	}
+
+	.tag-filters {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		margin: -2px 0 8px;
+	}
+
+	.tag-filter {
+		border: 1px solid var(--border-soft);
+		border-radius: 999px;
+		background: transparent;
+		color: var(--text-muted);
+		font: inherit;
+		font-size: 11px;
+		font-weight: 700;
+		padding: 3px 8px;
+		cursor: pointer;
+	}
+
+	.tag-filter.active {
+		background: rgba(0, 102, 204, 0.1);
+		border-color: rgba(0, 102, 204, 0.28);
+		color: var(--text-main);
 	}
 
 	.skill-search {

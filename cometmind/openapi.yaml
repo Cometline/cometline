@@ -3605,6 +3605,11 @@ components:
           enum: [active, stale, archived]
         pinned:
           type: boolean
+        tags:
+          type: array
+          description: Optional tags from the skill frontmatter, used by the skills page filter.
+          items:
+            type: string
 
     SkillDetailResponse:
       type: object

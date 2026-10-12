@@ -24,12 +24,13 @@ const OriginSelfImprovement = "self-improvement"
 
 // Skill is one discovered Agent Skill directory.
 type Skill struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Path        string `json:"path"`
-	Source      string `json:"source"`
-	Internal    bool   `json:"internal"`
-	Origin      string `json:"origin,omitempty"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Path        string   `json:"path"`
+	Source      string   `json:"source"`
+	Internal    bool     `json:"internal"`
+	Origin      string   `json:"origin,omitempty"`
+	Tags        []string `json:"tags,omitempty"`
 }
 
 // IsSelfImprovement reports whether the skill was created by the review loop.
@@ -45,8 +46,9 @@ type Registry struct {
 }
 
 type frontmatter struct {
-	Name        string `yaml:"name"`
-	Description string `yaml:"description"`
+	Name        string   `yaml:"name"`
+	Description string   `yaml:"description"`
+	Tags        []string `yaml:"tags"`
 	Metadata    struct {
 		Internal  bool `yaml:"internal"`
 		Cometline struct {
@@ -165,7 +167,29 @@ func ReadSkill(dir string) (Skill, error) {
 		Source:      resolved,
 		Internal:    fm.Metadata.Internal,
 		Origin:      strings.TrimSpace(fm.Metadata.Cometline.Origin),
+		Tags:        normalizeTags(fm.Tags),
 	}, nil
+}
+
+// normalizeTags keeps unique, trimmed frontmatter tags in first-seen order.
+func normalizeTags(raw []string) []string {
+	if len(raw) == 0 {
+		return nil
+	}
+	seen := map[string]bool{}
+	tags := make([]string, 0, len(raw))
+	for _, tag := range raw {
+		tag = strings.TrimSpace(tag)
+		if tag == "" || seen[strings.ToLower(tag)] {
+			continue
+		}
+		seen[strings.ToLower(tag)] = true
+		tags = append(tags, tag)
+	}
+	if len(tags) == 0 {
+		return nil
+	}
+	return tags
 }
 
 // Find returns a skill by name.

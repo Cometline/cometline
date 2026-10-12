@@ -6,6 +6,7 @@
 	import { inboxStore } from '#lib/stores/inbox.svelte.js';
 	import { jobsIndicatorStore } from '#lib/stores/jobs-indicator.svelte.js';
 	import { skillDraftsStore } from '#lib/stores/skill-drafts.svelte.js';
+	import { skillUpdatesStore } from '#lib/stores/skill-updates.svelte.js';
 	import { openSettings } from '#lib/actions/open-settings.js';
 	import Tooltip from '#lib/components/Tooltip.svelte';
 </script>
@@ -29,9 +30,11 @@
 	</Tooltip>
 	<Tooltip label="Skills" action="openSkillDrafts">
 		<button
-			aria-label="Skills"
+			aria-label={skillDraftsStore.hasDrafts || skillUpdatesStore.hasUnseen
+				? 'Skills (updates)'
+				: 'Skills'}
 			class="nav-badge"
-			class:has-badge={skillDraftsStore.hasDrafts}
+			class:has-badge={skillDraftsStore.hasDrafts || skillUpdatesStore.hasUnseen}
 			class:active={page.url.pathname === '/skills' || page.url.pathname === '/skill-drafts'}
 			onclick={() => goto(resolve('skills'))}
 			><Sparkles size={16} stroke-width={1.8} /></button

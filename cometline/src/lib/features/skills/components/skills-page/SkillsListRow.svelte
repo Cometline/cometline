@@ -3,12 +3,14 @@
 		name,
 		description,
 		active,
+		unseen = false,
 		badges = [],
 		onclick
 	}: {
 		name: string;
 		description: string;
 		active: boolean;
+		unseen?: boolean;
 		badges?: string[];
 		onclick: () => void;
 	} = $props();
@@ -17,6 +19,7 @@
 <button type="button" class="item-row" class:active {onclick}>
 	<strong>
 		{name}
+		{#if unseen}<span class="unseen-dot" aria-label="Updated"></span>{/if}
 		{#each badges as badge (badge)}
 			<span class="skill-badge">{badge}</span>
 		{/each}
@@ -57,6 +60,13 @@
 		font-size: 11px;
 		line-height: 1.45;
 		color: var(--text-muted);
+	}
+
+	.unseen-dot {
+		width: 6px;
+		height: 6px;
+		border-radius: 999px;
+		background: var(--accent);
 	}
 
 	.skill-badge {
