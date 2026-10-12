@@ -28,7 +28,8 @@ const skills = [
 		origin: 'self-improvement',
 		tags: ['review', 'go']
 	}),
-	skill('gamma', 'Old notes', '/skills/gamma', { status: 'stale', tags: ['review'] })
+	skill('gamma', 'Old notes', '/skills/gamma', { status: 'stale', tags: ['review'] }),
+	skill('delta', 'Linked copy', '/skills/delta', { is_symlink: true, can_edit: false })
 ];
 
 describe('filterSkills', () => {
@@ -52,6 +53,10 @@ describe('filterSkills', () => {
 		expect(filterSkills(skills, '', ['tag:review', 'status:stale']).map((s) => s.name)).toEqual([
 			'gamma'
 		]);
+		expect(filterSkills(skills, '', ['flag:symlink', 'flag:read-only']).map((s) => s.name)).toEqual([
+			'delta'
+		]);
+		expect(filterSkills(skills, '', ['flag:untagged']).map((s) => s.name)).toEqual(['delta']);
 	});
 
 	it('returns no skills when nothing matches', () => {
@@ -61,10 +66,13 @@ describe('filterSkills', () => {
 	it('lists unique tags sorted by label', () => {
 		expect(availableSkillTags(skills).map((tag) => tag.label)).toEqual([
 			'go',
+			'read-only',
 			'release',
 			'review',
 			'self-improvement',
-			'stale'
+			'stale',
+			'symlink',
+			'untagged'
 		]);
 	});
 });

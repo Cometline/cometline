@@ -15,6 +15,11 @@ export function skillTags(skill: SkillResource): SkillTag[] {
 	if (skill.status && statusTags.has(skill.status)) {
 		tags.push({ id: `status:${skill.status}`, label: skill.status });
 	}
+	if (skill.pinned) tags.push({ id: 'flag:pinned', label: 'pinned' });
+	if (skill.is_symlink) tags.push({ id: 'flag:symlink', label: 'symlink' });
+	if (!skill.can_edit) tags.push({ id: 'flag:read-only', label: 'read-only' });
+	const labels = (skill.tags ?? []).map((tag) => tag.trim()).filter(Boolean);
+	if (labels.length === 0) tags.push({ id: 'flag:untagged', label: 'untagged' });
 	for (const tag of skill.tags ?? []) {
 		const label = tag.trim();
 		if (!label) continue;
