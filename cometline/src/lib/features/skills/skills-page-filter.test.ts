@@ -56,7 +56,6 @@ describe('filterSkills', () => {
 		expect(filterSkills(skills, '', ['flag:symlink', 'flag:read-only']).map((s) => s.name)).toEqual([
 			'delta'
 		]);
-		expect(filterSkills(skills, '', ['flag:untagged']).map((s) => s.name)).toEqual(['delta']);
 	});
 
 	it('returns no skills when nothing matches', () => {
@@ -71,8 +70,7 @@ describe('filterSkills', () => {
 			'review',
 			'self-improvement',
 			'stale',
-			'symlink',
-			'untagged'
+			'symlink'
 		]);
 	});
 });

@@ -21,7 +21,6 @@
 		if (skill.pinned) badges.push('pinned');
 		if (skill.is_symlink) badges.push('symlink');
 		if (!skill.can_edit) badges.push('read-only');
-		if ((skill.tags ?? []).every((tag) => !tag.trim())) badges.push('untagged');
 		return badges;
 	}
 </script>
