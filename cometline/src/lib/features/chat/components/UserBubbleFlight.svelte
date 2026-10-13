@@ -6,7 +6,9 @@
 	} from '#lib/features/chat/first-turn-flight.js';
 	import { imageDataURL } from '#lib/files/images.js';
 	import AssistantMarkdown from '#lib/components/AssistantMarkdown.svelte';
+	import PastedTextChip from '#lib/features/chat/components/PastedTextChip.svelte';
 	import UserMessageViewport from '#lib/features/chat/components/UserMessageViewport.svelte';
+	import { shouldCollapsePastedText } from '#lib/features/composer/rich-composer-paste.js';
 	import type { ImageAttachment } from '#lib/types.js';
 
 	interface RunOptions {
@@ -110,7 +112,11 @@
 				</div>
 			{/if}
 			{#if userFlightText.trim()}
-				<AssistantMarkdown source={userFlightText.trim()} mode="user" />
+				{#if shouldCollapsePastedText(userFlightText)}
+					<PastedTextChip text={userFlightText.trim()} />
+				{:else}
+					<AssistantMarkdown source={userFlightText.trim()} mode="user" />
+				{/if}
 			{/if}
 		</UserMessageViewport>
 	</div>

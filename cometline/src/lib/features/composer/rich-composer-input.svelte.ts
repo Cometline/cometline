@@ -8,12 +8,22 @@ import { openLink } from '#lib/open-link.js';
 import { shellStore } from '#lib/stores/shell.svelte.js';
 import { openWorkspaceFilePreview } from '#lib/features/workspace/open-file-preview.js';
 import { isSelectionAtEditorEdge } from '#lib/features/composer/composer-caret.js';
-import { makeDirChip, makeFileChip } from '#lib/features/composer/rich-composer-chips.js';
+import {
+	makeDirChip,
+	makeFileChip,
+	makePasteChip
+} from '#lib/features/composer/rich-composer-chips.js';
 import {
 	decorateEditor,
+	selectionTextWithPasteChips,
 	serialize,
 	type DecorateOptions
 } from '#lib/features/composer/rich-composer-decorate.js';
+import {
+	normalizePastedText,
+	shouldCollapsePastedText,
+	storedPastedText
+} from '#lib/features/composer/rich-composer-paste.js';
 import {
 	findActiveMention,
 	replaceRangeWithNodes,
@@ -106,6 +116,31 @@ export function createRichComposerInputController(deps: {
 		updateMentionState();
 	}
 
+	function insertNodesAtCaret(nodes: Node[]) {
+		const editor = deps.getEditor();
+		if (!editor) return;
+		editor.focus({ preventScroll: true });
+		const sel = window.getSelection();
+		const range = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+		if (range && editor.contains(range.commonAncestorContainer)) {
+			replaceRangeWithNodes(range, nodes);
+			return;
+		}
+		editor.append(...nodes);
+		setCaretPosition(editor, true);
+	}
+
+	function insertPasteChip(text: string) {
+		const chip = makePasteChip(text);
+		const space = document.createTextNode('\u00a0');
+		syncing = true;
+		insertNodesAtCaret([chip, space]);
+		syncing = false;
+		readValue();
+		scheduleCaretMeasure();
+		updateMentionState();
+	}
+
 	function onPaste(e: ClipboardEvent) {
 		const files = Array.from(e.clipboardData?.files ?? []).filter((file) =>
 			file.type.startsWith('image/')
@@ -116,15 +151,44 @@ export function createRichComposerInputController(deps: {
 			return;
 		}
 
-		// Force plain-text paste so we don't inherit foreign HTML, then linkify
-		// immediately so a pasted URL becomes a chip without needing an extra
-		// keystroke.
+		// Force plain-text paste so we don't inherit foreign HTML. Large pastes
+		// become a chip so the contenteditable never lays out the raw text.
 		const text = e.clipboardData?.getData('text/plain');
 		if (text == null) return;
 		e.preventDefault();
-		document.execCommand('insertText', false, text);
+		const normalized = normalizePastedText(text);
+		const collapsed = storedPastedText(normalized);
+		if (collapsed) {
+			insertPasteChip(collapsed);
+			return;
+		}
+		document.execCommand('insertText', false, normalized);
 		if (!deps.getEditor()) return;
 		syncDecorations({ allowCaretEnd: true });
+	}
+
+	function writeExpandedClipboard(e: ClipboardEvent): boolean {
+		const editor = deps.getEditor();
+		if (!editor || !e.clipboardData) return false;
+		const text = selectionTextWithPasteChips(editor);
+		if (text == null) return false;
+		e.preventDefault();
+		e.clipboardData.setData('text/plain', text);
+		return true;
+	}
+
+	function onCopy(e: ClipboardEvent) {
+		writeExpandedClipboard(e);
+	}
+
+	function onCut(e: ClipboardEvent) {
+		if (!writeExpandedClipboard(e)) return;
+		const sel = window.getSelection();
+		if (!sel || sel.rangeCount === 0) return;
+		sel.getRangeAt(0).deleteContents();
+		readValue();
+		scheduleCaretMeasure();
+		updateMentionState();
 	}
 
 	function onCompositionStart() {
@@ -149,6 +213,14 @@ export function createRichComposerInputController(deps: {
 		if (!(target instanceof Element)) return;
 		const chip = target.closest('.rce-chip');
 		if (!(chip instanceof HTMLElement)) return;
+		// A paste chip expands back into editable text when it is small enough
+		// to lay out. Crash-sized pastes stay collapsed and are still sent.
+		// Keep paste chips collapsed. Expanding them back into the editor is what
+		// makes a sidebar resize reflow the whole paste.
+		if (chip.dataset.pastedText != null) {
+			e.preventDefault();
+			return;
+		}
 		// A plain click on a file chip opens it in the side-panel editor.
 		// Directory chips open the WorkspacePanel file browser.
 		if (chip.dataset.filePath) {
@@ -241,6 +313,18 @@ export function createRichComposerInputController(deps: {
 			deps.setValue(text);
 			return;
 		}
+		// History recall and draft restore go through setText. Keep collapsed
+		// pastes as a chip so the editor never lays the body out.
+		if (shouldCollapsePastedText(text)) {
+			syncing = true;
+			// Trailing space is a caret anchor only. Keep `value` equal to the
+			// recalled text so history browse does not treat it as an edit.
+			editor.replaceChildren(makePasteChip(text), document.createTextNode('\u00a0'));
+			syncing = false;
+			deps.setValue(text);
+			focus({ position: 'end' });
+			return;
+		}
 		editor.textContent = text;
 		deps.setValue(text);
 		focus({ position: 'end' });
@@ -282,6 +366,8 @@ export function createRichComposerInputController(deps: {
 		syncDecorations,
 		onInput,
 		onPaste,
+		onCopy,
+		onCut,
 		onCompositionStart,
 		onCompositionEnd,
 		onKeydownInternal,

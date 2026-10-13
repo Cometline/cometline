@@ -5,7 +5,8 @@ export type DecorateOptions = { allowCaretEnd?: boolean };
 
 /**
  * Serializes the contenteditable DOM back to plain text. URL chips serialize
- * to their full URL (stored in data-url); <br>/block boundaries become \n.
+ * to their full URL (stored in data-url); paste chips serialize to the stored
+ * text, not the short label. <br>/block boundaries become \n.
  */
 export function serialize(root: HTMLElement): string {
 	let out = '';
@@ -14,7 +15,10 @@ export function serialize(root: HTMLElement): string {
 			if (child.nodeType === Node.TEXT_NODE) {
 				out += child.textContent ?? '';
 			} else if (child instanceof HTMLElement) {
-				if (child.dataset.url) {
+				// Check paste before other chips so the label never leaks into the prompt.
+				if (child.dataset.pastedText != null) {
+					out += child.dataset.pastedText;
+				} else if (child.dataset.url) {
 					out += child.dataset.url;
 				} else if (child.dataset.skillCommand) {
 					out += child.dataset.skillCommand;
@@ -32,6 +36,19 @@ export function serialize(root: HTMLElement): string {
 	};
 	walk(root);
 	return out;
+}
+
+/** Plain text for copy/cut when the selection includes a paste chip. Null means native copy is fine. */
+export function selectionTextWithPasteChips(editor: HTMLElement): string | null {
+	const sel = window.getSelection();
+	if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return null;
+	const range = sel.getRangeAt(0);
+	const root = range.commonAncestorContainer;
+	if (root !== editor && !editor.contains(root)) return null;
+	const holder = document.createElement('div');
+	holder.append(range.cloneContents());
+	if (!holder.querySelector('[data-pasted-text]')) return null;
+	return serialize(holder);
 }
 
 function escapeRegex(value: string): string {

@@ -21,13 +21,31 @@ describe('UserMessageRow', () => {
 		expect(screen.queryByRole('button', { name: 'Expand user message' })).toBeNull();
 	});
 
+	it('shows a large user message as a chip and still copies the full text', async () => {
+		const text = 'A long user message '.repeat(80);
+		const onCopyMessage = vi.fn();
+		render(UserMessageRow, {
+			props: {
+				item: { id: 'u-long', type: 'user', text },
+				avatarSrc: '/project_avatar_192.png',
+				copiedId: null,
+				onCopyMessage
+			}
+		});
+
+		expect(screen.getByText('Pasted text')).toBeTruthy();
+		expect(screen.queryByText(text)).toBeNull();
+		await fireEvent.click(screen.getByRole('button', { name: 'Copy message' }));
+		expect(onCopyMessage).toHaveBeenCalledWith('u-long', text.trim());
+	});
+
 	it('toggles an overflowing message between collapsed and expanded', async () => {
 		vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(640);
 		vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(240);
 
 		render(UserMessageRow, {
 			props: {
-				item: { id: 'u-long', type: 'user', text: 'A long user message '.repeat(80) },
+				item: { id: 'u-long', type: 'user', text: 'Short but tall' },
 				avatarSrc: '/project_avatar_192.png',
 				copiedId: null,
 				onCopyMessage: () => {}

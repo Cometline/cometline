@@ -1,4 +1,5 @@
 import { faviconUrl, domainFromUrl, fileMentionText } from '#lib/markdown/embed.js';
+import { pastedTextLabel, pastedTextTitle } from '#lib/features/composer/rich-composer-paste.js';
 
 /** Build a non-editable inline chip element for a URL. */
 export function makeChip(url: string): HTMLElement {
@@ -64,6 +65,23 @@ export function makeDirChip(path: string): HTMLElement {
 	const label = document.createElement('span');
 	label.className = 'rce-chip-label';
 	label.textContent = fileMentionText(normalized);
+	chip.appendChild(label);
+	return chip;
+}
+
+/** Non-editable stand-in for a large paste. The full text lives on the dataset, not in the layout. */
+export function makePasteChip(text: string): HTMLElement {
+	const chip = document.createElement('span');
+	chip.className = 'rce-chip rce-paste-chip';
+	chip.contentEditable = 'false';
+	chip.dataset.pastedText = text;
+	chip.title = pastedTextTitle(text);
+	chip.setAttribute('role', 'img');
+	chip.setAttribute('aria-label', pastedTextLabel(text));
+
+	const label = document.createElement('span');
+	label.className = 'rce-chip-label';
+	label.textContent = pastedTextLabel(text);
 	chip.appendChild(label);
 	return chip;
 }

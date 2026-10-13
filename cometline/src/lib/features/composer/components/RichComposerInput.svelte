@@ -151,6 +151,8 @@
 		aria-label={ariaLabel}
 		oninput={rich.onInput}
 		onpaste={rich.onPaste}
+		oncopy={rich.onCopy}
+		oncut={rich.onCut}
 		onkeydown={rich.onKeydownInternal}
 		oncompositionstart={rich.onCompositionStart}
 		oncompositionend={rich.onCompositionEnd}
@@ -298,6 +300,14 @@
 		background: rgba(59, 130, 246, 0.07);
 		color: var(--color-1e3a5f);
 		font-weight: 650;
+	}
+
+	.rce-editor :global(.rce-paste-chip) {
+		border-color: rgba(100, 116, 139, 0.28);
+		background: rgba(100, 116, 139, 0.1);
+		color: var(--text-muted);
+		font-weight: 650;
+		cursor: default;
 	}
 
 	.rce-editor :global(.rce-chip-icon) {
