@@ -20,11 +20,7 @@ import {
 	serializePasteDisplay,
 	type DecorateOptions
 } from '#lib/features/composer/rich-composer-decorate.js';
-import {
-	normalizePastedText,
-	shouldCollapsePastedText,
-	storedPastedText
-} from '#lib/features/composer/rich-composer-paste.js';
+import { storedPastedText } from '#lib/features/composer/rich-composer-paste.js';
 import {
 	findActiveMention,
 	replaceRangeWithNodes,
@@ -157,13 +153,12 @@ export function createRichComposerInputController(deps: {
 		const text = e.clipboardData?.getData('text/plain');
 		if (text == null) return;
 		e.preventDefault();
-		const normalized = normalizePastedText(text);
-		const collapsed = storedPastedText(normalized);
+		const collapsed = storedPastedText(text);
 		if (collapsed) {
 			insertPasteChip(collapsed);
 			return;
 		}
-		document.execCommand('insertText', false, normalized);
+		document.execCommand('insertText', false, text.replace(/\r\n?/g, '\n'));
 		if (!deps.getEditor()) return;
 		syncDecorations({ allowCaretEnd: true });
 	}
@@ -323,7 +318,7 @@ export function createRichComposerInputController(deps: {
 		}
 		// History recall and draft restore go through setText. Keep collapsed
 		// pastes as a chip so the editor never lays the body out.
-		if (shouldCollapsePastedText(text)) {
+		if (storedPastedText(text)) {
 			syncing = true;
 			// Trailing space is a caret anchor only. Keep `value` equal to the
 			// recalled text so history browse does not treat it as an edit.

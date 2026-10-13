@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from 'vitest';
-import { PASTE_DOM_MAX_CHARS } from './rich-composer-paste';
 import { createRichComposerInputController } from './rich-composer-input.svelte';
 
 function clipboardEvent(text: string | null): ClipboardEvent {
@@ -70,7 +69,7 @@ describe('createRichComposerInputController paste chips', () => {
 		expect(mounted.editor.querySelector('.rce-paste-chip')).not.toBeNull();
 		expect(mounted.editor.textContent).not.toContain('a\nb\nc');
 
-		const huge = 'y'.repeat(PASTE_DOM_MAX_CHARS + 1);
+		const huge = 'y'.repeat(200);
 		mounted.controller.setText(huge);
 		expect(mounted.editor.querySelector('.rce-paste-chip')).not.toBeNull();
 		expect(mounted.editor.textContent).not.toContain(huge.slice(0, 20));

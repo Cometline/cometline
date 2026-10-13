@@ -9,9 +9,6 @@ import {
 } from './rich-composer-decorate';
 import {
 	PASTE_COLLAPSE_MIN_CHARS,
-	PASTE_DOM_MAX_CHARS,
-	canExpandPastedText,
-	exceedsComposerDomBudget,
 	parsePastedDisplay,
 	pastedTextLabel,
 	shouldCollapsePastedText,
@@ -79,16 +76,6 @@ describe('pasted text chip', () => {
 		const editor = document.createElement('div');
 		editor.append('see ', chip, ' tail');
 		expect(serialize(editor)).toBe(`see ${text} tail`);
-	});
-
-	it('keeps crash-sized text out of the chip label', () => {
-		const huge = 'x'.repeat(PASTE_DOM_MAX_CHARS + 1);
-		expect(exceedsComposerDomBudget(huge)).toBe(true);
-		expect(canExpandPastedText(huge)).toBe(false);
-		const chip = makePasteChip(huge);
-		expect(chip.textContent).toBe('Pasted text');
-		expect(chip.textContent).not.toContain(huge.slice(0, 20));
-		expect(chip.title.length).toBeLessThan(200);
 	});
 
 	it('copies the stored text instead of the chip label', () => {

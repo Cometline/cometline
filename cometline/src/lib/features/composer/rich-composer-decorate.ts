@@ -5,20 +5,22 @@ import { pastedDisplayToken } from '#lib/features/composer/rich-composer-paste.j
 export type DecorateOptions = { allowCaretEnd?: boolean };
 
 /**
- * Serializes the contenteditable DOM back to plain text. URL chips serialize
- * to their full URL (stored in data-url); paste chips serialize to the stored
- * text, not the short label. <br>/block boundaries become \n.
+ * Serializes the contenteditable DOM back to plain text. Paste chips become
+ * their body, unless `display` is set, in which case they become a label token
+ * and surrounding text is kept. <br>/block boundaries become \n.
  */
-export function serialize(root: HTMLElement): string {
+export function serialize(root: HTMLElement, display = false): string {
 	let out = '';
 	const walk = (node: Node) => {
 		for (const child of Array.from(node.childNodes)) {
 			if (child.nodeType === Node.TEXT_NODE) {
-				out += child.textContent ?? '';
+				const text = child.textContent ?? '';
+				out += display ? text.replaceAll('\u00a0', ' ') : text;
 			} else if (child instanceof HTMLElement) {
-				// Check paste before other chips so the label never leaks into the prompt.
 				if (child.dataset.pastedText != null) {
-					out += child.dataset.pastedText;
+					out += display
+						? pastedDisplayToken(child.dataset.pastedText)
+						: child.dataset.pastedText;
 				} else if (child.dataset.url) {
 					out += child.dataset.url;
 				} else if (child.dataset.skillCommand) {
@@ -39,39 +41,10 @@ export function serialize(root: HTMLElement): string {
 	return out;
 }
 
-/**
- * Display projection of the composer document. Paste chips stay labels;
- * surrounding text stays text. Null when there is no paste chip, so callers
- * keep the model text as the display text.
- */
+/** Label form of a composer that contains a paste chip. Null otherwise. */
 export function serializePasteDisplay(root: HTMLElement): string | null {
 	if (!root.querySelector('[data-pasted-text]')) return null;
-	let out = '';
-	const walk = (node: Node) => {
-		for (const child of Array.from(node.childNodes)) {
-			if (child.nodeType === Node.TEXT_NODE) {
-				out += (child.textContent ?? '').replaceAll('\u00a0', ' ');
-			} else if (child instanceof HTMLElement) {
-				if (child.dataset.pastedText != null) {
-					out += pastedDisplayToken(child.dataset.pastedText);
-				} else if (child.dataset.url) {
-					out += child.dataset.url;
-				} else if (child.dataset.skillCommand) {
-					out += child.dataset.skillCommand;
-				} else if (child.dataset.filePath) {
-					out += fileMentionText(child.dataset.filePath);
-				} else if (child.tagName === 'BR') {
-					out += '\n';
-				} else {
-					const isBlock = /^(DIV|P)$/.test(child.tagName);
-					if (isBlock && out && !out.endsWith('\n')) out += '\n';
-					walk(child);
-				}
-			}
-		}
-	};
-	walk(root);
-	return out;
+	return serialize(root, true);
 }
 
 /** Plain text for copy/cut when the selection includes a paste chip. Null means native copy is fine. */
