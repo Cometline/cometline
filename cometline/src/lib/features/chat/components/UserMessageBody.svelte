@@ -1,17 +1,11 @@
 <script lang="ts">
 	import AssistantMarkdown from '#lib/components/AssistantMarkdown.svelte';
-	import {
-		parsePastedDisplay,
-		pastedTextLabel,
-		shouldCollapsePastedText
-	} from '#lib/features/composer/rich-composer-paste.js';
+	import { parsePastedDisplay } from '#lib/features/composer/rich-composer-paste.js';
 
 	let { text }: { text: string } = $props();
 
+	// Only text that left the composer as a paste chip carries a display token.
 	let parts = $derived(parsePastedDisplay(text));
-	let collapseLabel = $derived(
-		parts ? '' : shouldCollapsePastedText(text) ? pastedTextLabel(text) : ''
-	);
 </script>
 
 {#if parts}
@@ -24,8 +18,6 @@
 			{/if}
 		{/each}
 	</span>
-{:else if collapseLabel}
-	<span class="pasted-text-chip">{collapseLabel}</span>
 {:else}
 	<AssistantMarkdown source={text} mode="user" />
 {/if}

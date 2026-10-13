@@ -36,7 +36,7 @@ describe('UserMessageRow', () => {
 		expect(screen.queryByText('[Pasted ~12805 lines]')).toBeNull();
 	});
 
-	it('shows a large user message as a chip and still copies the full text', async () => {
+	it('keeps a long typed message as text instead of a chip', async () => {
 		const text = 'A long user message '.repeat(80);
 		const onCopyMessage = vi.fn();
 		render(UserMessageRow, {
@@ -48,8 +48,8 @@ describe('UserMessageRow', () => {
 			}
 		});
 
-		expect(screen.getByText('Pasted text')).toBeTruthy();
-		expect(screen.queryByText(text)).toBeNull();
+		expect(screen.queryByText('Pasted text')).toBeNull();
+		expect(screen.getByText(text.trim())).toBeTruthy();
 		await fireEvent.click(screen.getByRole('button', { name: 'Copy message' }));
 		expect(onCopyMessage).toHaveBeenCalledWith('u-long', text.trim());
 	});
