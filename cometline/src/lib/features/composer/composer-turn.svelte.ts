@@ -83,8 +83,14 @@ export function createComposerTurnController(deps: {
 		} finally {
 			resolvingWebContext = false;
 		}
+		// Paste chips and typed text are different parts. The model gets the
+		// expanded string; the bubble gets the display projection so typed
+		// text is not swallowed into the chip.
+		const pasteDisplay = deps.getInput()?.getPasteDisplayText?.()?.trim();
 		const displayText =
-			action.displayText ?? (webContexts.length > 0 ? action.text : undefined);
+			action.displayText ??
+			(pasteDisplay || undefined) ??
+			(webContexts.length > 0 ? action.text : undefined);
 		const images = deps.getImages();
 		deps.sendTurn({
 			text: action.text ?? trimmed,

@@ -5,7 +5,7 @@
 		type UserBubbleFlightOrigin
 	} from '#lib/features/chat/first-turn-flight.js';
 	import { imageDataURL } from '#lib/files/images.js';
-	import AssistantMarkdown from '#lib/components/AssistantMarkdown.svelte';
+	import UserMessageBody from '#lib/features/chat/components/UserMessageBody.svelte';
 	import UserMessageViewport from '#lib/features/chat/components/UserMessageViewport.svelte';
 	import type { ImageAttachment } from '#lib/types.js';
 
@@ -110,7 +110,7 @@
 				</div>
 			{/if}
 			{#if userFlightText.trim()}
-				<AssistantMarkdown source={userFlightText.trim()} mode="user" />
+				<UserMessageBody text={userFlightText.trim()} />
 			{/if}
 		</UserMessageViewport>
 	</div>

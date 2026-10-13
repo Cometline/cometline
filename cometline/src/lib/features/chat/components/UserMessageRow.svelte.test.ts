@@ -21,13 +21,46 @@ describe('UserMessageRow', () => {
 		expect(screen.queryByRole('button', { name: 'Expand user message' })).toBeNull();
 	});
 
+	it('renders a paste chip and the typed text beside it', () => {
+		render(UserMessageRow, {
+			props: {
+				item: { id: 'u-mixed', type: 'user', text: '[Pasted ~12805 lines] hihi' },
+				avatarSrc: '/project_avatar_192.png',
+				copiedId: null,
+				onCopyMessage: () => {}
+			}
+		});
+
+		expect(screen.getByText('Pasted ~12805 lines')).toBeTruthy();
+		expect(screen.getByText('hihi')).toBeTruthy();
+		expect(screen.queryByText('[Pasted ~12805 lines]')).toBeNull();
+	});
+
+	it('keeps a long typed message as text instead of a chip', async () => {
+		const text = 'A long user message '.repeat(80);
+		const onCopyMessage = vi.fn();
+		render(UserMessageRow, {
+			props: {
+				item: { id: 'u-long', type: 'user', text },
+				avatarSrc: '/project_avatar_192.png',
+				copiedId: null,
+				onCopyMessage
+			}
+		});
+
+		expect(screen.queryByText('Pasted text')).toBeNull();
+		expect(screen.getByText(text.trim())).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Copy message' }));
+		expect(onCopyMessage).toHaveBeenCalledWith('u-long', text.trim());
+	});
+
 	it('toggles an overflowing message between collapsed and expanded', async () => {
 		vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(640);
 		vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(240);
 
 		render(UserMessageRow, {
 			props: {
-				item: { id: 'u-long', type: 'user', text: 'A long user message '.repeat(80) },
+				item: { id: 'u-long', type: 'user', text: 'Short but tall' },
 				avatarSrc: '/project_avatar_192.png',
 				copiedId: null,
 				onCopyMessage: () => {}

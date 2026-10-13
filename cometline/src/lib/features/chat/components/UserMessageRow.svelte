@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { fly } from 'svelte/transition';
 	import { Check, Copy } from '@lucide/svelte';
-	import AssistantMarkdown from '#lib/components/AssistantMarkdown.svelte';
+	import UserMessageBody from '#lib/features/chat/components/UserMessageBody.svelte';
 	import MessageContextChips from '#lib/features/chat/components/MessageContextChips.svelte';
 	import ThreadAvatar from '#lib/features/chat/components/ThreadAvatar.svelte';
 	import ThreadRow from '#lib/features/chat/components/ThreadRow.svelte';
@@ -41,6 +41,7 @@
 	});
 
 	let playFlyIn = $derived(stagedOnce && flyOnReveal);
+	let messageText = $derived(item.text?.trim() ?? '');
 </script>
 
 {#snippet bubbleBody()}
@@ -61,8 +62,8 @@
 				{/each}
 			</div>
 		{/if}
-		{#if item.text?.trim()}
-			<AssistantMarkdown source={item.text.trim()} mode="user" />
+		{#if messageText}
+			<UserMessageBody text={messageText} />
 		{/if}
 	</UserMessageViewport>
 {/snippet}

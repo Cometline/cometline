@@ -1,5 +1,6 @@
 export interface ComposerInputRef {
 	getFilePaths(): string[];
+	getPasteDisplayText?(): string | undefined;
 	clear(): void;
 	insertText(text: string): void;
 	setText(text: string): void;

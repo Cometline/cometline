@@ -1,20 +1,27 @@
 import { isHttpUrl, fileMentionText } from '#lib/markdown/embed.js';
 import { makeChip, makeSkillChip } from '#lib/features/composer/rich-composer-chips.js';
+import { pastedDisplayToken } from '#lib/features/composer/rich-composer-paste.js';
 
 export type DecorateOptions = { allowCaretEnd?: boolean };
 
 /**
- * Serializes the contenteditable DOM back to plain text. URL chips serialize
- * to their full URL (stored in data-url); <br>/block boundaries become \n.
+ * Serializes the contenteditable DOM back to plain text. Paste chips become
+ * their body, unless `display` is set, in which case they become a label token
+ * and surrounding text is kept. <br>/block boundaries become \n.
  */
-export function serialize(root: HTMLElement): string {
+export function serialize(root: HTMLElement, display = false): string {
 	let out = '';
 	const walk = (node: Node) => {
 		for (const child of Array.from(node.childNodes)) {
 			if (child.nodeType === Node.TEXT_NODE) {
-				out += child.textContent ?? '';
+				const text = child.textContent ?? '';
+				out += display ? text.replaceAll('\u00a0', ' ') : text;
 			} else if (child instanceof HTMLElement) {
-				if (child.dataset.url) {
+				if (child.dataset.pastedText != null) {
+					out += display
+						? pastedDisplayToken(child.dataset.pastedText)
+						: child.dataset.pastedText;
+				} else if (child.dataset.url) {
 					out += child.dataset.url;
 				} else if (child.dataset.skillCommand) {
 					out += child.dataset.skillCommand;
@@ -32,6 +39,25 @@ export function serialize(root: HTMLElement): string {
 	};
 	walk(root);
 	return out;
+}
+
+/** Label form of a composer that contains a paste chip. Null otherwise. */
+export function serializePasteDisplay(root: HTMLElement): string | null {
+	if (!root.querySelector('[data-pasted-text]')) return null;
+	return serialize(root, true);
+}
+
+/** Plain text for copy/cut when the selection includes a paste chip. Null means native copy is fine. */
+export function selectionTextWithPasteChips(editor: HTMLElement): string | null {
+	const sel = window.getSelection();
+	if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return null;
+	const range = sel.getRangeAt(0);
+	const root = range.commonAncestorContainer;
+	if (root !== editor && !editor.contains(root)) return null;
+	const holder = document.createElement('div');
+	holder.append(range.cloneContents());
+	if (!holder.querySelector('[data-pasted-text]')) return null;
+	return serialize(holder);
 }
 
 function escapeRegex(value: string): string {
