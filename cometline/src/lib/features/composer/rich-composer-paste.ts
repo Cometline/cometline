@@ -49,6 +49,35 @@ export function pastedTextLabel(text: string): string {
 	return 'Pasted text';
 }
 
+/** Display-document token for one paste part. The body is not included. */
+export function pastedDisplayToken(text: string): string {
+	return `[${pastedTextLabel(text)}]`;
+}
+
+export type PastedDisplayPart = { kind: 'text'; text: string } | { kind: 'paste'; label: string };
+
+const PASTE_DISPLAY_TOKEN = /\[(Pasted ~\d+ lines|Pasted text)\]/g;
+
+/**
+ * Invert the display projection we emit from composer chips.
+ * Returns null when the string is not a display document, so a raw paste
+ * cannot be split back into "chip + typed text".
+ */
+export function parsePastedDisplay(source: string): PastedDisplayPart[] | null {
+	if (!source.includes('[Pasted ')) return null;
+	const parts: PastedDisplayPart[] = [];
+	let cursor = 0;
+	for (const match of source.matchAll(PASTE_DISPLAY_TOKEN)) {
+		const start = match.index ?? 0;
+		if (start > cursor) parts.push({ kind: 'text', text: source.slice(cursor, start) });
+		parts.push({ kind: 'paste', label: match[1] ?? 'Pasted text' });
+		cursor = start + match[0].length;
+	}
+	if (parts.length === 0) return null;
+	if (cursor < source.length) parts.push({ kind: 'text', text: source.slice(cursor) });
+	return parts;
+}
+
 export function pastedTextTitle(text: string): string {
 	const flat = text.replace(/\s+/g, ' ').trim();
 	const preview = flat.length > 160 ? `${flat.slice(0, 160)}…` : flat;

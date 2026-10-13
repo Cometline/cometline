@@ -17,6 +17,7 @@ import {
 	decorateEditor,
 	selectionTextWithPasteChips,
 	serialize,
+	serializePasteDisplay,
 	type DecorateOptions
 } from '#lib/features/composer/rich-composer-decorate.js';
 import {
@@ -295,6 +296,13 @@ export function createRichComposerInputController(deps: {
 		updateMentionState();
 	}
 
+	function getPasteDisplayText(): string | undefined {
+		const editor = deps.getEditor();
+		if (!editor) return undefined;
+		const display = serializePasteDisplay(editor)?.trim();
+		return display || undefined;
+	}
+
 	function getFilePaths(): string[] {
 		const editor = deps.getEditor();
 		if (!editor) return [];
@@ -377,6 +385,7 @@ export function createRichComposerInputController(deps: {
 		insertText,
 		insertFileMention,
 		getFilePaths,
+		getPasteDisplayText,
 		setText,
 		clear,
 		isCaretAtStart,

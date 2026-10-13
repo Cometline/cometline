@@ -21,6 +21,21 @@ describe('UserMessageRow', () => {
 		expect(screen.queryByRole('button', { name: 'Expand user message' })).toBeNull();
 	});
 
+	it('renders a paste chip and the typed text beside it', () => {
+		render(UserMessageRow, {
+			props: {
+				item: { id: 'u-mixed', type: 'user', text: '[Pasted ~12805 lines] hihi' },
+				avatarSrc: '/project_avatar_192.png',
+				copiedId: null,
+				onCopyMessage: () => {}
+			}
+		});
+
+		expect(screen.getByText('Pasted ~12805 lines')).toBeTruthy();
+		expect(screen.getByText('hihi')).toBeTruthy();
+		expect(screen.queryByText('[Pasted ~12805 lines]')).toBeNull();
+	});
+
 	it('shows a large user message as a chip and still copies the full text', async () => {
 		const text = 'A long user message '.repeat(80);
 		const onCopyMessage = vi.fn();

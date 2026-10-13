@@ -4,13 +4,13 @@
 		pastedTextTitle
 	} from '#lib/features/composer/rich-composer-paste.js';
 
-	let { text }: { text: string } = $props();
+	let { text = '', label }: { text?: string; label?: string } = $props();
 
-	let label = $derived(pastedTextLabel(text));
-	let title = $derived(pastedTextTitle(text));
+	let shown = $derived(label ?? pastedTextLabel(text));
+	let title = $derived(label ?? pastedTextTitle(text));
 </script>
 
-<span class="pasted-text-chip" {title} role="img" aria-label={label}>{label}</span>
+<span class="pasted-text-chip" {title} role="img" aria-label={shown}>{shown}</span>
 
 <style>
 	.pasted-text-chip {

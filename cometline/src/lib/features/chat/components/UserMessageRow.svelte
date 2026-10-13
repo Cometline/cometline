@@ -1,9 +1,7 @@
 <script lang="ts">
 	import { fly } from 'svelte/transition';
 	import { Check, Copy } from '@lucide/svelte';
-	import AssistantMarkdown from '#lib/components/AssistantMarkdown.svelte';
-	import PastedTextChip from '#lib/features/chat/components/PastedTextChip.svelte';
-	import { shouldCollapsePastedText } from '#lib/features/composer/rich-composer-paste.js';
+	import UserMessageBody from '#lib/features/chat/components/UserMessageBody.svelte';
 	import MessageContextChips from '#lib/features/chat/components/MessageContextChips.svelte';
 	import ThreadAvatar from '#lib/features/chat/components/ThreadAvatar.svelte';
 	import ThreadRow from '#lib/features/chat/components/ThreadRow.svelte';
@@ -44,7 +42,6 @@
 
 	let playFlyIn = $derived(stagedOnce && flyOnReveal);
 	let messageText = $derived(item.text?.trim() ?? '');
-	let collapseMessage = $derived(shouldCollapsePastedText(messageText));
 </script>
 
 {#snippet bubbleBody()}
@@ -66,11 +63,7 @@
 			</div>
 		{/if}
 		{#if messageText}
-			{#if collapseMessage}
-				<PastedTextChip text={messageText} />
-			{:else}
-				<AssistantMarkdown source={messageText} mode="user" />
-			{/if}
+			<UserMessageBody text={messageText} />
 		{/if}
 	</UserMessageViewport>
 {/snippet}

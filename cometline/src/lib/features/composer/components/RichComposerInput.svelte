@@ -67,6 +67,10 @@
 		return rich.getFilePaths();
 	}
 
+	export function getPasteDisplayText(): string | undefined {
+		return rich.getPasteDisplayText();
+	}
+
 	export function setText(text: string) {
 		rich.setText(text);
 	}
