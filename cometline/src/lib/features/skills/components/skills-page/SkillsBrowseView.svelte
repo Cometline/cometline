@@ -169,8 +169,23 @@
 	.tag-filters {
 		display: flex;
 		flex-wrap: wrap;
+		align-content: flex-start;
 		gap: 6px;
+		max-height: 4.5rem;
 		margin: -2px 0 8px;
+		overflow-y: auto;
+		overscroll-behavior: contain;
+		scrollbar-width: thin;
+		scrollbar-color: rgba(15, 23, 42, 0.28) transparent;
+	}
+
+	.tag-filters::-webkit-scrollbar {
+		width: 6px;
+	}
+
+	.tag-filters::-webkit-scrollbar-thumb {
+		border-radius: 999px;
+		background: rgba(15, 23, 42, 0.28);
 	}
 
 	.tag-filter {
