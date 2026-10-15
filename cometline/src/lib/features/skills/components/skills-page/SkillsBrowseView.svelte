@@ -167,10 +167,29 @@
 	}
 
 	.tag-filters {
+		--chip-row: calc(1lh + 8px);
 		display: flex;
+		flex: 0 0 auto;
 		flex-wrap: wrap;
+		align-content: flex-start;
 		gap: 6px;
+		min-height: var(--chip-row);
+		max-height: calc(3 * var(--chip-row) + 12px);
 		margin: -2px 0 8px;
+		padding-right: 2px;
+		overflow-y: auto;
+		overscroll-behavior: contain;
+		scrollbar-width: thin;
+		scrollbar-color: rgba(15, 23, 42, 0.28) transparent;
+	}
+
+	.tag-filters::-webkit-scrollbar {
+		width: 6px;
+	}
+
+	.tag-filters::-webkit-scrollbar-thumb {
+		border-radius: 999px;
+		background: rgba(15, 23, 42, 0.28);
 	}
 
 	.tag-filter {
@@ -180,6 +199,7 @@
 		color: var(--text-muted);
 		font: inherit;
 		font-size: 11px;
+		line-height: 1.2;
 		font-weight: 700;
 		padding: 3px 8px;
 		cursor: pointer;
@@ -192,6 +212,7 @@
 	}
 
 	.skill-search {
+		flex: 0 0 auto;
 		margin-bottom: 8px;
 		padding: 8px 10px;
 		border: 1px solid var(--border-soft);
