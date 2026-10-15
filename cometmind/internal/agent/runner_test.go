@@ -1910,19 +1910,19 @@ func TestRunner_UserCancellationPersistsUnstartedToolResults(t *testing.T) {
 }
 
 func TestRunner_OverflowCompactsAndRetriesOnce(t *testing.T) {
-	rows := make([]db.Message, 0, 12)
-	history := make([]cometsdk.Message, 0, 12)
-	// Keep estimate under the available budget so proactive compaction does not
-	// consume a Stream call before the intentional overflow failure.
-	for i := 0; i < 12; i++ {
-		id := fmt.Sprintf("u%d", i+1)
-		text := fmt.Sprintf("short turn-%d content for overflow recovery", i+1)
-		rows = append(rows, db.Message{ID: id, Role: "user", Content: text})
-		history = append(history, cometsdk.Message{
-			Role:    cometsdk.RoleUser,
-			Content: []cometsdk.Block{cometsdk.TextBlock{Text: text}},
-		})
-	}
+	rows := make([]db.Message, 0, 2)
+	history := make([]cometsdk.Message, 0, 2)
+	// Older history exceeds the 15k keep window, but the whole prompt stays under
+	// the available budget so proactive compaction does not run first.
+	older := strings.Repeat("older overflow context ", 4000)
+	rows = append(rows,
+		db.Message{ID: "u1", Role: "user", Content: older},
+		db.Message{ID: "u2", Role: "user", Content: "current ask"},
+	)
+	history = append(history,
+		cometsdk.Message{Role: cometsdk.RoleUser, Content: []cometsdk.Block{cometsdk.TextBlock{Text: older}}},
+		cometsdk.Message{Role: cometsdk.RoleUser, Content: []cometsdk.Block{cometsdk.TextBlock{Text: "current ask"}}},
+	)
 	store := &compactingFakeStore{fakeStore: fakeStore{history: history, rows: rows}}
 	provider := &sequentialFakeProvider{sequences: [][]cometsdk.Event{
 		{cometsdk.ErrorEvent{Err: &cometsdk.ServerError{ProviderID: "fake", StatusCode: 400, Message: "prompt is too long"}}},
@@ -1977,17 +1977,17 @@ func TestRunner_OverflowCompactsAndRetriesOnce(t *testing.T) {
 }
 
 func TestRunner_OverflowDoesNotRetryTwice(t *testing.T) {
-	rows := make([]db.Message, 0, 12)
-	history := make([]cometsdk.Message, 0, 12)
-	for i := 0; i < 12; i++ {
-		id := fmt.Sprintf("u%d", i+1)
-		text := fmt.Sprintf("short turn-%d for second overflow", i+1)
-		rows = append(rows, db.Message{ID: id, Role: "user", Content: text})
-		history = append(history, cometsdk.Message{
-			Role:    cometsdk.RoleUser,
-			Content: []cometsdk.Block{cometsdk.TextBlock{Text: text}},
-		})
-	}
+	rows := make([]db.Message, 0, 2)
+	history := make([]cometsdk.Message, 0, 2)
+	older := strings.Repeat("older second overflow ", 4000)
+	rows = append(rows,
+		db.Message{ID: "u1", Role: "user", Content: older},
+		db.Message{ID: "u2", Role: "user", Content: "current ask"},
+	)
+	history = append(history,
+		cometsdk.Message{Role: cometsdk.RoleUser, Content: []cometsdk.Block{cometsdk.TextBlock{Text: older}}},
+		cometsdk.Message{Role: cometsdk.RoleUser, Content: []cometsdk.Block{cometsdk.TextBlock{Text: "current ask"}}},
+	)
 	store := &compactingFakeStore{fakeStore: fakeStore{history: history, rows: rows}}
 	overflow := cometsdk.ErrorEvent{Err: &cometsdk.ServerError{ProviderID: "fake", StatusCode: 400, Message: "maximum context length exceeded"}}
 	provider := &sequentialFakeProvider{sequences: [][]cometsdk.Event{

@@ -350,6 +350,59 @@ func TestHandleClearSlashClearsMappedSessionTranscript(t *testing.T) {
 	}
 }
 
+func TestHandleCompactSlashUsesServeEndpoint(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	dbPath := filepath.Join(t.TempDir(), "cometmind.db")
+	sqlDB, err := sqlite.Open(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("sqlite.Open() error = %v", err)
+	}
+	t.Cleanup(func() { _ = sqlDB.Close() })
+
+	svc := session.New(sqlDB)
+	ws, err := svc.EnsureWorkspace(ctx, t.TempDir())
+	if err != nil {
+		t.Fatalf("EnsureWorkspace() error = %v", err)
+	}
+	sess, err := svc.NewSession(ctx, ws.ID, "model", "provider")
+	if err != nil {
+		t.Fatalf("NewSession() error = %v", err)
+	}
+	if _, err := svc.UpsertGatewaySession(ctx, "discord", "user-1", "chan-1", "", sess.ID, ws.ID); err != nil {
+		t.Fatalf("UpsertGatewaySession() error = %v", err)
+	}
+	r := &Router{
+		Sessions: svc,
+		Config: &config.Config{Gateway: config.GatewayConfig{Discord: config.DiscordGatewayConfig{
+			WorkspacePath: ws.Path,
+		}}},
+	}
+	serve := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.Method != http.MethodPost || req.URL.Path != "/api/v1/sessions/"+sess.ID+"/context-compactions" {
+			t.Errorf("request = %s %s", req.Method, req.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"status":"compacted"}`))
+	}))
+	defer serve.Close()
+	r.Events = &EventBridge{BaseURL: serve.URL, Client: serve.Client()}
+
+	msg, err := r.HandleCompactSlash(ctx, InboundMessage{
+		Platform:  "discord",
+		UserID:    "user-1",
+		ChannelID: "chan-1",
+		Mentioned: true,
+	})
+	if err != nil {
+		t.Fatalf("HandleCompactSlash() error = %v", err)
+	}
+	if msg != "Context compacted. Earlier messages were folded into the session summary." {
+		t.Fatalf("confirmation = %q", msg)
+	}
+}
+
 func TestHandleClearSlashRequiresExistingSession(t *testing.T) {
 	t.Parallel()
 

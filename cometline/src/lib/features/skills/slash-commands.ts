@@ -13,6 +13,10 @@ export const BUILTIN_SLASH_COMMANDS: BuiltinSlashCommand[] = [
 		description: 'Clear transcript history and start fresh in this session'
 	},
 	{
+		name: 'compact',
+		description: 'Summarize earlier messages and keep recent turns'
+	},
+	{
 		name: 'create-skill',
 		description: 'Draft a new Agent Skill for review on the Skills page'
 	},
@@ -87,6 +91,10 @@ export function parseChangeCommand(text: string): { query: string } | null {
 
 export function parseClearCommand(text: string): boolean {
 	return /^\s*\/clear\s*$/i.test(text);
+}
+
+export function parseCompactCommand(text: string): boolean {
+	return /^\s*\/compact\s*$/i.test(text);
 }
 
 export function isClearCommand(text: string): boolean {

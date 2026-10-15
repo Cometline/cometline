@@ -21,6 +21,8 @@ func (a *Adapter) onInteractionCreate(s *discordgo.Session, i *discordgo.Interac
 			a.handleCreateSkillCommand(s, i, data)
 		case "clear":
 			a.handleClearCommand(s, i, data)
+		case "compact":
+			a.handleCompactCommand(s, i, data)
 		case "stop":
 			a.handleStopCommand(s, i, data)
 		case "change":

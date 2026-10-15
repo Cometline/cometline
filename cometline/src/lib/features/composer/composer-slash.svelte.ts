@@ -17,6 +17,7 @@ import {
 	isModelCommand,
 	parseChangeCommand,
 	parseClearCommand,
+	parseCompactCommand,
 	parseModelCommand,
 	type SlashMenuOption
 } from '#lib/features/skills/slash-commands.js';
@@ -39,6 +40,7 @@ export function createComposerSlashController(deps: {
 	onModelChange?: (option: ModelOption) => void | Promise<void>;
 	onWorkspaceChanged?: () => void | Promise<void>;
 	onTranscriptCleared?: () => void;
+	onCompact?: () => void;
 	setDropMessage: (message: string) => void;
 	focusInput: (options?: { position?: 'start' | 'end' }) => Promise<void>;
 	getSkillMenuRef: () => HTMLDivElement | null;
@@ -154,6 +156,16 @@ export function createComposerSlashController(deps: {
 		}
 	}
 
+	function handleCompactSubmit() {
+		const sessionId = deps.getSessionId();
+		if (!sessionId || deps.getStreaming()) return;
+		deps.onCompact?.();
+		deps.getInput()?.clear();
+		deps.setValue('');
+		deps.setImages([]);
+		void deps.focusInput();
+	}
+
 	async function handleClearSubmit() {
 		const sessionId = deps.getSessionId();
 		if (!sessionId || deps.getStreaming()) return;
@@ -222,6 +234,10 @@ export function createComposerSlashController(deps: {
 		}
 		if (parseClearCommand(trimmed)) {
 			void handleClearSubmit();
+			return { kind: 'handled' };
+		}
+		if (parseCompactCommand(trimmed)) {
+			handleCompactSubmit();
 			return { kind: 'handled' };
 		}
 		if (isModelCommand(trimmed)) {

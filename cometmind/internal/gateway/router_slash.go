@@ -89,6 +89,43 @@ func (r *Router) HandleClearSlash(ctx context.Context, msg InboundMessage) (stri
 	return "Cleared this CometMind conversation transcript.", nil
 }
 
+// HandleCompactSlash folds older context for the session mapped to the current
+// platform channel. It uses the serve process so the desktop lease and ring stay
+// in sync.
+func (r *Router) HandleCompactSlash(ctx context.Context, msg InboundMessage) (string, error) {
+	if r == nil || r.Sessions == nil || r.Events == nil {
+		return "", fmt.Errorf("gateway router is not configured")
+	}
+	if !r.allowed(msg) {
+		return "", fmt.Errorf("not allowed")
+	}
+	mapped, err := r.Sessions.LookupGatewaySession(ctx, msg.Platform, msg.UserID, msg.ChannelID, msg.ThreadID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", fmt.Errorf("no active session in this channel; send a message first")
+	}
+	if err != nil {
+		return "", err
+	}
+	if r.Turns != nil && r.Turns.Running(mapped.CometmindSessionID) {
+		return "", fmt.Errorf("session is running")
+	}
+	result, err := r.Events.CompactSession(ctx, mapped.CometmindSessionID)
+	if err != nil {
+		return "", err
+	}
+	switch result.Status {
+	case "compacted":
+		return "Context compacted. Earlier messages were folded into the session summary.", nil
+	case "skipped":
+		if result.Reason == "cancelled" {
+			return "Compaction cancelled.", nil
+		}
+		return "Nothing to compact. Recent messages already fit beside the summary.", nil
+	default:
+		return "Context compacted.", nil
+	}
+}
+
 // HandleStopSlash cancels the active turn for the session mapped to the
 // current platform channel or thread. It does not alter the transcript.
 func (r *Router) HandleStopSlash(ctx context.Context, msg InboundMessage) (string, error) {

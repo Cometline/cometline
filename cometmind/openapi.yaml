@@ -1292,6 +1292,35 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/sessions/{id}/context-compactions:
+    post:
+      tags: [Sessions]
+      summary: Compact session context
+      description: |
+        Folds older transcript into the session summary and keeps recent turns verbatim.
+        Holds the session run lease until it finishes, so new turns are rejected with
+        session_running. Does not start a chat event stream.
+      operationId: compactSessionContext
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Compaction finished or skipped
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContextCompactionResult'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Session is already running
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/sessions/{id}/runs/current:
     delete:
       tags: [Sessions]
@@ -3359,6 +3388,11 @@ components:
         running:
           type: boolean
           description: Whether this session currently owns the cross-process run lease.
+        compacting:
+          type: boolean
+          description: |
+            Whether a manual context compaction holds the run lease. There is no chat
+            stream to resume while this is true.
         created_at:
           type: integer
           format: int64
@@ -4660,6 +4694,29 @@ components:
           type: integer
         max_memories:
           type: integer
+
+    ContextCompactionResult:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [compacted, skipped]
+        reason:
+          type: string
+          enum: [no_prefix, empty_prefix, cancelled]
+          description: Present when status is skipped.
+        estimated:
+          type: integer
+          description: Chars/4 prompt estimate after the run, when available.
+        available:
+          type: integer
+        context_window:
+          type: integer
+        compacted:
+          type: boolean
+          description: True when this snapshot follows a successful compaction.
 
     MemoryCompactionResult:
       type: object

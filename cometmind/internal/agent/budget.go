@@ -12,7 +12,6 @@ import (
 const (
 	// Compact only once estimated input exceeds the full configured budget (minus output reserve).
 	compactionThresholdRatio = 1.0
-	recentTurnPreserveCount  = 10
 )
 
 // EstimateTokens returns a conservative character-based token estimate (chars/4).

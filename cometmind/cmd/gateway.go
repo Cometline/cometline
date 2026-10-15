@@ -149,6 +149,9 @@ func wireDiscordAdapter(rt *runtime.Runtime, router *gateway.Router, adapter *di
 	adapter.SetClearHandler(func(ctx context.Context, msg gateway.InboundMessage) (string, error) {
 		return router.HandleClearSlash(ctx, msg)
 	})
+	adapter.SetCompactHandler(func(ctx context.Context, msg gateway.InboundMessage) (string, error) {
+		return router.HandleCompactSlash(ctx, msg)
+	})
 	adapter.SetStopHandler(func(ctx context.Context, msg gateway.InboundMessage) (string, error) {
 		return router.HandleStopSlash(ctx, msg)
 	})

@@ -1,3 +1,4 @@
+import { contextCompactionStore } from '#lib/features/chat/context-compaction.svelte.js';
 import type { Session, StreamEvent } from '#lib/types.js';
 
 export interface SessionRuntimeEventDeps {
@@ -31,6 +32,7 @@ export async function applySessionRuntimeEvent(
 		return true;
 	}
 	if (event.type === 'run_finished') {
+		if (contextCompactionStore.isCompacting(event.session_id)) return true;
 		deps.setRunning(event.session_id, false);
 		const locallySettled = deps.consumeLocalRunSettled?.(event.session_id) ?? false;
 		if (deps.getActiveSessionId() !== event.session_id) return true;
@@ -57,7 +59,7 @@ export async function reconcileActiveSession(deps: SessionRuntimeEventDeps): Pro
 	deps.updateSession(latest);
 	if (deps.hasLocalStream?.(sessionId) || deps.isStreamingFor?.(sessionId)) return true;
 	await deps.refreshTranscript(sessionId);
-	if (latest.running) {
+	if (latest.running && !latest.compacting) {
 		void deps.resumeRun(sessionId).catch(() => undefined);
 	}
 	return true;

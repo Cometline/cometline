@@ -175,6 +175,9 @@ type ServerInterface interface {
 	// List delegated child sessions
 	// (GET /api/v1/sessions/{id}/children)
 	ListChildSessions(c *gin.Context, id SessionId)
+	// Compact session context
+	// (POST /api/v1/sessions/{id}/context-compactions)
+	CompactSessionContext(c *gin.Context, id SessionId)
 	// Ingest one gateway-owned session event
 	// (POST /api/v1/sessions/{id}/events)
 	IngestSessionEvent(c *gin.Context, id SessionId)
@@ -1416,6 +1419,31 @@ func (siw *ServerInterfaceWrapper) ListChildSessions(c *gin.Context) {
 	siw.Handler.ListChildSessions(c, id)
 }
 
+// CompactSessionContext operation middleware
+func (siw *ServerInterfaceWrapper) CompactSessionContext(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id SessionId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CompactSessionContext(c, id)
+}
+
 // IngestSessionEvent operation middleware
 func (siw *ServerInterfaceWrapper) IngestSessionEvent(c *gin.Context) {
 
@@ -2617,6 +2645,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/api/v1/sessions/:id", wrapper.GetSession)
 	router.PATCH(options.BaseURL+"/api/v1/sessions/:id", wrapper.PatchSession)
 	router.GET(options.BaseURL+"/api/v1/sessions/:id/children", wrapper.ListChildSessions)
+	router.POST(options.BaseURL+"/api/v1/sessions/:id/context-compactions", wrapper.CompactSessionContext)
 	router.POST(options.BaseURL+"/api/v1/sessions/:id/events", wrapper.IngestSessionEvent)
 	router.POST(options.BaseURL+"/api/v1/sessions/:id/forks", wrapper.ForkSession)
 	router.DELETE(options.BaseURL+"/api/v1/sessions/:id/messages", wrapper.ClearSession)
@@ -5495,6 +5524,70 @@ func (response ListChildSessions500JSONResponse) VisitListChildSessionsResponse(
 	return err
 }
 
+type CompactSessionContextRequestObject struct {
+	Id SessionId `json:"id"`
+}
+
+type CompactSessionContextResponseObject interface {
+	VisitCompactSessionContextResponse(w http.ResponseWriter) error
+}
+
+type CompactSessionContext200JSONResponse ContextCompactionResult
+
+func (response CompactSessionContext200JSONResponse) VisitCompactSessionContextResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CompactSessionContext404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response CompactSessionContext404JSONResponse) VisitCompactSessionContextResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CompactSessionContext409JSONResponse ErrorResponse
+
+func (response CompactSessionContext409JSONResponse) VisitCompactSessionContextResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CompactSessionContext500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response CompactSessionContext500JSONResponse) VisitCompactSessionContextResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type IngestSessionEventRequestObject struct {
 	Id   SessionId `json:"id"`
 	Body *IngestSessionEventJSONRequestBody
@@ -7721,6 +7814,9 @@ type StrictServerInterface interface {
 	// List delegated child sessions
 	// (GET /api/v1/sessions/{id}/children)
 	ListChildSessions(ctx context.Context, request ListChildSessionsRequestObject) (ListChildSessionsResponseObject, error)
+	// Compact session context
+	// (POST /api/v1/sessions/{id}/context-compactions)
+	CompactSessionContext(ctx context.Context, request CompactSessionContextRequestObject) (CompactSessionContextResponseObject, error)
 	// Ingest one gateway-owned session event
 	// (POST /api/v1/sessions/{id}/events)
 	IngestSessionEvent(ctx context.Context, request IngestSessionEventRequestObject) (IngestSessionEventResponseObject, error)
@@ -9362,6 +9458,32 @@ func (sh *strictHandler) ListChildSessions(ctx *gin.Context, id SessionId) {
 		sh.options.HandlerErrorFunc(ctx, err)
 	} else if validResponse, ok := response.(ListChildSessionsResponseObject); ok {
 		if err := validResponse.VisitListChildSessionsResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CompactSessionContext operation middleware
+func (sh *strictHandler) CompactSessionContext(ctx *gin.Context, id SessionId) {
+	var request CompactSessionContextRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CompactSessionContext(ctx, request.(CompactSessionContextRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CompactSessionContext")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(CompactSessionContextResponseObject); ok {
+		if err := validResponse.VisitCompactSessionContextResponse(ctx.Writer); err != nil {
 			sh.options.ResponseErrorHandlerFunc(ctx, err)
 		}
 	} else if response != nil {

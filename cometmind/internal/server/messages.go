@@ -159,6 +159,10 @@ func (a *App) beginMessageRun(c *gin.Context, prepared preparedPostMessage) (Run
 	// disconnect must not cancel the model/tool loop; DELETE /runs/current does.
 	runCtx, finish, err := a.runs.Start(a.runContext, prepared.sess.ID)
 	if err != nil {
+		if a.runs.Compacting(prepared.sess.ID) {
+			writeError(c, http.StatusConflict, "session_compacting", "session is compacting context")
+			return nil, nil, "", nil, false
+		}
 		writeError(c, http.StatusConflict, "session_running", err.Error())
 		return nil, nil, "", nil, false
 	}

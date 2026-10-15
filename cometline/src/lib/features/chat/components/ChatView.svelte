@@ -23,6 +23,8 @@
 		type ChatViewComposerHandle
 	} from '#lib/features/chat/chat-view-activation.svelte.js';
 	import { createSessionPhase } from '#lib/features/chat/session-phase.svelte.js';
+	import { contextCompactionStore } from '#lib/features/chat/context-compaction.svelte.js';
+	import { TURN_STATUS_LABELS } from '#lib/features/chat/turn-status.js';
 	import MiniTitlebar from '#lib/features/chat/components/chat-view/MiniTitlebar.svelte';
 	import ChatEmptyRegion from '#lib/features/chat/components/chat-view/ChatEmptyRegion.svelte';
 
@@ -92,6 +94,11 @@
 	let composerVariant = $derived(chatView.composerVariant);
 	let heroLayout = $derived(chatView.heroLayout);
 	let sessionRunActive = $derived(chatView.sessionRunActive);
+	let compacting = $derived(
+		contextCompactionStore.isCompacting(sessionId) ||
+			Boolean(sessionStore.sessions.find((session) => session.id === sessionId)?.compacting)
+	);
+	let activityLabel = $derived(compacting ? TURN_STATUS_LABELS.compacting_context : '');
 
 	let composerRef = $state<ChatViewComposerHandle | null>(null);
 
@@ -226,6 +233,8 @@
 					conversation.clearQueue();
 					syncQueueState();
 				}}
+				onCompact={() => conversation.compact()}
+				{activityLabel}
 				{sessionId}
 				disabled={!chatView.canSend}
 				streaming={sessionRunActive}

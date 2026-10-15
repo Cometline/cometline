@@ -1,3 +1,4 @@
+import type { ContextBudgetSnapshot } from '#lib/context-window.js';
 import type { ChatItem, ImageAttachment, MessageContextRef, StreamEvent } from '#lib/types.js';
 import { reduceChatState } from '#lib/reducers/chat.js';
 import { playErrorSound, playResponseCompleteSound } from '#lib/sound/response-complete.js';
@@ -162,6 +163,11 @@ export function createTurnEvents(state: ChatState, cache: SessionCache) {
 		cache.writeSessionItems(targetSessionID, next);
 	}
 
+	function noteContextBudget(targetSessionID: string, budget: ContextBudgetSnapshot) {
+		state.sessionContextBudgets.set(targetSessionID, budget);
+		if (state.sessionID === targetSessionID) state.contextBudget = budget;
+	}
+
 	return {
 		addUserToSession,
 		stageUserForSession,
@@ -169,7 +175,8 @@ export function createTurnEvents(state: ChatState, cache: SessionCache) {
 		applyEventToSession,
 		ensureVisibleTurnFeedback,
 		settleRunFeedback,
-		patchSubagentCard
+		patchSubagentCard,
+		noteContextBudget
 	};
 }
 

@@ -51,6 +51,11 @@ func (s *strictServer) ClearSession(ctx context.Context, _ apigen.ClearSessionRe
 	return nil, nil
 }
 
+func (s *strictServer) CompactSessionContext(ctx context.Context, _ apigen.CompactSessionContextRequestObject) (apigen.CompactSessionContextResponseObject, error) {
+	delegateGin(ctx, s.app.handleCompactSessionContext)
+	return nil, nil
+}
+
 func (s *strictServer) GetSessionMessages(ctx context.Context, _ apigen.GetSessionMessagesRequestObject) (apigen.GetSessionMessagesResponseObject, error) {
 	delegateGin(ctx, s.app.handleGetMessages)
 	return nil, nil

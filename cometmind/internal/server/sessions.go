@@ -12,6 +12,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func (a *App) applyRunFlags(res sessionResource) sessionResource {
+	if a == nil || a.runs == nil {
+		return res
+	}
+	res.Running = a.runs.Running(res.ID)
+	res.Compacting = a.runs.Compacting(res.ID)
+	return res
+}
+
 func derefString(p *string) string {
 	if p == nil {
 		return ""
@@ -51,9 +60,7 @@ func (a *App) handleCreateSession(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
 		return
 	}
-	res.Running = a.runs.Running(sess.ID)
-
-	c.JSON(http.StatusCreated, res)
+	c.JSON(http.StatusCreated, a.applyRunFlags(res))
 }
 
 func (a *App) handleListSessions(c *gin.Context) {
@@ -80,8 +87,7 @@ func (a *App) handleListSessions(c *gin.Context) {
 			writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
 			return
 		}
-		res.Running = a.runs.Running(sess.ID)
-		items = append(items, res)
+		items = append(items, a.applyRunFlags(res))
 	}
 
 	c.JSON(http.StatusOK, listSessionsResponse{Sessions: items})
@@ -112,8 +118,7 @@ func (a *App) listAllSessions(c *gin.Context) {
 			writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
 			return
 		}
-		res.Running = a.runs.Running(sess.ID)
-		items = append(items, res)
+		items = append(items, a.applyRunFlags(res))
 	}
 
 	c.JSON(http.StatusOK, listSessionsResponse{Sessions: items})
@@ -130,9 +135,7 @@ func (a *App) handleGetSession(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
 		return
 	}
-	res.Running = a.runs.Running(sess.ID)
-
-	c.JSON(http.StatusOK, res)
+	c.JSON(http.StatusOK, a.applyRunFlags(res))
 }
 
 func (a *App) handleListChildSessions(c *gin.Context) {
@@ -155,8 +158,7 @@ func (a *App) handleListChildSessions(c *gin.Context) {
 			writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
 			return
 		}
-		res.Running = a.runs.Running(child.ID)
-		items = append(items, res)
+		items = append(items, a.applyRunFlags(res))
 	}
 	c.JSON(http.StatusOK, listSessionsResponse{Sessions: items})
 }
@@ -257,8 +259,7 @@ func (a *App) writeSessionJSON(c *gin.Context, sess session.Session) {
 		writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
 		return
 	}
-	res.Running = a.runs.Running(sess.ID)
-	c.JSON(http.StatusOK, res)
+	c.JSON(http.StatusOK, a.applyRunFlags(res))
 }
 
 func (a *App) handleForkSession(c *gin.Context) {
@@ -298,9 +299,7 @@ func (a *App) handleForkSession(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
 		return
 	}
-	res.Running = a.runs.Running(forked.ID)
-
-	c.JSON(http.StatusCreated, res)
+	c.JSON(http.StatusCreated, a.applyRunFlags(res))
 }
 
 func (a *App) handleDeleteSession(c *gin.Context) {

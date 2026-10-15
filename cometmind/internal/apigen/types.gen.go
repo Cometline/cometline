@@ -70,6 +70,45 @@ func (e AssistantVideoEventMediaType) Valid() bool {
 	}
 }
 
+// Defines values for ContextCompactionResultReason.
+const (
+	ContextCompactionResultReasonCancelled   ContextCompactionResultReason = "cancelled"
+	ContextCompactionResultReasonEmptyPrefix ContextCompactionResultReason = "empty_prefix"
+	ContextCompactionResultReasonNoPrefix    ContextCompactionResultReason = "no_prefix"
+)
+
+// Valid indicates whether the value is a known member of the ContextCompactionResultReason enum.
+func (e ContextCompactionResultReason) Valid() bool {
+	switch e {
+	case ContextCompactionResultReasonCancelled:
+		return true
+	case ContextCompactionResultReasonEmptyPrefix:
+		return true
+	case ContextCompactionResultReasonNoPrefix:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ContextCompactionResultStatus.
+const (
+	Compacted ContextCompactionResultStatus = "compacted"
+	Skipped   ContextCompactionResultStatus = "skipped"
+)
+
+// Valid indicates whether the value is a known member of the ContextCompactionResultStatus enum.
+func (e ContextCompactionResultStatus) Valid() bool {
+	switch e {
+	case Compacted:
+		return true
+	case Skipped:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CreateMemoryRequestApplicationPolicy.
 const (
 	CreateMemoryRequestApplicationPolicyAlways   CreateMemoryRequestApplicationPolicy = "always"
@@ -657,25 +696,25 @@ func (e ScheduledJobResourceSourcePlatform) Valid() bool {
 
 // Defines values for SessionDelegationStatus.
 const (
-	SessionDelegationStatusCancelled SessionDelegationStatus = "cancelled"
-	SessionDelegationStatusCompleted SessionDelegationStatus = "completed"
-	SessionDelegationStatusFailed    SessionDelegationStatus = "failed"
-	SessionDelegationStatusPending   SessionDelegationStatus = "pending"
-	SessionDelegationStatusRunning   SessionDelegationStatus = "running"
+	Cancelled SessionDelegationStatus = "cancelled"
+	Completed SessionDelegationStatus = "completed"
+	Failed    SessionDelegationStatus = "failed"
+	Pending   SessionDelegationStatus = "pending"
+	Running   SessionDelegationStatus = "running"
 )
 
 // Valid indicates whether the value is a known member of the SessionDelegationStatus enum.
 func (e SessionDelegationStatus) Valid() bool {
 	switch e {
-	case SessionDelegationStatusCancelled:
+	case Cancelled:
 		return true
-	case SessionDelegationStatusCompleted:
+	case Completed:
 		return true
-	case SessionDelegationStatusFailed:
+	case Failed:
 		return true
-	case SessionDelegationStatusPending:
+	case Pending:
 		return true
-	case SessionDelegationStatusRunning:
+	case Running:
 		return true
 	default:
 		return false
@@ -1148,6 +1187,28 @@ type ContextBudgetEvent struct {
 	Estimated int    `json:"estimated"`
 	Type      string `json:"type"`
 }
+
+// ContextCompactionResult defines model for ContextCompactionResult.
+type ContextCompactionResult struct {
+	Available *int `json:"available,omitempty"`
+
+	// Compacted True when this snapshot follows a successful compaction.
+	Compacted     *bool `json:"compacted,omitempty"`
+	ContextWindow *int  `json:"context_window,omitempty"`
+
+	// Estimated Chars/4 prompt estimate after the run, when available.
+	Estimated *int `json:"estimated,omitempty"`
+
+	// Reason Present when status is skipped.
+	Reason *ContextCompactionResultReason `json:"reason,omitempty"`
+	Status ContextCompactionResultStatus  `json:"status"`
+}
+
+// ContextCompactionResultReason Present when status is skipped.
+type ContextCompactionResultReason string
+
+// ContextCompactionResultStatus defines model for ContextCompactionResult.Status.
+type ContextCompactionResultStatus string
 
 // CreateJobRequest defines model for CreateJobRequest.
 type CreateJobRequest struct {
@@ -1925,6 +1986,10 @@ type SearchMemoryRequest struct {
 type Session struct {
 	// AgentMode Active agent mode for the session. `auto` unless the user switched this session to `plan`.
 	AgentMode AgentMode `json:"agent_mode"`
+
+	// Compacting Whether a manual context compaction holds the run lease. There is no chat
+	// stream to resume while this is true.
+	Compacting *bool `json:"compacting,omitempty"`
 
 	// CreatedAt Unix epoch milliseconds.
 	CreatedAt        int64                    `json:"created_at"`
