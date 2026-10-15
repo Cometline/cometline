@@ -8,7 +8,7 @@ export interface AppToast {
 	onOpen?: () => void;
 }
 
-const TOAST_DURATION_MS = 10_000;
+const TOAST_DURATION_MS = 5_000;
 const MAX_TOASTS = 3;
 
 function createAppToastStore() {

@@ -39,6 +39,16 @@ describe('AppToast', () => {
 		).toBe(true);
 	});
 
+	it('dismisses a notice after 5 seconds', () => {
+		vi.useFakeTimers();
+		appToastStore.success('Context compacted', compactDetail);
+
+		vi.advanceTimersByTime(4_999);
+		expect(appToastStore.toasts).toHaveLength(1);
+		vi.advanceTimersByTime(1);
+		expect(appToastStore.toasts).toHaveLength(0);
+	});
+
 	it('holds an expanded toast until it is released', () => {
 		vi.useFakeTimers();
 		appToastStore.success('Context compacted', compactDetail);
@@ -46,11 +56,11 @@ describe('AppToast', () => {
 		expect(id).toBeTruthy();
 
 		appToastStore.hold(id!);
-		vi.advanceTimersByTime(11_000);
+		vi.advanceTimersByTime(6_000);
 		expect(appToastStore.toasts.map((toast) => toast.id)).toContain(id);
 
 		appToastStore.release(id!);
-		vi.advanceTimersByTime(11_000);
+		vi.advanceTimersByTime(6_000);
 		expect(appToastStore.toasts.map((toast) => toast.id)).not.toContain(id);
 	});
 });
