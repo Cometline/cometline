@@ -407,6 +407,12 @@ export type Session = {
      */
     running: boolean;
     /**
+     * Whether a manual context compaction holds the run lease. There is no chat
+     * stream to resume while this is true.
+     *
+     */
+    compacting?: boolean;
+    /**
      * Unix epoch milliseconds.
      */
     created_at: number;
@@ -1125,6 +1131,24 @@ export type CompactMemoryPreviewResponse = {
     to_merge: Array<Array<MemoryResource>>;
     active: number;
     max_memories: number;
+};
+
+export type ContextCompactionResult = {
+    status: 'compacted' | 'skipped';
+    /**
+     * Present when status is skipped.
+     */
+    reason?: 'no_prefix' | 'empty_prefix' | 'cancelled';
+    /**
+     * Chars/4 prompt estimate after the run, when available.
+     */
+    estimated?: number;
+    available?: number;
+    context_window?: number;
+    /**
+     * True when this snapshot follows a successful compaction.
+     */
+    compacted?: boolean;
 };
 
 export type MemoryCompactionResult = {
@@ -2814,6 +2838,44 @@ export type ListChildSessionsResponses = {
 };
 
 export type ListChildSessionsResponse = ListChildSessionsResponses[keyof ListChildSessionsResponses];
+
+export type CompactSessionContextData = {
+    body?: never;
+    path: {
+        /**
+         * Persisted CometMind session identifier.
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/sessions/{id}/context-compactions';
+};
+
+export type CompactSessionContextErrors = {
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Session is already running
+     */
+    409: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type CompactSessionContextError = CompactSessionContextErrors[keyof CompactSessionContextErrors];
+
+export type CompactSessionContextResponses = {
+    /**
+     * Compaction finished or skipped
+     */
+    200: ContextCompactionResult;
+};
+
+export type CompactSessionContextResponse = CompactSessionContextResponses[keyof CompactSessionContextResponses];
 
 export type AbortSessionData = {
     body?: never;

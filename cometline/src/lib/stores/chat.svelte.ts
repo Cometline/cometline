@@ -101,7 +101,8 @@ function createChatStore() {
 		revealStagedUserForSession: turns.revealStagedUserForSession,
 		send: runner.send,
 		cancel: runner.cancel,
-		cancelSubagent: runner.cancelSubagent
+		cancelSubagent: runner.cancelSubagent,
+		noteContextBudget: turns.noteContextBudget
 	};
 }
 

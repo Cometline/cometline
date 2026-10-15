@@ -1,3 +1,4 @@
+import { contextCompactionStore } from '#lib/features/chat/context-compaction.svelte.js';
 import { connectionState } from '#lib/stores/runtime.svelte.js';
 import { shellStore } from '#lib/stores/shell.svelte.js';
 import { chatStore } from '#lib/stores/chat.svelte.js';
@@ -42,6 +43,7 @@ export function createChatViewController(deps: {
 
 	const sessionRunActive = $derived(
 		chatStore.isStreamingFor(deps.getSessionId()) ||
+			contextCompactionStore.isCompacting(deps.getSessionId()) ||
 			(sessionStore.sessions.find((session) => session.id === deps.getSessionId())?.running ??
 				false)
 	);

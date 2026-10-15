@@ -12,6 +12,7 @@
 	import ComposerMentionMenu from '#lib/features/composer/components/ComposerMentionMenu.svelte';
 	import ComposerToolbar from '#lib/features/composer/components/ComposerToolbar.svelte';
 	import ComposerDropFeedback from '#lib/features/composer/components/composer/ComposerDropFeedback.svelte';
+	import AssistantThinkingWait from '#lib/features/chat/components/AssistantThinkingWait.svelte';
 	import MessageContextChips from '#lib/features/chat/components/MessageContextChips.svelte';
 	import { messageContextRefsFromPending } from '#lib/features/chat/message-context.js';
 	import { chatStore } from '#lib/stores/chat.svelte.js';
@@ -40,6 +41,8 @@
 		onModelChange,
 		onWorkspaceChanged,
 		onTranscriptCleared,
+		onCompact,
+		activityLabel = '',
 		sessionId = '',
 		disabled = false,
 		streaming = false,
@@ -53,6 +56,8 @@
 		onModelChange?: (option: ModelOption) => void | Promise<void>;
 		onWorkspaceChanged?: () => void | Promise<void>;
 		onTranscriptCleared?: () => void;
+		onCompact?: () => void;
+		activityLabel?: string;
 		sessionId?: string;
 		disabled?: boolean;
 		streaming?: boolean;
@@ -197,6 +202,7 @@
 		onModelChange: (option) => turn.changeModel(option),
 		onWorkspaceChanged: () => onWorkspaceChanged?.(),
 		onTranscriptCleared: () => onTranscriptCleared?.(),
+		onCompact: () => onCompact?.(),
 		setDropMessage: (message) => attachments.setDropMessage(message),
 		focusInput,
 		getSkillMenuRef: () => skillMenu
@@ -259,6 +265,7 @@
 	bind:this={composerEl}
 	class="composer"
 	class:hero={variant === 'hero'}
+	class:has-activity={activityLabel !== ''}
 	class:plan={agentMode === 'plan'}
 	class:dragging={attachments.dragActive}
 	role="group"
@@ -277,6 +284,16 @@
 
 	<ComposerSlashMenus {slash} bind:menuRef={skillMenu} />
 	<ComposerMentionMenu {mentions} bind:menuRef={mentionMenu} />
+
+	{#if activityLabel}
+		<div class="composer-activity">
+			<AssistantThinkingWait
+				label={activityLabel}
+				detail={activityLabel}
+				phase="running_tools"
+			/>
+		</div>
+	{/if}
 
 	<MessageQueuePanel {queuedCount} {queuedMessages} onRemove={removeQueued} />
 
@@ -394,9 +411,25 @@
 		color: var(--text-muted);
 	}
 
+	.composer.has-activity {
+		padding-top: 8px;
+	}
+
+	.composer-activity {
+		margin: 0;
+	}
+
+	.composer-activity :global(.assistant-thinking-wait) {
+		padding: 0;
+	}
+
 	.composer.hero {
 		padding: 24px 24px 16px;
 		border-radius: 24px;
 		box-shadow: 0 18px 60px rgba(15, 23, 42, 0.12);
+	}
+
+	.composer.hero.has-activity {
+		padding-top: 10px;
 	}
 </style>

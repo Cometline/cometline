@@ -2,6 +2,7 @@ import {
 	abortSession as abortSessionApi,
 	compactMemory as compactMemoryApi,
 	compactMemoryPreview as compactMemoryPreviewApi,
+	compactSessionContext as compactSessionContextApi,
 	clearSession as clearSessionApi,
 	createMemory as createMemoryApi,
 	createSession as createSessionApi,
@@ -83,6 +84,7 @@ import {
 } from '#lib/generated/cometmind-api/index.js';
 import type {
 	CompactMemoryPreviewResponse,
+	ContextCompactionResult,
 	MemoryCompactionResult,
 	CreateMemoryRequest,
 	CreateSessionRequest,
@@ -514,6 +516,15 @@ export async function clearSession(sessionId: string): Promise<void> {
 		path: { id: sessionId },
 		throwOnError: true
 	});
+}
+
+export function compactSessionContext(sessionId: string): Promise<ContextCompactionResult> {
+	return withApiError(
+		compactSessionContextApi({
+			path: { id: sessionId },
+			throwOnError: true
+		}).then(({ data }) => data)
+	);
 }
 
 export function listArchivedSkills(): Promise<Skill[]> {

@@ -7,6 +7,7 @@ import {
 	isJobCommand,
 	isModelCommand,
 	parseChangeCommand,
+	parseCompactCommand,
 	parseJobCommand,
 	parseModelCommand,
 	scoreSlashMenuMatch
@@ -18,6 +19,12 @@ describe('filterSlashMenuOptions', () => {
 		{ name: 'cometline-promo-writer', description: 'Write promo posts for product changes' },
 		{ name: 'changelog', description: 'Draft release notes' }
 	];
+
+	it('accepts only a bare compact command', () => {
+		expect(parseCompactCommand('/compact')).toBe(true);
+		expect(parseCompactCommand('/compact extra')).toBe(false);
+		expect(parseCompactCommand('/clear')).toBe(false);
+	});
 
 	it('ranks an exact system command first and drops description-only skills', () => {
 		const options = filterSlashMenuOptions('change', skills);

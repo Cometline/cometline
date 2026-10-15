@@ -7,7 +7,7 @@
  */
 
 import { tick } from 'svelte';
-import { getSession } from '#lib/client/cometmind.js';
+import { CometMindApiError, compactSessionContext, getSession } from '#lib/client/cometmind.js';
 import { commitSidebarWorkspaceForSession } from '#lib/actions/commit-sidebar-workspace.js';
 import {
 	createChatTurnQueue,
@@ -20,6 +20,9 @@ import { shellStore } from '#lib/stores/shell.svelte.js';
 import type { ImageAttachment } from '#lib/types.js';
 import type { ChatTurnPayload } from '#lib/actions/start-chat.js';
 import { messageContextRefsFromWebContexts } from '#lib/features/chat/message-context.js';
+import { compactionFeedback } from '#lib/features/chat/context-compaction.js';
+import { contextCompactionStore } from '#lib/features/chat/context-compaction.svelte.js';
+import { appToastStore } from '#lib/stores/app-toasts.svelte.js';
 
 export type { ChatTurnPayload } from '#lib/actions/start-chat.js';
 export type { QueuedMessage } from '#lib/actions/chat-turn-queue.js';
@@ -44,7 +47,7 @@ export interface ConversationControllerDeps {
 		sessionId: string,
 		payload: ChatTurnPayload | string,
 		opts?: { skipUser?: boolean; onConflict?: () => void }
-	) => Promise<void | 'session_running'>;
+	) => Promise<void | 'session_running' | 'session_compacting'>;
 	refreshSession: (sessionId: string) => Promise<void>;
 	flight?: ConversationFlightAdapter;
 	onQueueChange?: () => void;
@@ -69,6 +72,7 @@ export interface ConversationController {
 	removeQueued(id: string): boolean;
 	clearQueue(): void;
 	cancel(): void;
+	compact(): void;
 }
 
 const turnQueues = new Map<string, ChatTurnQueue>();
@@ -94,17 +98,27 @@ async function runTurn(
 	const startSend = () => {
 		if (!sendPromise) {
 			sendPromise = (async () => {
-				// session_running rejects before persistence. Once send has followed that
-				// run to completion, retry the same payload and restage its user row.
+				// session_running rejects before persistence and refreshes the transcript,
+				// which drops the optimistic user row, so that retry must restage it.
+				// session_compacting does not refresh, so the shown row must stay.
+				let keepShownUser = false;
 				while (true) {
+					const skipUser =
+						keepShownUser || (sendAttempts === 0 && (usesFlight || firstTurn));
 					const opts: { skipUser?: boolean; onConflict?: () => void } = {
-						skipUser: sendAttempts === 0 ? (usesFlight ? true : firstTurn) : false
+						skipUser
 					};
 					if (deps.onTurnRejected) {
 						opts.onConflict = () => deps.onTurnRejected?.(turnSessionId, payload);
 					}
 					sendAttempts += 1;
 					const outcome = await deps.send(turnSessionId, payloadOrText, opts);
+					if (outcome === 'session_compacting') {
+						keepShownUser = true;
+						await waitForContextCompaction(turnSessionId);
+						continue;
+					}
+					keepShownUser = false;
 					if (outcome !== 'session_running') return;
 				}
 			})();
@@ -244,9 +258,11 @@ export function createConversationController(
 				let running =
 					sessionStore.sessions.find((session) => session.id === sessionId)?.running ??
 					false;
+				let compacting = contextCompactionStore.isCompacting(sessionId);
 				try {
 					const latest = await getSession(sessionId);
 					running = latest.running;
+					compacting = compacting || Boolean(latest.compacting);
 					sessionStore.updateSession(latest);
 				} catch {
 					// Transcript loading retains the existing not-found and retry behavior.
@@ -254,7 +270,9 @@ export function createConversationController(
 				if (!this.shouldSkipTranscriptLoad()) {
 					await chatStore.loadTranscript(sessionId);
 				}
-				if (running) await chatStore.resumeRun(sessionId);
+				if (running && !compacting) {
+					await chatStore.resumeRun(sessionId);
+				}
 			})();
 			queue.blockUntil(activation);
 		},
@@ -297,8 +315,73 @@ export function createConversationController(
 
 		cancel() {
 			void chatStore.cancel(deps.getSessionId());
+		},
+
+		compact() {
+			const sessionId = deps.getSessionId();
+			if (!sessionId || contextCompactionStore.isCompacting(sessionId)) return;
+			if (chatStore.isStreamingFor(sessionId) || chatStore.hasInFlightTurn(sessionId)) return;
+			const current = sessionStore.sessions.find((session) => session.id === sessionId);
+			if (current?.running && !current.compacting) return;
+			const queue = ensureQueue(sessionId, deps);
+			if (queue.processing) return;
+
+			contextCompactionStore.begin(sessionId);
+			if (current) {
+				sessionStore.updateSession({ ...current, running: true, compacting: true });
+			} else {
+				sessionStore.setRunning(sessionId, true);
+			}
+			queue.blockUntil(runContextCompaction(sessionId));
 		}
 	};
+}
+
+async function runContextCompaction(sessionId: string): Promise<void> {
+	try {
+		const result = await compactSessionContext(sessionId);
+		const feedback = compactionFeedback(result);
+		if (feedback?.tone === 'success') appToastStore.success(feedback.label, feedback.detail);
+		if (feedback?.tone === 'warning') appToastStore.warning(feedback.label, feedback.detail);
+		if (feedback?.tone === 'error') appToastStore.error(feedback.label, feedback.detail);
+		if (result.status === 'compacted' && result.context_window) {
+			chatStore.noteContextBudget(sessionId, {
+				estimated: result.estimated ?? 0,
+				available: result.available ?? 0,
+				contextWindow: result.context_window,
+				compacted: result.status === 'compacted'
+			});
+		}
+	} catch (err) {
+		if (err instanceof CometMindApiError && err.status === 409) return;
+		const detail = err instanceof Error ? err.message : 'Context compaction failed';
+		appToastStore.error('Could not compact context', detail);
+	} finally {
+		contextCompactionStore.end(sessionId);
+		try {
+			const latest = await getSession(sessionId);
+			sessionStore.updateSession(latest);
+		} catch {
+			const existing = sessionStore.sessions.find((session) => session.id === sessionId);
+			if (existing) {
+				sessionStore.updateSession({ ...existing, running: false, compacting: false });
+			}
+		}
+	}
+}
+
+async function waitForContextCompaction(sessionId: string): Promise<void> {
+	const deadline = Date.now() + 5 * 60_000;
+	while (Date.now() < deadline) {
+		try {
+			const latest = await getSession(sessionId);
+			sessionStore.updateSession(latest);
+			if (!latest.compacting) return;
+		} catch {
+			return;
+		}
+		await new Promise((resolve) => setTimeout(resolve, 500));
+	}
 }
 
 /** Refresh session metadata after a turn (title, etc.). */

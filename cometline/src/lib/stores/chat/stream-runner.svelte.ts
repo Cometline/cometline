@@ -6,11 +6,17 @@ import {
 } from '#lib/client/cometmind.js';
 import type { ChatItem } from '#lib/types.js';
 import type { ChatTurnPayload } from '#lib/actions/start-chat.js';
+import { contextCompactionStore } from '#lib/features/chat/context-compaction.svelte.js';
 import { messageContextRefsFromWebContexts } from '#lib/features/chat/message-context.js';
 import { sessionStore } from '#lib/stores/session.svelte.js';
 import { localID } from '#lib/stores/chat-transcript.js';
 import type { SessionStream } from '#lib/stores/chat-stream-types.js';
-import { isAbortError, isRunConflict, isSessionRunningConflict } from './chat-errors';
+import {
+	isAbortError,
+	isRunConflict,
+	isSessionCompactingConflict,
+	isSessionRunningConflict
+} from './chat-errors';
 import type { AssistantItem } from './chat-turn';
 import type { ChatState } from './chat-state.svelte';
 import type { SessionCache } from './session-cache.svelte';
@@ -31,7 +37,7 @@ export function createStreamRunner(
 		nextSessionID: string,
 		payloadOrText: ChatTurnPayload | string,
 		opts?: { skipUser?: boolean; onConflict?: () => void }
-	): Promise<void | 'session_running'> {
+	): Promise<void | 'session_running' | 'session_compacting'> {
 		const payload = typeof payloadOrText === 'string' ? { text: payloadOrText } : payloadOrText;
 		const text = payload.text;
 		const displayText = payload.displayText ?? text;
@@ -125,6 +131,11 @@ export function createStreamRunner(
 				return;
 			}
 			if (isRunConflict(err)) {
+				if (isSessionCompactingConflict(err)) {
+					applyEventToSession(nextSessionID, { type: 'done' }, ctx);
+					cache.unmarkStreaming(nextSessionID);
+					return 'session_compacting';
+				}
 				const sessionRunning = isSessionRunningConflict(err);
 				if (!sessionRunning) opts?.onConflict?.();
 				applyEventToSession(nextSessionID, { type: 'done' }, ctx);
@@ -258,7 +269,14 @@ export function createStreamRunner(
 		const handle = state.streamHandles.get(id);
 		const running =
 			sessionStore.sessions.find((session) => session.id === id)?.running ?? false;
-		if (!handle && !cache.isStreamingFor(id) && !running) return;
+		if (
+			!handle &&
+			!cache.isStreamingFor(id) &&
+			!running &&
+			!contextCompactionStore.isCompacting(id)
+		) {
+			return;
+		}
 
 		handle?.abort.abort();
 		try {
