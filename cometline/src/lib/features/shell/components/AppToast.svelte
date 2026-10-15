@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Attachment } from 'svelte/attachments';
 	import { CircleAlert, CircleCheck, TriangleAlert, X } from '@lucide/svelte';
 	import { appToastStore, type AppToastTone } from '#lib/stores/app-toasts.svelte.js';
 
@@ -8,9 +9,43 @@
 		error: CircleAlert
 	} satisfies Record<AppToastTone, typeof CircleCheck>;
 
+	let expanded = $state<Record<string, boolean>>({});
+	let overflow = $state<Record<string, boolean>>({});
+
 	function open(id: string, onOpen?: () => void) {
 		onOpen?.();
 		appToastStore.dismiss(id);
+	}
+
+	// Line-clamp clips inside the text node, so the body box itself does not overflow.
+	function trackOverflow(id: string, isExpanded: () => boolean): Attachment {
+		return (node) => {
+			const measure = () => {
+				if (isExpanded()) return;
+				const clipped = [...node.querySelectorAll('.toast-label, .toast-detail')].some(
+					(el) => el.scrollHeight > el.clientHeight + 1
+				);
+				if (overflow[id] !== clipped) overflow[id] = clipped;
+			};
+			const observer = new ResizeObserver(() => requestAnimationFrame(measure));
+			observer.observe(node);
+			const frame = requestAnimationFrame(measure);
+			return () => {
+				cancelAnimationFrame(frame);
+				observer.disconnect();
+			};
+		};
+	}
+
+	function activate(id: string, onOpen?: () => void) {
+		if (onOpen) {
+			open(id, onOpen);
+			return;
+		}
+		const next = !expanded[id];
+		expanded[id] = next;
+		if (next) appToastStore.hold(id);
+		else appToastStore.release(id);
 	}
 </script>
 
@@ -18,17 +53,26 @@
 	<div class="toast-container" aria-live="polite" aria-label="Notifications">
 		{#each appToastStore.toasts as toast (toast.id)}
 			{@const Icon = icons[toast.tone]}
-			<div class="toast" class:actionable={!!toast.onOpen} data-tone={toast.tone}>
+			{@const isExpanded = !!expanded[toast.id]}
+			{@const canExpand = !toast.onOpen && (!!overflow[toast.id] || isExpanded)}
+			<div
+				class={[
+					'toast',
+					{ actionable: !!toast.onOpen, expandable: canExpand, expanded: isExpanded }
+				]}
+				data-tone={toast.tone}
+			>
 				<button
 					class="toast-open"
 					type="button"
-					disabled={!toast.onOpen}
-					onclick={() => open(toast.id, toast.onOpen)}
+					disabled={!toast.onOpen && !canExpand}
+					aria-expanded={canExpand ? isExpanded : undefined}
+					onclick={() => activate(toast.id, toast.onOpen)}
 				>
 					<span class="toast-icon">
 						<Icon size={17} strokeWidth={2} aria-hidden="true" />
 					</span>
-					<span class="toast-body">
+					<span class="toast-body" {@attach trackOverflow(toast.id, () => isExpanded)}>
 						<span class="toast-label">{toast.label}</span>
 						{#if toast.detail}
 							<span class="toast-detail">{toast.detail}</span>
@@ -89,12 +133,34 @@
 		color: inherit;
 	}
 
-	.toast.actionable .toast-open {
+	.toast.actionable .toast-open,
+	.toast.expandable .toast-open {
 		cursor: pointer;
 	}
 
-	.toast.actionable .toast-open:hover {
+	.toast.actionable .toast-open:hover,
+	.toast.expandable .toast-open:hover {
 		background: rgba(15, 23, 42, 0.04);
+	}
+
+	.toast:has(.toast-detail),
+	.toast.expanded {
+		align-items: flex-start;
+	}
+
+	.toast:has(.toast-detail) .toast-open,
+	.toast.expanded .toast-open {
+		align-items: flex-start;
+	}
+
+	.toast:has(.toast-detail) .toast-icon,
+	.toast.expanded .toast-icon {
+		margin-top: 0.0625rem;
+	}
+
+	.toast:has(.toast-detail) .toast-dismiss,
+	.toast.expanded .toast-dismiss {
+		margin-top: 0.125rem;
 	}
 
 	.toast-open:disabled {
@@ -124,9 +190,12 @@
 
 	.toast-label,
 	.toast-detail {
+		display: -webkit-box;
 		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 2;
+		white-space: normal;
+		overflow-wrap: break-word;
 	}
 
 	.toast-label {
@@ -136,8 +205,16 @@
 	}
 
 	.toast-detail {
+		-webkit-line-clamp: 3;
 		font-size: 0.75rem;
 		color: var(--text-muted);
+	}
+
+	.toast.expanded .toast-label,
+	.toast.expanded .toast-detail {
+		display: block;
+		overflow: visible;
+		-webkit-line-clamp: unset;
 	}
 
 	.toast-dismiss {

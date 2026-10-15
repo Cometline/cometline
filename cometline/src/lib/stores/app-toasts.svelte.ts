@@ -15,11 +15,27 @@ function createAppToastStore() {
 	let toasts = $state<AppToast[]>([]);
 	const timers = new Map<string, ReturnType<typeof setTimeout>>();
 
-	function dismiss(id: string) {
+	function clearTimer(id: string) {
 		const timer = timers.get(id);
 		if (timer) clearTimeout(timer);
 		timers.delete(id);
+	}
+
+	function dismiss(id: string) {
+		clearTimer(id);
 		toasts = toasts.filter((toast) => toast.id !== id);
+	}
+
+	function hold(id: string) {
+		clearTimer(id);
+	}
+
+	function release(id: string) {
+		if (timers.has(id) || !toasts.some((toast) => toast.id === id)) return;
+		timers.set(
+			id,
+			setTimeout(() => dismiss(id), TOAST_DURATION_MS)
+		);
 	}
 
 	function push(label: string, detail = '', tone: AppToastTone = 'success', onOpen?: () => void) {
@@ -56,7 +72,9 @@ function createAppToastStore() {
 		success,
 		warning,
 		error,
-		dismiss
+		dismiss,
+		hold,
+		release
 	};
 }
 
