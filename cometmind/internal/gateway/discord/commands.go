@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/Cometline/cometline/cometmind/internal/gateway"
 	"github.com/Cometline/cometline/cometmind/internal/logging"
@@ -178,6 +179,30 @@ func (a *Adapter) handleClearCommand(s *discordgo.Session, i *discordgo.Interact
 	}
 
 	respondEphemeral(s, i, text)
+}
+
+func (a *Adapter) handleCompactCommand(s *discordgo.Session, i *discordgo.InteractionCreate, _ discordgo.ApplicationCommandInteractionData) {
+	if a.onCompact == nil {
+		respondEphemeral(s, i, "Context compaction is not configured.")
+		return
+	}
+	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{Flags: discordgo.MessageFlagsEphemeral},
+	}); err != nil {
+		logging.L().Warn("discord.compact.defer_failed", zap.Error(err))
+		return
+	}
+	msg := routingInboundMessage(s, i)
+	compactCtx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
+	defer cancel()
+	text, err := a.onCompact(compactCtx, msg)
+	if err != nil {
+		text = fmt.Sprintf("Failed to compact context: %v", err)
+	}
+	if _, editErr := s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &text}); editErr != nil {
+		logging.L().Warn("discord.compact.edit_response_failed", zap.Error(editErr))
+	}
 }
 
 func (a *Adapter) handleStopCommand(s *discordgo.Session, i *discordgo.InteractionCreate, _ discordgo.ApplicationCommandInteractionData) {

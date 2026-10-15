@@ -91,6 +91,58 @@ func (b *EventBridge) ClearSession(ctx context.Context, sessionID string) error 
 	return nil
 }
 
+type contextCompactionResponse struct {
+	Status string `json:"status"`
+	Reason string `json:"reason"`
+}
+
+// CompactSession asks the serve process to fold older context for a session.
+// The call waits for the summary, so callers should use a long timeout.
+func (b *EventBridge) CompactSession(ctx context.Context, sessionID string) (contextCompactionResponse, error) {
+	if b == nil {
+		return contextCompactionResponse{}, fmt.Errorf("event bridge is required")
+	}
+	baseURL := b.BaseURL
+	if baseURL == "" {
+		baseURL = DefaultServeURL
+	}
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		fmt.Sprintf("%s/api/v1/sessions/%s/context-compactions", baseURL, url.PathEscape(sessionID)),
+		nil,
+	)
+	if err != nil {
+		return contextCompactionResponse{}, err
+	}
+	client := b.Client
+	if client == nil {
+		client = http.DefaultClient
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return contextCompactionResponse{}, err
+	}
+	defer resp.Body.Close()
+	var raw struct {
+		Status string `json:"status"`
+		Reason string `json:"reason"`
+		Error  struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	_ = json.NewDecoder(resp.Body).Decode(&raw)
+	body := contextCompactionResponse{Status: raw.Status, Reason: raw.Reason}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		message := raw.Error.Message
+		if message == "" {
+			message = fmt.Sprintf("compact session: HTTP %d", resp.StatusCode)
+		}
+		return body, fmt.Errorf("%s", message)
+	}
+	return body, nil
+}
+
 func (f *EventForwarder) Forward(ev event.Event) {
 	if f == nil {
 		return
