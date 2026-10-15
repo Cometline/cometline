@@ -13,6 +13,10 @@ const MaxToolResultPromptRunes = 4000
 // RecentWindowMaxRatio is the share of available input budget reserved for verbatim recent history.
 const RecentWindowMaxRatio = 0.45
 
+// CompactKeepTokens is the recent conversation kept beside a compaction summary.
+// Same budget for automatic and manual compaction, matching OpenCode's keep.tokens.
+const CompactKeepTokens = 15_000
+
 // MinRecentUserTurns is the minimum number of user turns kept verbatim even when over budget.
 const MinRecentUserTurns = 1
 

@@ -182,6 +182,7 @@ type sessionResource struct {
 	SubagentKind     string             `json:"subagent_kind,omitempty"`
 	Gateway          *gatewayResource   `json:"gateway,omitempty"`
 	Running          bool               `json:"running"`
+	Compacting       bool               `json:"compacting,omitempty"`
 	Pinned           bool               `json:"pinned"`
 	CreatedAt        int64              `json:"created_at"`
 	UpdatedAt        int64              `json:"updated_at"`

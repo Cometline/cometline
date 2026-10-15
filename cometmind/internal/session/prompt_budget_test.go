@@ -8,6 +8,31 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/db"
 )
 
+func TestRecentWindowStartForKeep_keepsAboutFifteenThousandTokens(t *testing.T) {
+	t.Parallel()
+
+	rows := []db.Message{
+		{ID: "old", Role: "user", Content: strings.Repeat("x", sessionKeepRunes())},
+		{ID: "recent", Role: "user", Content: "still working"},
+	}
+	got := RecentWindowStartForKeep(rows, nil, CompactKeepTokens)
+	if got != 1 || rows[got].ID != "recent" {
+		t.Fatalf("recent start = %d (%q), want recent", got, rows[got].ID)
+	}
+
+	short := []db.Message{
+		{ID: "u1", Role: "user", Content: "hello"},
+		{ID: "u2", Role: "user", Content: "still here"},
+	}
+	if got := RecentWindowStartForKeep(short, nil, CompactKeepTokens); got != 0 {
+		t.Fatalf("short transcript start = %d, want 0", got)
+	}
+}
+
+func sessionKeepRunes() int {
+	return CompactKeepTokens * 4
+}
+
 func TestRecentWindowStartForBudget_shrinksHugeTurn(t *testing.T) {
 	huge := strings.Repeat("x", MaxToolResultPromptRunes*20)
 	payload, err := json.Marshal(toolResultPayload{ToolCallID: "tc1", Content: huge})

@@ -7,6 +7,44 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/db"
 )
 
+// RecentWindowStartForKeep returns the first index to keep verbatim beside a
+// compaction summary. The kept suffix is about keepTokens. A start of 0 means
+// the whole transcript already fits, so there is nothing older to fold.
+// The window never starts on a tool_result.
+func RecentWindowStartForKeep(rows []db.Message, callsByMessage map[string][]db.ToolCall, keepTokens int) int {
+	if len(rows) == 0 {
+		return 0
+	}
+	if keepTokens <= 0 {
+		for i := len(rows) - 1; i >= 0; i-- {
+			if rows[i].Role != "tool_result" {
+				return i
+			}
+		}
+		return 0
+	}
+
+	start := len(rows)
+	for i := len(rows) - 1; i >= 0; i-- {
+		if rows[i].Role == "tool_result" {
+			continue
+		}
+		if EstimateRowsTokens(rows[i:], callsByMessage) > keepTokens {
+			break
+		}
+		start = i
+	}
+	if start == len(rows) {
+		for i := len(rows) - 1; i >= 0; i-- {
+			if rows[i].Role != "tool_result" {
+				return i
+			}
+		}
+		return 0
+	}
+	return start
+}
+
 // RecentWindowStartForBudget chooses the recent verbatim window start index.
 // It preserves up to maxUserTurns, but shrinks the window when estimated tokens
 // would exceed RecentWindowMaxRatio of the available input budget.

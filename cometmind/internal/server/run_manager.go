@@ -17,12 +17,17 @@ type RunManager struct {
 	mu         sync.Mutex
 	nextID     uint64
 	cancels    map[string]runHandle
+	compacting map[string]struct{}
 	state      *runstate.Service
 	onFinished func(sessionID, runID string)
 }
 
 func NewRunManager(state *runstate.Service) *RunManager {
-	return &RunManager{cancels: make(map[string]runHandle), state: state}
+	return &RunManager{
+		cancels:    make(map[string]runHandle),
+		compacting: make(map[string]struct{}),
+		state:      state,
+	}
 }
 
 func (m *RunManager) SetOnFinished(fn func(sessionID, runID string)) {
@@ -41,6 +46,10 @@ func (m *RunManager) notifyFinished(sessionID, runID string) {
 }
 
 func (m *RunManager) Start(parent context.Context, sessionID string) (context.Context, func(), error) {
+	return m.start(parent, sessionID, true)
+}
+
+func (m *RunManager) start(parent context.Context, sessionID string, notify bool) (context.Context, func(), error) {
 	lease, err := m.state.Acquire(parent, sessionID, runstate.OwnerHTTP)
 	if err != nil {
 		return nil, nil, err
@@ -58,12 +67,45 @@ func (m *RunManager) Start(parent context.Context, sessionID string) (context.Co
 			delete(m.cancels, sessionID)
 		}
 		m.mu.Unlock()
-		if lease.Finish() {
+		if lease.Finish() && notify {
 			m.notifyFinished(sessionID, lease.RunID())
 		}
 	}
 
 	return lease.Context(), finish, nil
+}
+
+// StartCompaction claims the session run lease for a manual context compaction.
+// The lease blocks new turns, but this run is not a chat stream, so finishing it
+// does not publish run_finished.
+func (m *RunManager) StartCompaction(parent context.Context, sessionID string) (context.Context, func(), error) {
+	ctx, finish, err := m.start(parent, sessionID, false)
+	if err != nil {
+		return nil, nil, err
+	}
+	m.mu.Lock()
+	m.compacting[sessionID] = struct{}{}
+	m.mu.Unlock()
+	var once sync.Once
+	return ctx, func() {
+		once.Do(func() {
+			m.mu.Lock()
+			delete(m.compacting, sessionID)
+			m.mu.Unlock()
+			finish()
+		})
+	}, nil
+}
+
+// Compacting reports whether sessionID is in a manual context compaction.
+func (m *RunManager) Compacting(sessionID string) bool {
+	if m == nil {
+		return false
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	_, ok := m.compacting[sessionID]
+	return ok
 }
 
 // Release removes a run owned by another process and emits the same lifecycle
