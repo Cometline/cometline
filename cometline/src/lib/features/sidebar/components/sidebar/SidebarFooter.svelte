@@ -39,8 +39,7 @@
 			onclick={() => {
 				skillUpdatesStore.markSeen();
 				void goto(resolve('skills'));
-			}}
-			><Sparkles size={16} stroke-width={1.8} /></button
+			}}><Sparkles size={16} stroke-width={1.8} /></button
 		>
 	</Tooltip>
 	<Tooltip label="Gallery" action="openGallery">
