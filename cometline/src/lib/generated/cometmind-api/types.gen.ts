@@ -582,6 +582,10 @@ export type Skill = {
     status?: 'active' | 'stale' | 'archived';
     pinned?: boolean;
     /**
+     * Unix milliseconds when an unpinned self-improvement skill is archived or an archived one is deleted. Omitted when pinned or not self-improvement.
+     */
+    expires_at?: number;
+    /**
      * Optional tags from the skill frontmatter, used by the skills page filter.
      */
     tags?: Array<string>;

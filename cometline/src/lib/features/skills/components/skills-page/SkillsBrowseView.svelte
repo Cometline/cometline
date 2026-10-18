@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { SkillsPageController } from '#lib/features/skills/skills-page-controller.svelte.js';
 	import type { SkillResource } from '#lib/types.js';
+	import { skillExpiryLabel } from '#lib/features/skills/skill-expiry.js';
 	import { skillUpdatesStore } from '#lib/stores/skill-updates.svelte.js';
 	import SkillsListPanel from './SkillsListPanel.svelte';
 	import SkillsListRow from './SkillsListRow.svelte';
@@ -14,9 +15,25 @@
 			: `${controller.filteredSkills.length} / ${controller.skills.length}`
 	);
 
+	function previewNotice(page: SkillsPageController): string {
+		const skill = page.selectedSkill?.skill;
+		if (!skill) return '';
+		if (!page.canEditSkill) return 'This bundled skill is read-only.';
+		if (skill.origin !== 'self-improvement') return '';
+		if (skill.pinned) return 'Pinned. This skill does not expire.';
+		return skillExpiryLabel(skill.expires_at, skill.status, Date.now(), skill.pinned);
+	}
+
 	function badgesFor(skill: SkillResource): string[] {
 		const badges: string[] = [];
 		if (skill.origin === 'self-improvement') badges.push('self-improvement');
+		const expiry = skillExpiryLabel(
+			skill.expires_at,
+			skill.status,
+			Date.now(),
+			skill.pinned
+		);
+		if (expiry) badges.push(expiry);
 		if (skill.status === 'stale') badges.push('stale');
 		if (skill.pinned) badges.push('pinned');
 		if (skill.is_symlink) badges.push('symlink');
@@ -81,7 +98,7 @@
 	emptyLabel="Select a skill to preview it."
 	item={controller.selectedSkill?.skill ?? null}
 	path={controller.selectedSkill?.skill.path}
-	notice={controller.canEditSkill ? '' : 'This bundled skill is read-only.'}
+	notice={previewNotice(controller)}
 	readonly={!controller.canEditSkill}
 	bind:value={controller.skillContent}
 >
@@ -129,8 +146,14 @@
 	<section class="archived-skills">
 		<h2>Archived</h2>
 		{#each controller.archived as skill (skill.name)}
+			{@const expiry = skillExpiryLabel(skill.expires_at, 'archived', Date.now(), skill.pinned)}
 			<div class="archived-row">
-				<span>{skill.name}</span>
+				<span>
+					{skill.name}
+					{#if expiry}
+						<span class="expiry">{expiry}</span>
+					{/if}
+				</span>
 				<button
 					type="button"
 					class="secondary"
@@ -147,6 +170,11 @@
 	.archived-skills {
 		grid-column: 1 / -1;
 		margin-top: 12px;
+	}
+
+	.expiry {
+		margin-left: 8px;
+		color: var(--text-muted);
 	}
 
 	.archived-row {

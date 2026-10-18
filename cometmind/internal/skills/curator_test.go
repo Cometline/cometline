@@ -41,6 +41,30 @@ func TestPlanCuratorTransitions(t *testing.T) {
 	}
 }
 
+func TestExpiresAt(t *testing.T) {
+	now := time.Date(2026, 10, 8, 0, 0, 0, 0, time.UTC)
+	created := now.Add(-10 * 24 * time.Hour)
+	used := now.Add(-2 * 24 * time.Hour)
+	archived := now.Add(-3 * 24 * time.Hour)
+	tests := []struct {
+		name string
+		in   CuratorSkill
+		want time.Time
+	}{
+		{name: "archive clock", in: CuratorSkill{Status: CuratorStatusActive, CreatedAt: created}, want: created.Add(CuratorArchiveAfter)},
+		{name: "use resets archive clock", in: CuratorSkill{Status: CuratorStatusStale, CreatedAt: created, LastUsedAt: used}, want: used.Add(CuratorArchiveAfter)},
+		{name: "pinned does not expire", in: CuratorSkill{Status: CuratorStatusActive, Pinned: true, CreatedAt: created}},
+		{name: "archived deletes later", in: CuratorSkill{Status: CuratorStatusArchived, CreatedAt: created, ArchivedAt: archived}, want: archived.Add(CuratorDeleteAfter)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ExpiresAt(now, tt.in); !got.Equal(tt.want) {
+				t.Fatalf("expires = %s, want %s", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestCuratorPassDue(t *testing.T) {
 	now := time.Date(2026, 10, 8, 0, 0, 0, 0, time.UTC)
 	run, first, note := CuratorPassDue(now, time.Time{}, time.Time{}, false, true)

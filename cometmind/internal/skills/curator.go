@@ -60,6 +60,32 @@ func PlanCuratorTransitions(now time.Time, skills []CuratorSkill) []CuratorActio
 	return actions
 }
 
+// ExpiresAt is when an unpinned skill is archived, or an archived skill is deleted.
+// Pinned skills and rows with no clock do not expire.
+func ExpiresAt(now time.Time, skill CuratorSkill) time.Time {
+	if skill.Pinned {
+		return time.Time{}
+	}
+	status := skill.Status
+	if status == "" {
+		status = CuratorStatusActive
+	}
+	if status == CuratorStatusArchived {
+		if skill.ArchivedAt.IsZero() {
+			return time.Time{}
+		}
+		return skill.ArchivedAt.Add(CuratorDeleteAfter)
+	}
+	base := skill.LastUsedAt
+	if base.IsZero() {
+		base = skill.CreatedAt
+	}
+	if base.IsZero() {
+		return time.Time{}
+	}
+	return base.Add(CuratorArchiveAfter)
+}
+
 func unusedFor(now time.Time, skill CuratorSkill) time.Duration {
 	base := skill.LastUsedAt
 	if base.IsZero() {

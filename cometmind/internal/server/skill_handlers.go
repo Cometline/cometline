@@ -26,6 +26,7 @@ type skillResource struct {
 	Origin      string   `json:"origin,omitempty"`
 	Status      string   `json:"status,omitempty"`
 	Pinned      bool     `json:"pinned,omitempty"`
+	ExpiresAt   int64    `json:"expires_at,omitempty"`
 	Tags        []string `json:"tags,omitempty"`
 }
 
@@ -199,7 +200,12 @@ func (a *App) skillResourceFromModel(skill skillpkg.Skill) skillResource {
 		Tags:        skill.Tags,
 	}
 	if a != nil && a.curator != nil && skillpkg.IsSelfImprovement(skill) {
-		resource.Status, resource.Pinned = a.curator.Lookup(context.Background(), skill.Name)
+		life := a.curator.Lifecycle(context.Background(), skill.Name)
+		resource.Status = life.Status
+		resource.Pinned = life.Pinned
+		if !life.ExpiresAt.IsZero() {
+			resource.ExpiresAt = life.ExpiresAt.UnixMilli()
+		}
 	}
 	return resource
 }

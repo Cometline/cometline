@@ -2077,6 +2077,9 @@ type Skill struct {
 	IsSymlink   bool   `json:"is_symlink"`
 	Name        string `json:"name"`
 
+	// ExpiresAt Unix milliseconds when an unpinned self-improvement skill is archived or an archived one is deleted. Omitted when pinned or not self-improvement.
+	ExpiresAt *int64 `json:"expires_at,omitempty"`
+
 	// Origin metadata.cometline.origin. Empty means the skill was not created by the self-improvement loop.
 	Origin *string `json:"origin,omitempty"`
 	Path   string  `json:"path"`
