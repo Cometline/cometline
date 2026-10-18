@@ -250,13 +250,38 @@ func (s *Service) MarkArchived(ctx context.Context, name string) error {
 	return s.save(ctx, row)
 }
 
+// Lifecycle is the curator clock the skills page can show.
+type Lifecycle struct {
+	Status    string
+	Pinned    bool
+	ExpiresAt time.Time
+}
+
 // Lookup returns status and pinned for a skill name.
 func (s *Service) Lookup(ctx context.Context, name string) (status string, pinned bool) {
+	life := s.Lifecycle(ctx, name)
+	return life.Status, life.Pinned
+}
+
+// Lifecycle returns status, pin, and the next archive or delete time.
+func (s *Service) Lifecycle(ctx context.Context, name string) Lifecycle {
 	row, err := s.q.GetSkillCuratorState(ctx, name)
 	if err != nil {
-		return "", false
+		return Lifecycle{}
 	}
-	return row.Status, row.Pinned != 0
+	skill := skills.CuratorSkill{
+		Name:       row.SkillName,
+		Status:     row.Status,
+		Pinned:     row.Pinned != 0,
+		CreatedAt:  unixMilli(row.CreatedAt),
+		LastUsedAt: unixMilli(row.LastUsedAt),
+		ArchivedAt: unixMilli(row.ArchivedAt),
+	}
+	return Lifecycle{
+		Status:    row.Status,
+		Pinned:    skill.Pinned,
+		ExpiresAt: skills.ExpiresAt(s.now(), skill),
+	}
 }
 
 // ArchivedNames lists archived curator rows.

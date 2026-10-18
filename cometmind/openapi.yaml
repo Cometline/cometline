@@ -3639,6 +3639,10 @@ components:
           enum: [active, stale, archived]
         pinned:
           type: boolean
+        expires_at:
+          type: integer
+          format: int64
+          description: Unix milliseconds when an unpinned self-improvement skill is archived or an archived one is deleted. Omitted when pinned or not self-improvement.
         tags:
           type: array
           description: Optional tags from the skill frontmatter, used by the skills page filter.

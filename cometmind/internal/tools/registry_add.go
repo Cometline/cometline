@@ -53,7 +53,7 @@ func (r *Registry) addSkillTools(surface ToolSurface, opt RegistryOptions) {
 		r.Add(ReadSkillDraft{})
 	}
 	if surface.SkillMut {
-		r.Add(WriteSkill{})
+		r.Add(WriteSkill{Events: opt.MemoryEvents})
 		r.Add(PromoteSkillDraft{})
 	}
 }
