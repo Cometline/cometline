@@ -3,13 +3,17 @@ package skills
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
+	"github.com/Cometline/cometline/cometmind/internal/event"
 	"github.com/Cometline/cometline/cometmind/internal/skills"
 	"github.com/Cometline/cometline/cometmind/internal/tools/toolkit"
 )
 
 // WriteSkill creates or updates an Agent Skill under ~/.cometmind/skills.
-type WriteSkill struct{}
+type WriteSkill struct {
+	Events *event.Hub
+}
 
 func (WriteSkill) Spec() ToolSpec {
 	return ToolSpec{
@@ -27,7 +31,7 @@ func (WriteSkill) Spec() ToolSpec {
 	}
 }
 
-func (WriteSkill) Execute(_ context.Context, input json.RawMessage) (Result, error) {
+func (t WriteSkill) Execute(ctx context.Context, input json.RawMessage) (Result, error) {
 	var in struct {
 		Name      *string `json:"name"`
 		Content   *string `json:"content"`
@@ -46,6 +50,17 @@ func (WriteSkill) Execute(_ context.Context, input json.RawMessage) (Result, err
 	}
 	if err := skills.WriteSkill(name, content, in.Overwrite); err != nil {
 		return Result{OK: false, Output: err.Error()}, nil
+	}
+	if t.Events != nil {
+		action := "created"
+		if in.Overwrite {
+			action = "updated"
+		}
+		t.Events.Publish(event.SkillReviewUpdated(toolkit.ToolSessionFrom(ctx), []event.SkillReviewChange{{
+			Name:        name,
+			Action:      action,
+			Description: strings.TrimSpace(skills.SkillMarkdownDescription(content)),
+		}}))
 	}
 	return Result{OK: true, Output: "skill " + name + " written to ~/.cometmind/skills/" + name + "/SKILL.md"}, nil
 }

@@ -25,6 +25,9 @@ func (a *App) handleListArchivedSkills(c *gin.Context) {
 		}
 		resource := a.skillResourceFromModel(skill)
 		resource.Status = skillpkg.CuratorStatusArchived
+		if life := a.curator.Lifecycle(c.Request.Context(), name); !life.ExpiresAt.IsZero() {
+			resource.ExpiresAt = life.ExpiresAt.UnixMilli()
+		}
 		items = append(items, resource)
 	}
 	c.JSON(http.StatusOK, gin.H{"skills": items})

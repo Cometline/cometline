@@ -36,8 +36,10 @@
 			class="nav-badge"
 			class:has-badge={skillDraftsStore.hasDrafts || skillUpdatesStore.hasUnseen}
 			class:active={page.url.pathname === '/skills' || page.url.pathname === '/skill-drafts'}
-			onclick={() => goto(resolve('skills'))}
-			><Sparkles size={16} stroke-width={1.8} /></button
+			onclick={() => {
+				skillUpdatesStore.markSeen();
+				void goto(resolve('skills'));
+			}}><Sparkles size={16} stroke-width={1.8} /></button
 		>
 	</Tooltip>
 	<Tooltip label="Gallery" action="openGallery">
