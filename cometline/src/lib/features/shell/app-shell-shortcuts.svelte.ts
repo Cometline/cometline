@@ -11,6 +11,7 @@ import { openSettings } from '#lib/actions/open-settings.js';
 import { shouldUseWorkspacePanelHistory } from '#lib/features/shell/focus-nav.js';
 import { isReloadShortcut, matchesShortcut, type ShortcutAction } from '#lib/keyboard-shortcuts.js';
 import { inboxStore } from '#lib/stores/inbox.svelte.js';
+import { skillUpdatesStore } from '#lib/stores/skill-updates.svelte.js';
 import { sessionStore } from '#lib/stores/session.svelte.js';
 import { settingsStore } from '#lib/stores/settings.svelte.js';
 import { shellStore } from '#lib/stores/shell.svelte.js';
@@ -218,6 +219,7 @@ export function createAppShellShortcuts(deps: {
 			case 'openSkillDrafts':
 				if (shellStore.settingsOpen) shellStore.closeSettings();
 				inboxStore.closeDrawer();
+				skillUpdatesStore.markSeen();
 				void goto(resolve('skills'));
 				return;
 			case 'openGallery':
