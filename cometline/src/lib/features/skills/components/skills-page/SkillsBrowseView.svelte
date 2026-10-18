@@ -27,12 +27,7 @@
 	function badgesFor(skill: SkillResource): string[] {
 		const badges: string[] = [];
 		if (skill.origin === 'self-improvement') badges.push('self-improvement');
-		const expiry = skillExpiryLabel(
-			skill.expires_at,
-			skill.status,
-			Date.now(),
-			skill.pinned
-		);
+		const expiry = skillExpiryLabel(skill.expires_at, skill.status, Date.now(), skill.pinned);
 		if (expiry) badges.push(expiry);
 		if (skill.status === 'stale') badges.push('stale');
 		if (skill.pinned) badges.push('pinned');
@@ -146,7 +141,12 @@
 	<section class="archived-skills">
 		<h2>Archived</h2>
 		{#each controller.archived as skill (skill.name)}
-			{@const expiry = skillExpiryLabel(skill.expires_at, 'archived', Date.now(), skill.pinned)}
+			{@const expiry = skillExpiryLabel(
+				skill.expires_at,
+				'archived',
+				Date.now(),
+				skill.pinned
+			)}
 			<div class="archived-row">
 				<span>
 					{skill.name}
