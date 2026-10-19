@@ -174,7 +174,6 @@
 					label={titlebarLabel}
 					renamable={titlebarRenamable}
 					titleAttr={titlebarSessionTitleAttr}
-					utilityPage={isUtilityPage}
 					{activeSessionId}
 					onRename={shortcuts.startRenameFromTitlebar}
 				/>
@@ -317,8 +316,7 @@
 		min-width: 72px;
 	}
 
-	/* Utility pages have their own page header and do not render the session
-	   titlebar, while still keeping a usable main pane beside the workspace panel. */
+	/* Utility pages keep a usable main pane beside the workspace panel. */
 	.app-shell.utility-page:not(.is-fullscreen) .main {
 		min-width: 400px;
 	}

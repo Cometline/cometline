@@ -7,14 +7,12 @@
 		label,
 		renamable,
 		titleAttr,
-		utilityPage,
 		activeSessionId,
 		onRename
 	}: {
 		label: string;
 		renamable: boolean;
 		titleAttr: string;
-		utilityPage: boolean;
 		activeSessionId: string | null;
 		onRename: () => void;
 	} = $props();
@@ -56,33 +54,29 @@
 			<span class="shell-titlebar-title">{label}</span>
 		{/if}
 	{/if}
-	{#if !utilityPage}
-		<div class="shell-titlebar-end">
-			<Tooltip
-				label={shellStore.workspacePanelOpen
+	<div class="shell-titlebar-end">
+		<Tooltip
+			label={shellStore.workspacePanelOpen ? 'Hide workspace panel' : 'Show workspace panel'}
+			action="toggleWorkspacePanel"
+		>
+			<button
+				type="button"
+				class="shell-titlebar-btn"
+				aria-label={shellStore.workspacePanelOpen
 					? 'Hide workspace panel'
 					: 'Show workspace panel'}
-				action="toggleWorkspacePanel"
+				aria-pressed={shellStore.workspacePanelOpen}
+				disabled={!activeSessionId}
+				onclick={() => shellStore.toggleWorkspacePanel()}
 			>
-				<button
-					type="button"
-					class="shell-titlebar-btn"
-					aria-label={shellStore.workspacePanelOpen
-						? 'Hide workspace panel'
-						: 'Show workspace panel'}
-					aria-pressed={shellStore.workspacePanelOpen}
-					disabled={!activeSessionId}
-					onclick={() => shellStore.toggleWorkspacePanel()}
-				>
-					{#if shellStore.workspacePanelOpen}
-						<PanelRightClose size={16} stroke-width={1.8} />
-					{:else}
-						<PanelRightOpen size={16} stroke-width={1.8} />
-					{/if}
-				</button>
-			</Tooltip>
-		</div>
-	{/if}
+				{#if shellStore.workspacePanelOpen}
+					<PanelRightClose size={16} stroke-width={1.8} />
+				{:else}
+					<PanelRightOpen size={16} stroke-width={1.8} />
+				{/if}
+			</button>
+		</Tooltip>
+	</div>
 </header>
 
 <style>
