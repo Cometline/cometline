@@ -22,7 +22,20 @@ function createSkillUpdatesStore() {
 		localStorage.setItem(seenKey, JSON.stringify([...seen]));
 	}
 
+	let recent = $state<string[]>([]);
+
+	function remember(names: string[]) {
+		const fresh = names.map((name) => name.trim()).filter(Boolean);
+		if (fresh.length === 0) return;
+		const drop = new Set(fresh);
+		recent = [
+			...fresh.filter((name, index) => fresh.indexOf(name) === index),
+			...recent.filter((name) => !drop.has(name))
+		].slice(0, 12);
+	}
+
 	function note(names: string[]) {
+		remember(names);
 		const fresh = names.map((name) => name.trim()).filter((name) => name && !seen.has(name));
 		if (fresh.length === 0) return;
 		unseen = [...new Set([...unseen, ...fresh])];
@@ -39,6 +52,9 @@ function createSkillUpdatesStore() {
 	return {
 		get unseen() {
 			return unseen;
+		},
+		get recent() {
+			return recent;
 		},
 		get hasUnseen() {
 			return unseen.length > 0;

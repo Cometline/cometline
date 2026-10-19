@@ -34,6 +34,23 @@ export function availableSkillTags(skills: SkillResource[]): SkillTag[] {
 	return [...tags.values()].sort((a, b) => a.label.localeCompare(b.label));
 }
 
+export function sortSkillsByRecent(skills: SkillResource[], recent: string[]): SkillResource[] {
+	const rank = new Map(recent.map((name, index) => [name, index]));
+	return skills
+		.map((skill, index) => ({ skill, index }))
+		.sort((a, b) => {
+			const left = rank.get(a.skill.name);
+			const right = rank.get(b.skill.name);
+			if (left !== undefined || right !== undefined) {
+				if (left === undefined) return 1;
+				if (right === undefined) return -1;
+				return left - right;
+			}
+			return a.index - b.index;
+		})
+		.map((item) => item.skill);
+}
+
 export function filterSkills(
 	skills: SkillResource[],
 	search: string,

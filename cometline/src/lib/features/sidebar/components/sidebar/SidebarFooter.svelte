@@ -37,8 +37,9 @@
 			class:has-badge={skillDraftsStore.hasDrafts || skillUpdatesStore.hasUnseen}
 			class:active={page.url.pathname === '/skills' || page.url.pathname === '/skill-drafts'}
 			onclick={() => {
+				const recent = skillUpdatesStore.hasUnseen;
 				skillUpdatesStore.markSeen();
-				void goto(resolve('skills'));
+				void goto(resolve(recent ? 'skills?tab=skills' : 'skills'));
 			}}><Sparkles size={16} stroke-width={1.8} /></button
 		>
 	</Tooltip>

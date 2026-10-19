@@ -27,6 +27,7 @@
 	function badgesFor(skill: SkillResource): string[] {
 		const badges: string[] = [];
 		if (skill.origin === 'self-improvement') badges.push('self-improvement');
+		if (skillUpdatesStore.recent.includes(skill.name)) badges.push('recent');
 		const expiry = skillExpiryLabel(skill.expires_at, skill.status, Date.now(), skill.pinned);
 		if (expiry) badges.push(expiry);
 		if (skill.status === 'stale') badges.push('stale');
