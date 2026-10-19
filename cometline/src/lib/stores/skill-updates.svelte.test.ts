@@ -25,7 +25,9 @@ describe('skillUpdatesStore', () => {
 
 		skillUpdatesStore.note(['ship-checklist', 'retry-pattern']);
 		expect(skillUpdatesStore.unseen).toEqual(['retry-pattern']);
+		expect(skillUpdatesStore.recent).toEqual(['ship-checklist', 'retry-pattern']);
 		skillUpdatesStore.markSeen();
 		expect(skillUpdatesStore.hasUnseen).toBe(false);
+		expect(skillUpdatesStore.recent).toEqual(['ship-checklist', 'retry-pattern']);
 	});
 });

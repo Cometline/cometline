@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SkillResource } from '#lib/types.js';
-import { availableSkillTags, filterSkills } from './skills-page-filter';
+import { availableSkillTags, filterSkills, sortSkillsByRecent } from './skills-page-filter';
 
 function skill(
 	name: string,
@@ -63,6 +63,18 @@ describe('filterSkills', () => {
 
 	it('returns no skills when nothing matches', () => {
 		expect(filterSkills(skills, 'missing')).toEqual([]);
+	});
+
+	it('puts recently changed skills first and keeps the rest stable', () => {
+		expect(
+			sortSkillsByRecent(skills, ['gamma', 'missing', 'alpha']).map((item) => item.name)
+		).toEqual(['gamma', 'alpha', 'beta', 'delta']);
+		expect(sortSkillsByRecent(skills, []).map((item) => item.name)).toEqual([
+			'alpha',
+			'beta',
+			'gamma',
+			'delta'
+		]);
 	});
 
 	it('lists unique tags sorted by label', () => {

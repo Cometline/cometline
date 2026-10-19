@@ -216,12 +216,14 @@ export function createAppShellShortcuts(deps: {
 				inboxStore.closeDrawer();
 				void goto(resolve('jobs'));
 				return;
-			case 'openSkillDrafts':
+			case 'openSkillDrafts': {
 				if (shellStore.settingsOpen) shellStore.closeSettings();
 				inboxStore.closeDrawer();
+				const recent = skillUpdatesStore.hasUnseen;
 				skillUpdatesStore.markSeen();
-				void goto(resolve('skills'));
+				void goto(resolve(recent ? 'skills?tab=skills' : 'skills'));
 				return;
+			}
 			case 'openGallery':
 				if (shellStore.settingsOpen) shellStore.closeSettings();
 				inboxStore.closeDrawer();

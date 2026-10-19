@@ -15,7 +15,11 @@ import {
 	type SkillDraft,
 	type SkillDraftDetailResponse
 } from '#lib/client/cometmind.js';
-import { availableSkillTags, filterSkills } from '#lib/features/skills/skills-page-filter.js';
+import {
+	availableSkillTags,
+	filterSkills,
+	sortSkillsByRecent
+} from '#lib/features/skills/skills-page-filter.js';
 import { skillUpdatesStore } from '#lib/stores/skill-updates.svelte.js';
 import { skillDraftsStore } from '#lib/stores/skill-drafts.svelte.js';
 import { shellStore } from '#lib/stores/shell.svelte.js';
@@ -54,7 +58,12 @@ export function createSkillsPageController(deps: {
 	const skillDirty = $derived(selectedSkill !== null && skillContent !== selectedSkill.content);
 	const canEditSkill = $derived(selectedSkill?.skill.can_edit ?? false);
 	const canDeleteSkill = $derived(selectedSkill?.skill.can_delete ?? false);
-	const filteredSkills = $derived(filterSkills(skills, skillSearch, selectedTags));
+	const filteredSkills = $derived(
+		sortSkillsByRecent(
+			filterSkills(skills, skillSearch, selectedTags),
+			skillUpdatesStore.recent
+		)
+	);
 	const skillTagOptions = $derived(availableSkillTags(skills));
 
 	function toggleTag(id: string) {
