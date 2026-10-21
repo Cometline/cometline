@@ -13,6 +13,7 @@
 		type ThreadVisibilityContext
 	} from '#lib/features/chat/thread-visibility.js';
 	import { startsSpeakerRun } from '#lib/features/chat/thread-view-helpers.js';
+	import { isFollowUpUserMessage } from '#lib/features/chat/thread-turns.js';
 	import type { VisibleTurnEntry } from '#lib/features/chat/thread-virtual.svelte.js';
 	import FirstTurnAssistantSlot from '#lib/features/chat/components/FirstTurnAssistantSlot.svelte';
 	import UserMessageRow from '#lib/features/chat/components/UserMessageRow.svelte';
@@ -90,7 +91,7 @@
 			)}
 			copiedId={stackContext.copiedId}
 			onCopyMessage={stackContext.onCopyMessage}
-			flyOnReveal={turn.user.id !== visibilityContext.firstUserId}
+			flyOnReveal={isFollowUpUserMessage(visibilityContext.threadItems, turn.user.id)}
 		/>
 		{#if showFirstTurnAvatarSlot(visibilityContext) && turn.user.id === visibilityContext.firstUserId}
 			<FirstTurnAssistantSlot

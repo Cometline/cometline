@@ -2,9 +2,27 @@ import { describe, expect, it } from 'vitest';
 import {
 	activeTurnMinHeight,
 	groupThreadItemsIntoTurns,
+	isFollowUpUserMessage,
 	transcriptHasLeadingOrphans
 } from './thread-turns';
 import type { ChatItem } from '#lib/stores/chat.svelte.js';
+
+describe('isFollowUpUserMessage', () => {
+	const forked: ChatItem[] = [
+		{ id: 'note', type: 'status', text: 'Forked from a session in /old.' },
+		{ id: 'u1', type: 'user', text: 'first' },
+		{ id: 'a1', type: 'assistant', text: 'reply' },
+		{ id: 'u2', type: 'user', text: 'follow up' }
+	];
+
+	it('treats the first user after a fork status note as the opening turn', () => {
+		expect(isFollowUpUserMessage(forked, 'u1')).toBe(false);
+	});
+
+	it('treats a later user in a forked transcript as a follow-up', () => {
+		expect(isFollowUpUserMessage(forked, 'u2')).toBe(true);
+	});
+});
 
 describe('groupThreadItemsIntoTurns', () => {
 	it('groups follow-up items under the preceding user message', () => {

@@ -27,6 +27,21 @@ export function transcriptHasLeadingOrphans(items: readonly ChatItem[]): boolean
 	return items.length > 0 && items[0].type !== 'user';
 }
 
+/**
+ * True when an earlier user message exists. Leading status rows (the system
+ * note `/change` appends after a fork) do not count, so the first follow-up
+ * in a forked transcript still gets the pin + fly-in.
+ */
+export function isFollowUpUserMessage(items: readonly ChatItem[], userId: string): boolean {
+	let seenUser = false;
+	for (const item of items) {
+		if (item.type !== 'user') continue;
+		if (item.id === userId) return seenUser;
+		seenUser = true;
+	}
+	return false;
+}
+
 /** Group a flat transcript into user-anchored turns (plus a leading orphan turn if needed). */
 export function groupThreadItemsIntoTurns(items: readonly ChatItem[]): ThreadTurn[] {
 	const turns: ThreadTurn[] = [];
