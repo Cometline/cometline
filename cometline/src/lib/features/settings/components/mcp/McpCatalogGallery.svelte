@@ -1,12 +1,11 @@
 <script lang="ts">
-	import SettingsButton from '../SettingsButton.svelte';
+	import McpConnectorIcon from './McpConnectorIcon.svelte';
 	import type { McpPanelController } from '#lib/features/settings/mcp-panel-controller.svelte.js';
-	import { catalogAuthLabel, catalogScopesLabel } from '#lib/features/settings/mcp-catalog.js';
 	import {
-		displayError,
-		statusClass,
-		statusLabel
-	} from '#lib/features/settings/mcp-panel-format.js';
+		catalogMetaLine,
+		isCatalogEntryConnected
+	} from '#lib/features/settings/mcp-catalog.js';
+	import { displayError } from '#lib/features/settings/mcp-panel-format.js';
 
 	let {
 		controller,
@@ -15,196 +14,232 @@
 		controller: McpPanelController;
 		mcpEnabled: boolean;
 	} = $props();
+
+	function rowActionLabel(
+		entryId: string,
+		installed: ReturnType<McpPanelController['catalogServerFor']>,
+		connected: boolean
+	): string {
+		if (controller.isCatalogConnectBusy(entryId)) return 'Connecting…';
+		if (connected) return 'Connected';
+		if (installed?.enabled) return 'Connect';
+		return 'Connect';
+	}
 </script>
 
-<div class="mcp-catalog">
-	<div class="mcp-catalog-header">
-		<h4>Connectors</h4>
-		<p class="settings-field-hint">
-			One-click remote MCP connectors. CometMind runs OAuth in your browser on port 1456 — no
-			URLs to paste.
+<section class="connectors-panel" aria-labelledby="connectors-heading">
+	<header class="connectors-hero">
+		<p class="connectors-eyebrow">Connectors</p>
+		<h4 id="connectors-heading" class="connectors-title">Manage remote MCP connectors</h4>
+		<p class="settings-field-hint connectors-subtitle">
+			One-click sign-in via your browser (port 1456). Only the catalog below — no extra
+			plugins.
 		</p>
-	</div>
+	</header>
 
 	{#if controller.catalogLoadError}
 		<p class="settings-field-hint error">{controller.catalogLoadError}</p>
 	{/if}
 
-	<div class="mcp-catalog-grid">
-		{#each controller.catalogEntries as entry (entry.id)}
-			{@const installed = controller.catalogServerFor(entry)}
-			{@const status = controller.catalogStatusFor(entry)}
-			<article class="mcp-catalog-card">
-				<div class="card-head">
-					<strong>{entry.name}</strong>
-					<span class="auth-badge">{catalogAuthLabel(entry)}</span>
-				</div>
-				<p class="card-desc">{entry.description}</p>
-				<dl class="card-meta">
-					<div>
-						<dt>Transport</dt>
-						<dd>{entry.transport}</dd>
-					</div>
-					<div>
-						<dt>Auth</dt>
-						<dd>{catalogAuthLabel(entry)}</dd>
-					</div>
-					<div class="scopes">
-						<dt>Scopes</dt>
-						<dd>{catalogScopesLabel(entry)}</dd>
-					</div>
-				</dl>
-				{#if installed}
-					<p class="card-status">
-						<span class="status-badge {statusClass(status, installed, mcpEnabled)}">
-							{statusLabel(status, installed, mcpEnabled)}
-							{#if status?.tool_count}
-								· {status.tool_count} tools
+	{#if controller.catalogEntries.length > 0}
+		<p class="connectors-section-label">Available</p>
+		<ul class="connectors-grid">
+			{#each controller.catalogEntries as entry (entry.id)}
+				{@const installed = controller.catalogServerFor(entry)}
+				{@const status = controller.catalogStatusFor(entry)}
+				{@const connected = isCatalogEntryConnected(installed, status, mcpEnabled)}
+				{@const busy = controller.isCatalogConnectBusy(entry.id)}
+				{@const actionLabel = rowActionLabel(entry.id, installed, connected)}
+				<li class="connector-row">
+					<div class="connector-main">
+						<McpConnectorIcon catalogId={entry.id} />
+						<div class="connector-copy">
+							<span class="connector-name">{entry.name}</span>
+							<span class="connector-meta">
+								{catalogMetaLine(entry, status, connected)}
+							</span>
+							{#if installed && displayError(status)}
+								<span class="connector-error">{displayError(status)}</span>
 							{/if}
-						</span>
-					</p>
-					{#if displayError(status)}
-						<p class="card-error">{displayError(status)}</p>
-					{/if}
-					{#if status?.status === 'connected' && (status.tool_count ?? 0) === 0}
-						<p class="card-error">Connected, but no tools were reported yet.</p>
-					{/if}
-				{/if}
-				<SettingsButton
-					variant="secondary"
-					disabled={controller.isCatalogConnectBusy(entry.id) || controller.mcpBusy}
-					onclick={() => controller.connectCatalogEntry(entry)}
-				>
-					{controller.isCatalogConnectBusy(entry.id)
-						? 'Connecting…'
-						: installed?.enabled
-							? 'Reconnect'
-							: 'Connect'}
-				</SettingsButton>
-			</article>
-		{/each}
-	</div>
-</div>
+							{#if connected && (status?.tool_count ?? 0) === 0}
+								<span class="connector-error"
+									>Connected, but no tools reported yet.</span
+								>
+							{/if}
+						</div>
+					</div>
+					<div class="connector-action">
+						{#if connected}
+							<span class="status-connected">{actionLabel}</span>
+						{:else if busy}
+							<span class="status-pending">{actionLabel}</span>
+						{:else}
+							<button
+								type="button"
+								class="connect-link"
+								disabled={controller.mcpBusy}
+								onclick={() => controller.connectCatalogEntry(entry)}
+							>
+								{actionLabel}
+							</button>
+						{/if}
+					</div>
+				</li>
+			{/each}
+		</ul>
+	{/if}
+</section>
 
 <style>
-	.mcp-catalog {
+	.connectors-panel {
 		display: flex;
 		flex-direction: column;
-		gap: 10px;
-		margin-bottom: 12px;
+		gap: 12px;
+		margin: 4px 0 18px;
+		padding: 0;
 	}
 
-	.mcp-catalog-header h4 {
+	.connectors-hero {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	.connectors-eyebrow {
 		margin: 0;
+		font-size: 12px;
+		font-weight: 600;
+		color: var(--text-muted);
+		letter-spacing: 0.01em;
+	}
+
+	.connectors-title {
+		margin: 0;
+		font-size: 22px;
+		font-weight: 700;
+		line-height: 1.2;
+		color: var(--text-main);
+		letter-spacing: -0.02em;
+	}
+
+	.connectors-subtitle {
+		margin: 2px 0 0;
+		max-width: 52ch;
+	}
+
+	.connectors-section-label {
+		margin: 4px 0 0;
 		font-size: 13px;
 		font-weight: 650;
-	}
-
-	.mcp-catalog-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-		gap: 10px;
-	}
-
-	.mcp-catalog-card {
-		border: 1px solid var(--border-soft);
-		border-radius: 12px;
-		padding: 11px;
-		background: rgba(255, 255, 255, 0.62);
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
-	}
-
-	.card-head {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 8px;
-	}
-
-	.card-desc {
-		margin: 0;
-		font-size: 11px;
-		color: var(--text-muted);
-		line-height: 1.45;
-	}
-
-	.card-meta {
-		margin: 0;
-		display: grid;
-		gap: 4px;
-		font-size: 10px;
-	}
-
-	.card-meta div {
-		display: grid;
-		grid-template-columns: 64px 1fr;
-		gap: 6px;
-	}
-
-	.card-meta dt {
-		margin: 0;
-		font-weight: 650;
-		color: var(--text-muted);
-	}
-
-	.card-meta dd {
-		margin: 0;
 		color: var(--text-main);
 	}
 
-	.scopes dd {
-		word-break: break-word;
+	.connectors-grid {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		column-gap: 28px;
+		row-gap: 2px;
 	}
 
-	.auth-badge {
-		font-size: 10px;
+	@media (max-width: 720px) {
+		.connectors-grid {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	.connector-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		min-height: 56px;
+		padding: 8px 0;
+		border: none;
+		background: transparent;
+	}
+
+	.connector-main {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		min-width: 0;
+		flex: 1;
+	}
+
+	.connector-copy {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		min-width: 0;
+	}
+
+	.connector-name {
+		font-size: 14px;
 		font-weight: 650;
-		padding: 1px 7px;
-		border-radius: 999px;
-		background: rgba(15, 23, 42, 0.07);
+		color: var(--text-main);
+		line-height: 1.25;
+	}
+
+	.connector-meta {
+		font-size: 12px;
 		color: var(--text-muted);
-		flex-shrink: 0;
+		line-height: 1.35;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
-	.card-status {
-		margin: 0;
-	}
-
-	.card-error {
-		margin: 0;
+	.connector-error {
 		font-size: 11px;
 		color: var(--status-error);
+		line-height: 1.35;
+	}
+
+	.connector-action {
+		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		min-width: 88px;
+	}
+
+	.status-connected {
+		font-size: 13px;
+		font-weight: 600;
+		color: var(--color-2f6f4f);
+	}
+
+	.status-pending {
+		font-size: 13px;
+		font-weight: 500;
+		color: var(--text-muted);
+	}
+
+	.connect-link {
+		border: none;
+		background: transparent;
+		padding: 4px 0;
+		font: inherit;
+		font-size: 13px;
+		font-weight: 600;
+		color: var(--text-main);
+		cursor: pointer;
+		text-decoration: none;
+	}
+
+	.connect-link:hover:not(:disabled) {
+		text-decoration: underline;
+	}
+
+	.connect-link:disabled {
+		opacity: 0.45;
+		cursor: not-allowed;
 	}
 
 	.settings-field-hint.error {
 		color: var(--status-error);
-	}
-
-	.status-badge {
-		display: inline-block;
-		padding: 1px 8px;
-		border-radius: 999px;
-		font-size: 10px;
-		font-weight: 650;
-		text-transform: capitalize;
-		background: rgba(15, 23, 42, 0.06);
-		color: var(--text-muted);
-	}
-
-	.status-badge.connected {
-		background: rgba(47, 111, 79, 0.12);
-		color: var(--color-2f6f4f);
-	}
-
-	.status-badge.error {
-		background: rgba(180, 35, 24, 0.12);
-		color: var(--status-error);
-	}
-
-	.status-badge.pending {
-		background: rgba(180, 130, 24, 0.14);
-		color: var(--color-8a5a10);
 	}
 </style>

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
 	catalogHostKey,
+	catalogMetaLine,
 	findExistingCatalogServer,
+	isCatalogEntryConnected,
 	materializeCatalogServer
 } from '#lib/features/settings/mcp-catalog.js';
 import type { McpCatalogEntry } from '#lib/client/cometmind.js';
@@ -46,5 +48,19 @@ describe('mcp-catalog', () => {
 		expect(catalogHostKey('https://api.heptabase.com/mcp/')).toBe(
 			catalogHostKey('https://api.heptabase.com/mcp')
 		);
+	});
+
+	it('formats meta line and connected state', () => {
+		expect(catalogMetaLine(atlassian, undefined, false)).toBe('Remote MCP · OAuth');
+		expect(
+			catalogMetaLine(atlassian, { status: 'connected', tool_count: 3 } as never, true)
+		).toBe('3 tools · OAuth');
+		expect(
+			isCatalogEntryConnected(
+				{ id: 'a', name: 'A', enabled: true, transport: 'http' },
+				{ status: 'connected' } as never,
+				true
+			)
+		).toBe(true);
 	});
 });

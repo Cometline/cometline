@@ -94,3 +94,29 @@ export function catalogScopesLabel(entry: McpCatalogEntry): string {
 	if (scopes.length === 0) return 'Default scopes (discovered at connect)';
 	return scopes.join(', ');
 }
+
+export function isCatalogEntryConnected(
+	installed: MCPServerConfig | undefined,
+	status: McpServerStatus | undefined,
+	mcpEnabled: boolean
+): boolean {
+	if (!installed?.enabled || !mcpEnabled) return false;
+	return status?.status === 'connected';
+}
+
+/** One-line subtitle under the connector name in the gallery grid. */
+export function catalogMetaLine(
+	entry: McpCatalogEntry,
+	status: McpServerStatus | undefined,
+	connected: boolean
+): string {
+	const auth = catalogAuthLabel(entry);
+	if (connected) {
+		const count = status?.tool_count ?? 0;
+		if (count > 0) {
+			return `${count} tool${count === 1 ? '' : 's'} · ${auth}`;
+		}
+		return `Connected · ${auth}`;
+	}
+	return `Remote MCP · ${auth}`;
+}

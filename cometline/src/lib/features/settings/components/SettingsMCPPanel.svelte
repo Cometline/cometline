@@ -61,10 +61,9 @@
 <div class="settings-section">
 	<div class="settings-section-heading">
 		<h3>MCP servers</h3>
-		<p>
-			Connect external tool servers so CometMind can search, browse, and interact with
-			services beyond built-in tools. You can also add servers manually under
-			<code>cometmind.mcp</code> in <code>~/.cometmind/cometline-settings.json</code>.
+		<p class="settings-section-lead">
+			Advanced MCP configuration, custom servers, and Cursor import. Use
+			<strong>Connectors</strong> below for one-click catalog installs.
 		</p>
 	</div>
 
@@ -172,6 +171,16 @@
 
 	.mcp-footnote {
 		margin-top: 4px;
+	}
+
+	.settings-section-lead {
+		margin: 0;
+		font-size: inherit;
+		line-height: 1.45;
+	}
+
+	.settings-section-lead strong {
+		font-weight: 650;
 	}
 
 	:global(.spin) {
