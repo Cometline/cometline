@@ -36,6 +36,9 @@ export function findExistingCatalogServer(
 	const catalogId = entry.id;
 	const hostKey = catalogHostKey(entry.url);
 	for (const server of servers) {
+		if (server.id === catalogId) {
+			return server;
+		}
 		if (server.catalogId === catalogId || isCatalogProvenance(server, catalogId)) {
 			return server;
 		}

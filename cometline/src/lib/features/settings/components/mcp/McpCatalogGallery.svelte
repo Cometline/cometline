@@ -1,11 +1,14 @@
 <script lang="ts">
 	import McpConnectorIcon from './McpConnectorIcon.svelte';
+	import McpStatusBadge from './McpStatusBadge.svelte';
 	import type { McpPanelController } from '#lib/features/settings/mcp-panel-controller.svelte.js';
 	import {
 		catalogMetaLine,
-		isCatalogEntryConnected
+		isCatalogEntryConnected,
+		materializeCatalogServer
 	} from '#lib/features/settings/mcp-catalog.js';
 	import { displayError } from '#lib/features/settings/mcp-panel-format.js';
+	import type { McpServerStatus } from '#lib/client/cometmind.js';
 
 	let {
 		controller,
@@ -24,6 +27,24 @@
 		if (connected) return 'Connected';
 		if (installed?.enabled) return 'Connect';
 		return 'Connect';
+	}
+
+	function badgeServer(
+		entry: (typeof controller.catalogEntries)[number],
+		installed: ReturnType<McpPanelController['catalogServerFor']>
+	) {
+		return installed ?? materializeCatalogServer(entry);
+	}
+
+	function connectingStatus(entryId: string, entryName: string): McpServerStatus {
+		return {
+			id: entryId,
+			name: entryName,
+			enabled: true,
+			transport: 'http',
+			status: 'connecting',
+			tool_count: 0
+		};
 	}
 </script>
 
@@ -69,10 +90,21 @@
 						</div>
 					</div>
 					<div class="connector-action">
-						{#if connected}
-							<span class="status-connected">{actionLabel}</span>
+						{#if connected && installed}
+							<McpStatusBadge
+								status={status}
+								server={installed}
+								{mcpEnabled}
+								toolCount={status?.tool_count}
+							/>
 						{:else if busy}
-							<span class="status-pending">{actionLabel}</span>
+							<McpStatusBadge
+								status={connectingStatus(entry.id, entry.name)}
+								server={badgeServer(entry, installed)}
+								{mcpEnabled}
+							/>
+						{:else if installed && status?.status === 'error'}
+							<McpStatusBadge status={status} server={installed} {mcpEnabled} />
 						{:else}
 							<button
 								type="button"
@@ -204,18 +236,6 @@
 		align-items: center;
 		justify-content: flex-end;
 		min-width: 88px;
-	}
-
-	.status-connected {
-		font-size: 13px;
-		font-weight: 600;
-		color: var(--status-success);
-	}
-
-	.status-pending {
-		font-size: 13px;
-		font-weight: 500;
-		color: var(--status-warning);
 	}
 
 	.connect-link {

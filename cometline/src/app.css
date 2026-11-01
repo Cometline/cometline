@@ -31,6 +31,19 @@
 	--status-error-border: rgba(244, 63, 94, 0.18);
 	--overlay-scrim: rgba(251, 251, 250, 0.86);
 
+	/* MCP connector gallery icon fills (brand marks; hex lives here only) */
+	--connector-atlassian-bg: #1868db;
+	--connector-atlassian-fg: #ffffff;
+	--connector-heptabase-bg: #f4f1ea;
+	--connector-heptabase-stroke: #2b2b2b;
+	--connector-heptabase-accent: #e85d04;
+	--connector-linear-bg: #5e6ad2;
+	--connector-linear-fg: #ffffff;
+	--connector-sentry-bg: #1d1127;
+	--connector-sentry-stroke: #e1567c;
+	--connector-fallback-bg: rgba(15, 23, 42, 0.08);
+	--connector-fallback-fg: rgba(15, 23, 42, 0.35);
+
 	/* Plan mode (read-only agent mode) — subtle yellow, not a warning/error tone */
 	--plan-border: #d8c876;
 	--plan-ring: rgba(216, 200, 118, 0.16);

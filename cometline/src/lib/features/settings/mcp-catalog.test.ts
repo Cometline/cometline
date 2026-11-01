@@ -43,7 +43,7 @@ describe('mcp-catalog', () => {
 		expect(catalogHostKey('https://mcp.atlassian.com/v2/mcp')).toBe('mcp.atlassian.com');
 	});
 
-	it('does not match custom server by id alone without catalog provenance', () => {
+	it('reuses custom row when server id matches catalog id (avoid duplicate ids)', () => {
 		const custom: MCPServerConfig = {
 			id: 'atlassian',
 			name: 'My custom row',
@@ -52,8 +52,7 @@ describe('mcp-catalog', () => {
 			url: 'https://example.com/mcp',
 			source: 'user'
 		};
-		expect(isCatalogProvenance(custom, 'atlassian')).toBe(false);
-		expect(findExistingCatalogServer([custom], atlassian)).toBeUndefined();
+		expect(findExistingCatalogServer([custom], atlassian)?.id).toBe('atlassian');
 	});
 
 	it('Connect on unlocked row enables only without re-locking or overwriting url', () => {

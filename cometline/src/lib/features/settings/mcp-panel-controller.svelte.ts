@@ -173,9 +173,17 @@ export function createMcpPanelController(deps: McpPanelControllerDeps) {
 	function removeServer(serverId: string) {
 		updateMcp({ servers: deps.getMcp().servers.filter((server) => server.id !== serverId) });
 		if (expandedServerId === serverId) expandedServerId = null;
-		void deleteMcpOAuthCredentials(serverId).catch(() => {
-			// Sidecar may be down until settings save; Reload also purges on remove.
-		});
+		void (async () => {
+			try {
+				await deps.getOnPersistBeforeRuntimeAction()?.({ mcp: deps.getMcp() });
+			} catch {
+				// Draft already updated; user can retry save from Settings.
+				return;
+			}
+			await deleteMcpOAuthCredentials(serverId).catch(() => {
+				// Reload also purges oauth when row is gone from persisted settings.
+			});
+		})();
 	}
 
 	function unlockServer(serverId: string) {
