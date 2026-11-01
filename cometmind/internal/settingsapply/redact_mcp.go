@@ -1,6 +1,7 @@
 package settingsapply
 
 import "strings"
+
 // RestoreMCPSecretsInCometmind merges MCP env/header secrets by server id when patch used sentinels.
 func RestoreMCPSecretsInCometmind(merged, before map[string]any) {
 	beforeServers := mcpServersByID(before)

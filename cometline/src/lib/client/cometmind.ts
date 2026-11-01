@@ -619,8 +619,6 @@ export async function listMcpServers(): Promise<McpServerStatus[]> {
 	return data.servers ?? [];
 }
 
-export type { McpCatalogEntry } from '#lib/generated/cometmind-api/types.gen.js';
-
 export async function listMcpCatalog(): Promise<McpCatalogEntry[]> {
 	const { data } = await listMcpCatalogApi({ throwOnError: true });
 	return data.entries ?? [];
