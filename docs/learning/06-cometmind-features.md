@@ -136,7 +136,7 @@ A **subagent** is a smaller agent started by the main agent. A **harness** is an
 
 ### Configuration
 
-Open Settings, then CometMind, then MCP. The data is stored in `cometmind.mcp` inside `cometline-settings.json`. You can import a Cursor-style `mcp.json`.
+Open Settings, then CometMind, then MCP. The data is stored in `cometmind.mcp` inside `cometline-settings.json`. You can import a Cursor-style `mcp.json`. Each server row records `source` (`catalog`, `user`, or `import`): catalog installs stay recipe-locked until unlock; custom rows keep user edits.
 
 ### Transports
 

@@ -6,6 +6,7 @@ import {
 	materializeCatalogServer,
 	mergeCatalogConnectExisting
 } from '#lib/features/settings/mcp-catalog.js';
+import { MCP_SERVER_SOURCE } from '#lib/features/settings/mcp-server-source.js';
 import type { McpCatalogEntry } from '#lib/client/cometmind.js';
 import type { MCPServerConfig } from '#lib/cometmind-settings.js';
 
@@ -24,7 +25,7 @@ const atlassian: McpCatalogEntry = {
 describe('mcp-catalog', () => {
 	it('materializes catalog metadata and normalized URL', () => {
 		const server = materializeCatalogServer(atlassian);
-		expect(server.source).toBe('catalog');
+		expect(server.source).toBe(MCP_SERVER_SOURCE.catalog);
 		expect(server.catalogId).toBe('atlassian');
 		expect(server.url).toBe('https://mcp.atlassian.com/v2/mcp');
 	});
@@ -79,12 +80,12 @@ describe('mcp-catalog', () => {
 			enabled: true,
 			transport: 'http',
 			url: 'https://mcp.atlassian.com/v2/mcp',
-			source: 'catalog',
+			source: MCP_SERVER_SOURCE.catalog,
 			catalogId: 'atlassian',
 			catalogVersion: '1'
 		};
 		const merged = mergeCatalogConnectExisting(existing, materializeCatalogServer(atlassian));
-		expect(merged.source).toBe('catalog');
+		expect(merged.source).toBe(MCP_SERVER_SOURCE.catalog);
 		expect(merged.catalogId).toBe('atlassian');
 	});
 });

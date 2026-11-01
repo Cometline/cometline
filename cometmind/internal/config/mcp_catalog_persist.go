@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"github.com/Cometline/cometline/cometmind/internal/mcp/catalog"
 )
 
 // rewriteSettingsMCPServers persists catalog-synced MCP rows by patching only
@@ -16,11 +14,11 @@ import (
 func rewriteSettingsMCPServers(path string, synced MCPConfig) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("read settings: %w", err)
 	}
 	var doc map[string]any
 	if err := json.Unmarshal(data, &doc); err != nil {
-		return err
+		return fmt.Errorf("parse settings json: %w", err)
 	}
 	existing := existingMCPSubtree(doc)
 	next, changed := mergeSyncedMCPIntoExisting(existing, synced)
@@ -35,10 +33,13 @@ func rewriteSettingsMCPServers(path string, synced MCPConfig) error {
 	cm["mcp"] = next
 	out, err := json.MarshalIndent(doc, "", "  ")
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal settings: %w", err)
 	}
 	out = append(out, '\n')
-	return writeSettingsFileAtomic(path, out)
+	if err := writeSettingsFileAtomic(path, out); err != nil {
+		return fmt.Errorf("write settings: %w", err)
+	}
+	return nil
 }
 
 func mergeSyncedMCPIntoExisting(existing map[string]any, synced MCPConfig) (map[string]any, bool) {
@@ -204,40 +205,4 @@ func writeSettingsFileAtomic(path string, data []byte) error {
 		return fmt.Errorf("rename settings: %w", err)
 	}
 	return nil
-}
-
-func mcpConfigToJSON(cfg MCPConfig) cometlineMCPJSON {
-	out := cometlineMCPJSON{Enabled: cfg.Enabled}
-	for _, srv := range cfg.Servers {
-		row := cometlineMCPServerJSON{
-			ID:             srv.ID,
-			Name:           srv.Name,
-			Enabled:        srv.Enabled,
-			Transport:      string(srv.Transport),
-			Command:        srv.Command,
-			Args:           append([]string(nil), srv.Args...),
-			Env:            copyStringMapGo(srv.Env),
-			URL:            srv.URL,
-			Headers:        copyStringMapGo(srv.Headers),
-			AllowedTools:   append([]string(nil), srv.AllowedTools...),
-			Source:         string(srv.Source),
-			CatalogID:      srv.CatalogID,
-			CatalogVersion: srv.CatalogVersion,
-		}
-		if srv.OAuth != nil {
-			row.OAuth = &cometlineMCPOAuthJSON{
-				ClientID:         srv.OAuth.ClientID,
-				Scopes:           append([]string(nil), srv.OAuth.Scopes...),
-				AuthorizationURL: srv.OAuth.AuthorizationURL,
-				TokenURL:         srv.OAuth.TokenURL,
-			}
-		}
-		out.Servers = append(out.Servers, row)
-	}
-	return out
-}
-
-// catalogHostKey mirrors frontend dedupe (NormalizeServerURL + host/path).
-func catalogHostKey(rawURL string) string {
-	return catalog.HostKey(rawURL)
 }

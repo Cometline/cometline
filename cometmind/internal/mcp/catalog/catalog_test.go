@@ -23,17 +23,28 @@ func TestListIncludesLockedEntries(t *testing.T) {
 	}
 }
 
-func TestMaterializeAtlassianUsesNormalizedURL(t *testing.T) {
-	entry, ok, err := ByID("atlassian")
-	if err != nil || !ok {
-		t.Fatalf("atlassian entry: ok=%v err=%v", ok, err)
+func TestSyncLockedServerUpdatesRecipeWhenCatalogVersionChanges(t *testing.T) {
+	res := SyncLockedServer(SyncLockedServerInput{
+		Fields: ServerCatalogFields{
+			Source:         ServerSourceCatalog,
+			CatalogID:      "atlassian",
+			CatalogVersion: "0",
+		},
+		Current: LockedServerRecipe{
+			Name:           "Old",
+			Transport:      "http",
+			URL:            "https://mcp.atlassian.com/v1/mcp",
+			CatalogVersion: "0",
+		},
+	})
+	if !res.Changed {
+		t.Fatal("expected catalog version bump to change recipe")
 	}
-	got := Materialize(entry, nil)
-	if got.Source != "catalog" || got.CatalogID != "atlassian" {
-		t.Fatalf("catalog metadata: %+v", got)
+	if res.Next.URL != "https://mcp.atlassian.com/v2/mcp" {
+		t.Fatalf("url = %q", res.Next.URL)
 	}
-	if got.URL != "https://mcp.atlassian.com/v2/mcp" {
-		t.Fatalf("url = %q", got.URL)
+	if res.Next.CatalogVersion != "1" {
+		t.Fatalf("catalogVersion = %q", res.Next.CatalogVersion)
 	}
 }
 

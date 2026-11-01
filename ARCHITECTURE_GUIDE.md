@@ -60,7 +60,7 @@ The rule that explains most boundaries: `cometline` is the UI shell, `cometmind`
 | Persistence | SQLite via `modernc.org/sqlite` and sqlc | Local-first durable sessions without native CGO dependency | Storage engine is swappable only behind `session.Service`-equivalent contracts |
 | HTTP API | Gin in `cometmind/internal/server` | Localhost REST/SSE contract for desktop renderer | Swappable if the API/SSE contract is preserved |
 | Jobs and scheduling | `internal/jobs`, `internal/scheduler`, `internal/autonomy` | Durable work queue, scheduled work materialization, autonomous execution | Load-bearing once users rely on persisted jobs |
-| MCP client | `internal/mcp` with `github.com/modelcontextprotocol/go-sdk` | Adds external tools to the main agent without baking them into CometMind | Swappable behind the tool registry surface |
+| MCP client | `internal/mcp` with `github.com/modelcontextprotocol/go-sdk` | Adds external tools to the main agent without baking them into CometMind; connector gallery rows materialize into `cometmind.mcp.servers[]` with `source`/`catalogId` provenance (catalog vs custom) | Swappable behind the tool registry surface |
 | CLI | Cobra | Thin command surfaces around shared runtime | Swappable |
 | Desktop shell | Electron | Native window, sidecar process, updater, preload IPC | Swappable only if sidecar lifecycle and IPC equivalents remain |
 | Renderer | SvelteKit/Svelte 5 + TypeScript | Reactive chat UI, settings UI, route flow | Swappable if REST/SSE contracts and UX state rules are preserved |

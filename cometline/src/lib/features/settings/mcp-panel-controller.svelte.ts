@@ -23,6 +23,7 @@ import {
 	withTimeout,
 	type KnownMcpTool
 } from '#lib/features/settings/mcp-panel-format.js';
+import { MCP_SERVER_SOURCE } from '#lib/features/settings/mcp-server-source.js';
 import {
 	apiErrorMessage,
 	deleteMcpOAuthCredentials,
@@ -129,7 +130,7 @@ export function createMcpPanelController(deps: McpPanelControllerDeps) {
 			env: {},
 			url: '',
 			headers: {},
-			source: 'user'
+			source: MCP_SERVER_SOURCE.user
 		};
 		updateMcp({ enabled: true, servers: [...servers, server] });
 		expandedServerId = id;

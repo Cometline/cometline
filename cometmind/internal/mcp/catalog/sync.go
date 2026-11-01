@@ -13,38 +13,62 @@ type ServerCatalogFields struct {
 	CatalogVersion string
 }
 
+// LockedServerRecipe is the MCP server fields a catalog sync may refresh.
+type LockedServerRecipe struct {
+	Name           string
+	Transport      string
+	URL            string
+	OAuthScopes    []string
+	AllowedTools   []string
+	CatalogVersion string
+}
+
+// SyncLockedServerInput carries provenance plus the current server recipe.
+type SyncLockedServerInput struct {
+	Fields  ServerCatalogFields
+	Current LockedServerRecipe
+}
+
+// SyncLockedServerResult is the recipe after sync and whether anything changed.
+type SyncLockedServerResult struct {
+	Next    LockedServerRecipe
+	Changed bool
+}
+
 // SyncLockedServer refreshes recipe fields for a catalog-locked server. User-owned
-// servers (source "user" or "import") are returned unchanged.
-func SyncLockedServer(
-	fields ServerCatalogFields,
-	name, transport, url string,
-	oauthScopes []string,
-	allowedTools []string,
-) (string, string, string, []string, []string, string, bool) {
-	if strings.TrimSpace(fields.Source) != "catalog" {
-		return name, transport, url, oauthScopes, allowedTools, fields.CatalogVersion, false
+// servers (source user or import) are returned unchanged.
+func SyncLockedServer(in SyncLockedServerInput) SyncLockedServerResult {
+	current := in.Current
+	out := SyncLockedServerResult{Next: current}
+	if strings.TrimSpace(in.Fields.Source) != ServerSourceCatalog {
+		return out
 	}
-	catalogID := strings.TrimSpace(fields.CatalogID)
+	catalogID := strings.TrimSpace(in.Fields.CatalogID)
 	if catalogID == "" {
-		return name, transport, url, oauthScopes, allowedTools, fields.CatalogVersion, false
+		return out
 	}
 	entry, ok, err := ByID(catalogID)
 	if err != nil || !ok {
-		return name, transport, url, oauthScopes, allowedTools, fields.CatalogVersion, false
+		return out
 	}
-	if strings.TrimSpace(fields.CatalogVersion) == strings.TrimSpace(entry.Version) {
-		return name, transport, url, oauthScopes, allowedTools, fields.CatalogVersion, false
+	if strings.TrimSpace(in.Fields.CatalogVersion) == strings.TrimSpace(entry.Version) {
+		return out
 	}
-	nextURL := mcppkg.NormalizeServerURL(entry.URL)
-	nextScopes := oauthScopes
-	if entry.AuthKind == AuthOAuth {
-		if len(entry.OAuthScopes) > 0 {
-			nextScopes = append([]string(nil), entry.OAuthScopes...)
-		}
+	next := current
+	next.Name = entry.Name
+	next.Transport = strings.ToLower(strings.TrimSpace(entry.Transport))
+	if next.Transport == "" {
+		next.Transport = "http"
 	}
-	nextAllowed := allowedTools
-	if len(entry.DefaultAllowedTools) > 0 && len(allowedTools) == 0 {
-		nextAllowed = append([]string(nil), entry.DefaultAllowedTools...)
+	next.URL = mcppkg.NormalizeServerURL(entry.URL)
+	if entry.AuthKind == AuthOAuth && len(entry.OAuthScopes) > 0 {
+		next.OAuthScopes = append([]string(nil), entry.OAuthScopes...)
 	}
-	return entry.Name, strings.ToLower(strings.TrimSpace(entry.Transport)), nextURL, nextScopes, nextAllowed, entry.Version, true
+	if len(entry.DefaultAllowedTools) > 0 && len(current.AllowedTools) == 0 {
+		next.AllowedTools = append([]string(nil), entry.DefaultAllowedTools...)
+	}
+	next.CatalogVersion = entry.Version
+	out.Next = next
+	out.Changed = true
+	return out
 }

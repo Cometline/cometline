@@ -1,5 +1,6 @@
-import type { MCPServerConfig } from '#lib/cometmind-settings.js';
+import type { MCPServerConfig, MCPTransport } from '#lib/cometmind-settings.js';
 import type { McpCatalogEntry, McpServerStatus } from '#lib/client/cometmind.js';
+import { MCP_SERVER_SOURCE } from '#lib/features/settings/mcp-server-source.js';
 import { rewriteKnownHostUrl } from '#lib/features/settings/mcp-url.js';
 
 export function catalogHostKey(rawUrl: string): string {
@@ -19,14 +20,14 @@ export function catalogHostKey(rawUrl: string): string {
 }
 
 export function isCatalogLocked(server: MCPServerConfig): boolean {
-	return server.source === 'catalog';
+	return server.source === MCP_SERVER_SOURCE.catalog;
 }
 
 /** True when this row is a catalog install for the given recipe id. */
 export function isCatalogProvenance(server: MCPServerConfig, entryId: string): boolean {
 	const id = String(entryId ?? '').trim();
 	if (!id) return false;
-	return server.source === 'catalog' && server.catalogId === id;
+	return server.source === MCP_SERVER_SOURCE.catalog && server.catalogId === id;
 }
 
 export function findExistingCatalogServer(
@@ -82,7 +83,7 @@ export function materializeCatalogServer(
 		headers,
 		oauth,
 		allowedTools: [...(entry.defaultAllowedTools ?? [])],
-		source: 'catalog',
+		source: MCP_SERVER_SOURCE.catalog,
 		catalogId: entry.id,
 		catalogVersion: entry.version
 	};
@@ -95,7 +96,7 @@ export function mergeCatalogConnectExisting(
 	existing: MCPServerConfig,
 	materialized: MCPServerConfig
 ): MCPServerConfig {
-	if (existing.source === 'catalog') {
+	if (existing.source === MCP_SERVER_SOURCE.catalog) {
 		return {
 			...materialized,
 			id: existing.id,
@@ -114,7 +115,7 @@ export function mergeCatalogConnectExisting(
 }
 
 export function unlockCatalogServer(server: MCPServerConfig): MCPServerConfig {
-	if (server.source !== 'catalog') return server;
+	if (server.source !== MCP_SERVER_SOURCE.catalog) return server;
 	return { ...server, source: 'user' };
 }
 

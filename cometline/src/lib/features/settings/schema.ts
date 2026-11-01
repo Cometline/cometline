@@ -24,6 +24,10 @@ import {
 	DEFAULT_TERMINAL_APPEARANCE,
 	normalizeTerminalAppearance
 } from '#lib/features/workspace/terminal-appearance.js';
+import {
+	MCP_SERVER_SOURCE,
+	type MCPServerSource
+} from '#lib/features/settings/mcp-server-source.js';
 
 export const VALID_PROVIDER_METHODS: ProviderMethod[] = [
 	'openai-compatible',
@@ -138,7 +142,7 @@ export interface CometMindStorageSettings {
 
 export type MCPTransport = 'stdio' | 'http';
 
-export type MCPServerSource = 'catalog' | 'user' | 'import';
+export type { MCPServerSource };
 
 export interface MCPOAuthSettings {
 	clientId?: string;
@@ -455,8 +459,8 @@ function normalizeMCPServerSource(value: unknown): MCPServerSource | undefined {
 	const raw = String(value ?? '')
 		.trim()
 		.toLowerCase();
-	if (raw === 'catalog' || raw === 'user' || raw === 'import') {
-		return raw;
+	for (const source of Object.values(MCP_SERVER_SOURCE)) {
+		if (raw === source) return source;
 	}
 	return undefined;
 }
@@ -1478,7 +1482,13 @@ const providerSettingsSchema = z.object({
 						})
 						.optional(),
 					allowedTools: z.array(z.string()).optional(),
-					source: z.enum(['catalog', 'user', 'import']).optional(),
+					source: z
+						.enum([
+							MCP_SERVER_SOURCE.catalog,
+							MCP_SERVER_SOURCE.user,
+							MCP_SERVER_SOURCE.import
+						])
+						.optional(),
 					catalogId: z.string().optional(),
 					catalogVersion: z.string().optional()
 				})

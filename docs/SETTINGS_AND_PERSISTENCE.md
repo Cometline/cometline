@@ -55,7 +55,7 @@ Examples:
 - mini window inactivity timeout
 - storage and retention settings
 - memory retrieval, lifecycle, and embedding settings
-- MCP server configuration
+- MCP server configuration — each row has optional `source` (`catalog`, `user`, `import`): **catalog** rows follow the embedded connector recipe until unlocked; **user** / **import** rows are custom and are not overwritten by catalog sync.
 - jobs, autonomous job worker, and scheduler settings
 
 ### 2. Instant-save settings

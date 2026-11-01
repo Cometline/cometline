@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	mcppkg "github.com/Cometline/cometline/cometmind/internal/mcp"
+	"github.com/Cometline/cometline/cometmind/internal/mcp/catalog"
 )
 
 // MCPTransport identifies how to reach an MCP server.
@@ -26,9 +27,9 @@ type MCPOAuthConfig struct {
 type MCPServerSource string
 
 const (
-	MCPServerSourceCatalog MCPServerSource = "catalog"
-	MCPServerSourceUser    MCPServerSource = "user"
-	MCPServerSourceImport  MCPServerSource = "import"
+	MCPServerSourceCatalog MCPServerSource = MCPServerSource(catalog.ServerSourceCatalog)
+	MCPServerSourceUser    MCPServerSource = MCPServerSource(catalog.ServerSourceUser)
+	MCPServerSourceImport  MCPServerSource = MCPServerSource(catalog.ServerSourceImport)
 )
 
 // MCPServerConfig is one configured MCP server.

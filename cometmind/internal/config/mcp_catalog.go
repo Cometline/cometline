@@ -18,36 +18,39 @@ func syncMCPCatalogServers(servers []MCPServerConfig) []MCPServerConfig {
 }
 
 func applyCatalogSyncToServer(srv MCPServerConfig) MCPServerConfig {
-	fields := catalog.ServerCatalogFields{
-		Source:         string(srv.Source),
-		CatalogID:      srv.CatalogID,
-		CatalogVersion: srv.CatalogVersion,
-	}
 	var oauthScopes []string
 	if srv.OAuth != nil {
 		oauthScopes = append([]string(nil), srv.OAuth.Scopes...)
 	}
-	name, transport, url, scopes, allowed, version, changed := catalog.SyncLockedServer(
-		fields,
-		srv.Name,
-		string(srv.Transport),
-		srv.URL,
-		oauthScopes,
-		srv.AllowedTools,
-	)
-	if !changed {
+	synced := catalog.SyncLockedServer(catalog.SyncLockedServerInput{
+		Fields: catalog.ServerCatalogFields{
+			Source:         string(srv.Source),
+			CatalogID:      srv.CatalogID,
+			CatalogVersion: srv.CatalogVersion,
+		},
+		Current: catalog.LockedServerRecipe{
+			Name:           srv.Name,
+			Transport:      string(srv.Transport),
+			URL:            srv.URL,
+			OAuthScopes:    oauthScopes,
+			AllowedTools:   srv.AllowedTools,
+			CatalogVersion: srv.CatalogVersion,
+		},
+	})
+	if !synced.Changed {
 		return srv
 	}
-	srv.Name = name
-	srv.Transport = MCPTransport(normalizeMCPTransport(transport))
-	srv.URL = url
-	srv.AllowedTools = allowed
-	srv.CatalogVersion = version
-	if len(scopes) > 0 || srv.OAuth != nil {
+	next := synced.Next
+	srv.Name = next.Name
+	srv.Transport = MCPTransport(normalizeMCPTransport(next.Transport))
+	srv.URL = next.URL
+	srv.AllowedTools = next.AllowedTools
+	srv.CatalogVersion = next.CatalogVersion
+	if len(next.OAuthScopes) > 0 || srv.OAuth != nil {
 		if srv.OAuth == nil {
 			srv.OAuth = &MCPOAuthConfig{}
 		}
-		srv.OAuth.Scopes = scopes
+		srv.OAuth.Scopes = next.OAuthScopes
 	}
 	return srv
 }

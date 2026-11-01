@@ -242,14 +242,19 @@ func (m *Manager) Reload(ctx context.Context, cfg Config) error {
 		}
 		m.servers[srv.ID] = entry
 	}
+	removedIDs := make([]string, 0)
 	for id := range oldIDs {
 		if _, ok := newIDs[id]; !ok {
-			if err := DeleteOAuthCredentials(id); err != nil {
-				logging.L().Warn("mcp.oauth_delete_failed", zap.String("server", id), zap.Error(err))
-			}
+			removedIDs = append(removedIDs, id)
 		}
 	}
 	m.mu.Unlock()
+
+	for _, id := range removedIDs {
+		if err := DeleteOAuthCredentials(id); err != nil {
+			logging.L().Warn("mcp.oauth_delete_failed", zap.String("server", id), zap.Error(err))
+		}
+	}
 
 	// Detach reconnects from the SIGHUP reload context. The caller only needs to
 	// know that settings were applied; slow or wedged MCP transports should not
