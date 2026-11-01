@@ -48,11 +48,14 @@ func TestSyncLockedServerUpdatesRecipeWhenCatalogVersionChanges(t *testing.T) {
 	}
 }
 
-func TestHostKeyDedupesByHostAndPath(t *testing.T) {
+func TestHostKeyDedupesByHostOnly(t *testing.T) {
 	a := HostKey("https://api.heptabase.com/mcp")
 	b := HostKey("https://api.heptabase.com/mcp/")
 	if a == "" || a != b {
 		t.Fatalf("host keys: %q vs %q", a, b)
+	}
+	if a != "api.heptabase.com" {
+		t.Fatalf("host key = %q", a)
 	}
 	if HostKey("https://mcp.atlassian.com/v1/mcp") != "mcp.atlassian.com" {
 		t.Fatalf("atlassian v1 host key")
@@ -60,7 +63,10 @@ func TestHostKeyDedupesByHostAndPath(t *testing.T) {
 	if HostKey("https://mcp.atlassian.com/v2/mcp") != "mcp.atlassian.com" {
 		t.Fatalf("atlassian v2 host key")
 	}
-	if HostKey("https://mcp.linear.app/mcp") == HostKey("https://mcp.linear.app/mcp/readonly") {
-		t.Fatal("expected different host keys for linear endpoints")
+	if HostKey("https://mcp.linear.app/mcp") != HostKey("https://mcp.linear.app/sse") {
+		t.Fatalf("linear same host different path should share one key")
+	}
+	if HostKey("https://mcp.linear.app/mcp") != HostKey("https://mcp.linear.app/mcp/readonly") {
+		t.Fatalf("linear path variants should share one host key")
 	}
 }

@@ -4,6 +4,7 @@
 	import type { McpPanelController } from '#lib/features/settings/mcp-panel-controller.svelte.js';
 	import {
 		catalogMetaLine,
+		catalogScopesLabel,
 		isCatalogEntryConnected,
 		materializeCatalogServer
 	} from '#lib/features/settings/mcp-catalog.js';
@@ -79,6 +80,9 @@
 							<span class="connector-meta">
 								{catalogMetaLine(entry, status, connected)}
 							</span>
+							{#if !connected}
+								<span class="connector-scopes">{catalogScopesLabel(entry)}</span>
+							{/if}
 							{#if installed && displayError(status)}
 								<span class="connector-error">{displayError(status)}</span>
 							{/if}
@@ -104,7 +108,17 @@
 								{mcpEnabled}
 							/>
 						{:else if installed && status?.status === 'error'}
-							<McpStatusBadge status={status} server={installed} {mcpEnabled} />
+							<div class="connector-action-stack">
+								<McpStatusBadge status={status} server={installed} {mcpEnabled} />
+								<button
+									type="button"
+									class="connect-link"
+									disabled={controller.mcpBusy || busy}
+									onclick={() => controller.retryCatalogEntry(entry)}
+								>
+									Retry
+								</button>
+							</div>
 						{:else}
 							<button
 								type="button"
@@ -222,6 +236,22 @@
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+
+	.connector-scopes {
+		font-size: 11px;
+		color: var(--text-muted);
+		line-height: 1.35;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.connector-action-stack {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 4px;
 	}
 
 	.connector-error {

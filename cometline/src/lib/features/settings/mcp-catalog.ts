@@ -7,13 +7,7 @@ export function catalogHostKey(rawUrl: string): string {
 	const normalized = rewriteKnownHostUrl(String(rawUrl ?? '').trim());
 	if (!normalized) return '';
 	try {
-		const parsed = new URL(normalized);
-		const host = parsed.hostname.toLowerCase();
-		if (host === 'mcp.atlassian.com' || host.endsWith('.mcp.atlassian.com')) {
-			return host;
-		}
-		const path = parsed.pathname.replace(/\/$/, '') || '/';
-		return `${host}${path}`;
+		return new URL(normalized).hostname.toLowerCase();
 	} catch {
 		return normalized.toLowerCase();
 	}
@@ -116,7 +110,7 @@ export function mergeCatalogConnectExisting(
 
 export function unlockCatalogServer(server: MCPServerConfig): MCPServerConfig {
 	if (server.source !== MCP_SERVER_SOURCE.catalog) return server;
-	return { ...server, source: 'user' };
+	return { ...server, source: MCP_SERVER_SOURCE.user };
 }
 
 export function catalogAuthLabel(entry: McpCatalogEntry): string {

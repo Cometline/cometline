@@ -77,7 +77,9 @@ func ByID(id string) (Entry, bool, error) {
 	return Entry{}, false, nil
 }
 
-// HostKey normalizes an MCP URL for deduplication (host + path, lowercased).
+// HostKey normalizes an MCP URL to a dedupe key (hostname only, lowercased).
+// Known-host URL rewrites (e.g. Atlassian) run before extracting the host so
+// v1/v2 paths on the same service collapse to one settings row.
 func HostKey(rawURL string) string {
 	trimmed := mcppkg.NormalizeServerURL(strings.TrimSpace(rawURL))
 	if trimmed == "" {
@@ -87,13 +89,5 @@ func HostKey(rawURL string) string {
 	if err != nil || u.Host == "" {
 		return strings.ToLower(trimmed)
 	}
-	host := strings.ToLower(u.Hostname())
-	if host == "mcp.atlassian.com" || strings.HasSuffix(host, ".mcp.atlassian.com") {
-		return host
-	}
-	path := strings.TrimSuffix(u.EscapedPath(), "/")
-	if path == "" {
-		path = "/"
-	}
-	return host + path
+	return strings.ToLower(u.Hostname())
 }

@@ -1,4 +1,5 @@
 import type { MCPServerConfig, MCPTransport } from '#lib/cometmind-settings.js';
+import { MCP_SERVER_SOURCE } from '#lib/features/settings/mcp-server-source.js';
 
 type CursorMcpEntry = {
 	command?: unknown;
@@ -81,7 +82,7 @@ function parseCursorMcpEntry(
 			env: cleanStringMap(entry.env),
 			url: '',
 			headers: {},
-			source: 'import'
+			source: MCP_SERVER_SOURCE.import
 		};
 	}
 
@@ -98,7 +99,7 @@ function parseCursorMcpEntry(
 		env: {},
 		url,
 		headers: cleanStringMap(entry.headers),
-		source: 'import'
+		source: MCP_SERVER_SOURCE.import
 	};
 }
 

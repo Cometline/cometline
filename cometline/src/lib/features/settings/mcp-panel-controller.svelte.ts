@@ -225,6 +225,42 @@ export function createMcpPanelController(deps: McpPanelControllerDeps) {
 		await reconnectServer(server.id);
 	}
 
+	function catalogEntryNeedsOAuthRetry(
+		entry: McpCatalogEntry,
+		status: McpServerStatus | undefined
+	): boolean {
+		const code = status?.error_code ?? '';
+		if (code === 'needs_auth' || code === 'auth_expired' || code === 'unauthorized') {
+			return true;
+		}
+		return entry.authKind === 'oauth' && status?.oauth_connected !== true;
+	}
+
+	async function retryCatalogEntry(entry: McpCatalogEntry) {
+		const entryId = entry.id;
+		catalogConnectBusy = { ...catalogConnectBusy, [entryId]: true };
+		mcpStatus = `Retrying ${entry.name}…`;
+		try {
+			const installed = findExistingCatalogServer(deps.getMcp().servers ?? [], entry);
+			if (!installed) {
+				catalogConnectBusy = { ...catalogConnectBusy, [entryId]: false };
+				await connectCatalogEntry(entry);
+				return;
+			}
+			const status = statusFor(installed.id);
+			if (catalogEntryNeedsOAuthRetry(entry, status)) {
+				await connectOAuth(installed);
+			} else {
+				await reconnectServer(installed.id);
+			}
+			await refreshMcpRuntime({ silent: true });
+		} catch (err) {
+			mcpStatus = apiErrorMessage(err, `Retry failed for ${entry.name}`);
+		} finally {
+			catalogConnectBusy = { ...catalogConnectBusy, [entryId]: false };
+		}
+	}
+
 	async function connectCatalogEntry(entry: McpCatalogEntry) {
 		if ((entry.requiredInputs?.length ?? 0) > 0) {
 			mcpStatus = `${entry.name} needs credentials configured in the server editor before connecting.`;
@@ -557,6 +593,7 @@ export function createMcpPanelController(deps: McpPanelControllerDeps) {
 		catalogServerFor,
 		loadCatalog,
 		connectCatalogEntry,
+		retryCatalogEntry,
 		unlockServer,
 		syncTextFieldsOnServerSetChange,
 		updateMcp,

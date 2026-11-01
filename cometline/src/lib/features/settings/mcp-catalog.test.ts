@@ -73,6 +73,25 @@ describe('mcp-catalog', () => {
 		expect(merged.enabled).toBe(true);
 	});
 
+	it('reuses same-host custom row when path differs from catalog URL', () => {
+		const linear: McpCatalogEntry = {
+			...atlassian,
+			id: 'linear',
+			url: 'https://mcp.linear.app/mcp'
+		};
+		const custom: MCPServerConfig = {
+			id: 'my-linear',
+			name: 'Linear SSE',
+			enabled: true,
+			transport: 'http',
+			url: 'https://mcp.linear.app/sse',
+			source: MCP_SERVER_SOURCE.user
+		};
+		expect(findExistingCatalogServer([custom], linear)?.id).toBe('my-linear');
+		expect(catalogHostKey('https://mcp.linear.app/mcp')).toBe('mcp.linear.app');
+		expect(catalogHostKey('https://mcp.linear.app/sse')).toBe('mcp.linear.app');
+	});
+
 	it('reuses catalog-locked row by updating recipe fields', () => {
 		const existing: MCPServerConfig = {
 			id: 'atlassian',
