@@ -147,14 +147,20 @@ export function createSkillsPageController(deps: {
 				return;
 			}
 			const requested = deps.getRequestedSkill?.().trim() ?? '';
+			const visible = sortSkillsByRecent(
+				filterSkills(skills, skillSearch, selectedTags),
+				skillUpdatesStore.recent
+			);
 			const preferred =
 				requested ||
 				(options.keepSelection && selectedSkillName
-					? skills.find((skill) => skill.name === selectedSkillName)?.name
+					? visible.find((skill) => skill.name === selectedSkillName)?.name
 					: '') ||
 				'';
 			if (preferred && skillDirty && !requested) return;
-			await openSkill(preferred || skills[0].name, { force: true });
+			// The sidebar is recent-first, so a fresh visit should open that top skill,
+			// not the alphabetically first skill from the unsorted API list.
+			await openSkill(preferred || visible[0]?.name || skills[0].name, { force: true });
 		} catch (err) {
 			status = err instanceof Error ? err.message : 'Failed to load skills';
 		} finally {

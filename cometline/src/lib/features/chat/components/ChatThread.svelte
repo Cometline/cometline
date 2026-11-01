@@ -138,6 +138,7 @@
 		getSessionStreaming: () => sessionStreaming,
 		getLastUserId: () => lastUserId,
 		getUserMessageCount: () => userMessageCount,
+		getItems: () => threadItems,
 		getIsLoading: () => chatStore.isLoading,
 		sessionHasCachedTranscript,
 		getScroller: () => scrollerEl,

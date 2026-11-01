@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte';
 	import { X } from '@lucide/svelte';
 	import type { JobEventResource, JobResource } from '#lib/client/cometmind.js';
+	import { shellStore } from '#lib/stores/shell.svelte.js';
 	import { createJobDetailSessionController } from '#lib/features/jobs/job-detail-session.svelte.js';
 	import JobCreateForm from './JobCreateForm.svelte';
 	import JobDetailEditForm from './job-detail/JobDetailEditForm.svelte';
@@ -80,12 +81,17 @@
 
 <button
 	class="drawer-scrim"
+	class:workspace-open={shellStore.workspacePanelOpen}
 	aria-label="Close job details"
 	onclick={onClose}
 	transition:fade={{ duration: 120 }}
 ></button>
 
-<aside class="job-drawer settings-ui" transition:fly={{ x: 320, duration: 200 }}>
+<aside
+	class="job-drawer settings-ui"
+	class:workspace-open={shellStore.workspacePanelOpen}
+	transition:fly={{ x: 320, duration: 200 }}
+>
 	<header class="drawer-header">
 		<div class="drawer-title">
 			<p class="drawer-eyebrow">{mode === 'create' ? 'New job' : (job?.status ?? '')}</p>
@@ -218,6 +224,11 @@
 		cursor: pointer;
 	}
 
+	/* Stay inside the main pane so an open workspace panel is not covered. */
+	.drawer-scrim.workspace-open {
+		right: var(--workspace-panel-slot-width);
+	}
+
 	.job-drawer {
 		position: fixed;
 		top: var(--content-panel-inset);
@@ -233,6 +244,11 @@
 		border: 1px solid var(--border-soft);
 		background: var(--panel-bg);
 		box-shadow: var(--shadow-card);
+	}
+
+	.job-drawer.workspace-open {
+		right: calc(var(--workspace-panel-slot-width) + var(--content-panel-inset));
+		width: min(420px, calc(100vw - var(--workspace-panel-slot-width) - 24px));
 	}
 
 	.drawer-header {
@@ -359,7 +375,12 @@
 	}
 
 	@media (max-width: 900px) {
-		.job-drawer {
+		.drawer-scrim.workspace-open {
+			right: 0;
+		}
+
+		.job-drawer,
+		.job-drawer.workspace-open {
 			top: 0;
 			right: 0;
 			bottom: 0;

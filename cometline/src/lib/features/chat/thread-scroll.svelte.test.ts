@@ -233,6 +233,42 @@ describe('createThreadScroll', () => {
 		expect(screen.getByTestId('thread-scroll').dataset.initialPaint).toBe('false');
 	});
 
+	it('pins the first follow-up after a forked transcript that starts with a status note', async () => {
+		const view = render(ThreadScrollHarness, {
+			props: {
+				items: [
+					{ id: 'note', type: 'status', text: 'Forked from a session in /old.' },
+					{ id: 'u1', type: 'user', text: 'first' },
+					{ id: 'a1', type: 'assistant', text: 'reply' }
+				],
+				loading: false,
+				synced: true,
+				streaming: false,
+				cached: true
+			}
+		});
+		await settleEffects();
+		expect(screen.getByTestId('thread-scroll').dataset.initialPaint).toBe('false');
+
+		scrollIntoView.mockClear();
+		await view.rerender({
+			items: [
+				{ id: 'note', type: 'status', text: 'Forked from a session in /old.' },
+				{ id: 'u1', type: 'user', text: 'first' },
+				{ id: 'a1', type: 'assistant', text: 'reply' },
+				{ id: 'u2', type: 'user', text: 'follow up' },
+				{ id: 'a2', type: 'assistant', text: '', pending: true }
+			],
+			streaming: true
+		});
+		await settleEffects();
+
+		await waitFor(() =>
+			expect(screen.getByTestId('thread-scroll').dataset.activePinnedUserId).toBe('u2')
+		);
+		expect(scrollIntoView).toHaveBeenCalled();
+	});
+
 	it('pins follow-ups on a fresh session instead of wiping the canvas while streaming', async () => {
 		const view = render(ThreadScrollHarness, {
 			props: {

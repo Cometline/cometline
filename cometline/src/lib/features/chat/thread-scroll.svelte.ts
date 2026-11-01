@@ -1,6 +1,10 @@
 import { tick, untrack } from 'svelte';
 import type { ChatItem } from '#lib/stores/chat.svelte.js';
-import { activeTurnMinHeight, transcriptHasLeadingOrphans } from './thread-turns';
+import {
+	activeTurnMinHeight,
+	isFollowUpUserMessage,
+	transcriptHasLeadingOrphans
+} from './thread-turns';
 import { buildScrollKey, followUpPinScrollMargin, shouldShowJumpToBottom } from './thread-scroll';
 import { THREAD_HYDRATION_FAILSAFE_MS, scrollTopAfterPrepend } from './thread-virtualizer';
 
@@ -15,6 +19,8 @@ export interface ThreadScrollDeps {
 	getSessionStreaming: () => boolean;
 	getLastUserId: () => string | null;
 	getUserMessageCount: () => number;
+	/** Flat transcript, including leading status rows a fork may prepend. */
+	getItems?: () => readonly ChatItem[];
 	getIsLoading: () => boolean;
 	sessionHasCachedTranscript: (sessionId: string) => boolean;
 	/** Optional — when provided, the controller tracks the bound scroller. */
@@ -406,7 +412,10 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 	$effect(() => {
 		const userId = deps.getLastUserId();
 		const hydrating = isInitialTranscriptPaint;
-		const count = deps.getUserMessageCount();
+		const items = deps.getItems?.() ?? deps.getThreadItems();
+		const followUp = userId
+			? isFollowUpUserMessage(items, userId)
+			: deps.getUserMessageCount() > 1;
 		const vh = viewportHeight;
 		const streaming = deps.getSessionStreaming();
 
@@ -418,7 +427,7 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 
 		// Transcript refresh may remap the pinned user id after the stream ends.
 		// Retarget the reply canvas without scrolling again.
-		if (activePinnedUserId !== null && !streaming && count > 1 && !hydrating) {
+		if (activePinnedUserId !== null && !streaming && followUp && !hydrating) {
 			activePinnedUserId = userId;
 			lastScrolledUserId = userId;
 			return;
@@ -426,7 +435,9 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 
 		// Do not consume the id until we can actually present — retry when
 		// hydration finishes, viewport is measured, or streaming starts.
-		if (hydrating || count <= 1 || vh <= 0 || !streaming) return;
+		// A leading fork status note is not a user turn, so count alone would
+		// skip the pin for the first follow-up after /change.
+		if (hydrating || !followUp || vh <= 0 || !streaming) return;
 
 		presentFollowUpTurn(userId);
 	});

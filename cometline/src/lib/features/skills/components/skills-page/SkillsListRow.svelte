@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { tick } from 'svelte';
+
 	let {
 		name,
 		description,
@@ -14,9 +16,20 @@
 		badges?: string[];
 		onclick: () => void;
 	} = $props();
+
+	let row = $state<HTMLButtonElement | null>(null);
+
+	$effect(() => {
+		if (!active || !row) return;
+		void tick().then(() => {
+			if (typeof row?.scrollIntoView === 'function') {
+				row.scrollIntoView({ block: 'nearest' });
+			}
+		});
+	});
 </script>
 
-<button type="button" class="item-row" class:active {onclick}>
+<button type="button" class="item-row" class:active bind:this={row} {onclick}>
 	<strong>
 		{name}
 		{#if unseen}<span class="unseen-dot" aria-label="Updated"></span>{/if}
