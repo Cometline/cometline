@@ -209,13 +209,13 @@
 	.status-connected {
 		font-size: 13px;
 		font-weight: 600;
-		color: var(--color-2f6f4f);
+		color: var(--status-success);
 	}
 
 	.status-pending {
 		font-size: 13px;
 		font-weight: 500;
-		color: var(--text-muted);
+		color: var(--status-warning);
 	}
 
 	.connect-link {

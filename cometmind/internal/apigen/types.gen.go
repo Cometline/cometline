@@ -1588,6 +1588,11 @@ type McpCatalogRequiredInput struct {
 	Secret      bool    `json:"secret"`
 }
 
+// McpOAuthDeleteResponse defines model for McpOAuthDeleteResponse.
+type McpOAuthDeleteResponse struct {
+	Ok bool `json:"ok"`
+}
+
 // McpReconnectResponse defines model for McpReconnectResponse.
 type McpReconnectResponse struct {
 	// Connected True when the MCP handshake succeeded after OAuth. False means the token was saved but the session is not up yet.

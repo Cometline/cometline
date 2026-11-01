@@ -15,7 +15,14 @@ func loadCometlineSettingsJSON(path string) (*Config, error) {
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("parse cometline settings: %w", err)
 	}
-	return adaptCometlineSettings(raw)
+	cfg, err := adaptCometlineSettings(raw)
+	if err != nil {
+		return nil, err
+	}
+	if err := rewriteSettingsMCPServers(path, cfg.MCP); err != nil {
+		return nil, fmt.Errorf("persist mcp catalog sync: %w", err)
+	}
+	return cfg, nil
 }
 
 // ValidateCometlineSettingsJSON checks whether data can be used as Cometline's

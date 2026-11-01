@@ -1,21 +1,32 @@
 import type { MCPServerConfig } from '#lib/cometmind-settings.js';
-import type { McpCatalogEntry } from '#lib/client/cometmind.js';
+import type { McpCatalogEntry, McpServerStatus } from '#lib/client/cometmind.js';
 import { rewriteKnownHostUrl } from '#lib/features/settings/mcp-url.js';
 
 export function catalogHostKey(rawUrl: string): string {
-	const trimmed = (rawUrl ?? '').trim();
-	if (!trimmed) return '';
+	const normalized = rewriteKnownHostUrl(String(rawUrl ?? '').trim());
+	if (!normalized) return '';
 	try {
-		const parsed = new URL(trimmed);
+		const parsed = new URL(normalized);
+		const host = parsed.hostname.toLowerCase();
+		if (host === 'mcp.atlassian.com' || host.endsWith('.mcp.atlassian.com')) {
+			return host;
+		}
 		const path = parsed.pathname.replace(/\/$/, '') || '/';
-		return `${parsed.hostname.toLowerCase()}${path}`;
+		return `${host}${path}`;
 	} catch {
-		return trimmed.toLowerCase();
+		return normalized.toLowerCase();
 	}
 }
 
 export function isCatalogLocked(server: MCPServerConfig): boolean {
 	return server.source === 'catalog';
+}
+
+/** True when this row is a catalog install for the given recipe id. */
+export function isCatalogProvenance(server: MCPServerConfig, entryId: string): boolean {
+	const id = String(entryId ?? '').trim();
+	if (!id) return false;
+	return server.source === 'catalog' && server.catalogId === id;
 }
 
 export function findExistingCatalogServer(
@@ -25,10 +36,11 @@ export function findExistingCatalogServer(
 	const catalogId = entry.id;
 	const hostKey = catalogHostKey(entry.url);
 	for (const server of servers) {
-		if (server.catalogId === catalogId || server.id === catalogId) {
+		if (server.catalogId === catalogId || isCatalogProvenance(server, catalogId)) {
 			return server;
 		}
-		if (hostKey && catalogHostKey(server.url ?? '') === hostKey) {
+		const sk = catalogHostKey(server.url ?? '');
+		if (hostKey && sk === hostKey) {
 			return server;
 		}
 	}
@@ -70,6 +82,31 @@ export function materializeCatalogServer(
 		source: 'catalog',
 		catalogId: entry.id,
 		catalogVersion: entry.version
+	};
+}
+
+/**
+ * Apply a catalog Connect action to an existing row without clobbering unlocked/custom/import edits.
+ */
+export function mergeCatalogConnectExisting(
+	existing: MCPServerConfig,
+	materialized: MCPServerConfig
+): MCPServerConfig {
+	if (existing.source === 'catalog') {
+		return {
+			...materialized,
+			id: existing.id,
+			env: { ...(materialized.env ?? {}), ...(existing.env ?? {}) },
+			headers: { ...(materialized.headers ?? {}), ...(existing.headers ?? {}) },
+			allowedTools:
+				(existing.allowedTools?.length ?? 0) > 0
+					? existing.allowedTools
+					: materialized.allowedTools
+		};
+	}
+	return {
+		...existing,
+		enabled: true
 	};
 }
 

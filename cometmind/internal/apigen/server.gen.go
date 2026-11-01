@@ -85,6 +85,9 @@ type ServerInterface interface {
 	// Test connect to one MCP server without persisting
 	// (POST /api/v1/mcp/servers/{id}/connection-tests)
 	TestMcpServer(c *gin.Context, id string)
+	// Delete stored OAuth token and client metadata for one MCP server
+	// (DELETE /api/v1/mcp/servers/{id}/oauth-credentials)
+	DeleteMcpOAuthCredentials(c *gin.Context, id string)
 	// Run interactive OAuth (discovery, DCR, browser authorization) for one MCP server
 	// (POST /api/v1/mcp/servers/{id}/oauth-flows)
 	StartMcpOAuth(c *gin.Context, id string)
@@ -826,6 +829,31 @@ func (siw *ServerInterfaceWrapper) TestMcpServer(c *gin.Context) {
 	}
 
 	siw.Handler.TestMcpServer(c, id)
+}
+
+// DeleteMcpOAuthCredentials operation middleware
+func (siw *ServerInterfaceWrapper) DeleteMcpOAuthCredentials(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DeleteMcpOAuthCredentials(c, id)
 }
 
 // StartMcpOAuth operation middleware
@@ -2631,6 +2659,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/api/v1/mcp/catalog", wrapper.ListMcpCatalog)
 	router.GET(options.BaseURL+"/api/v1/mcp/servers", wrapper.ListMcpServers)
 	router.POST(options.BaseURL+"/api/v1/mcp/servers/:id/connection-tests", wrapper.TestMcpServer)
+	router.DELETE(options.BaseURL+"/api/v1/mcp/servers/:id/oauth-credentials", wrapper.DeleteMcpOAuthCredentials)
 	router.POST(options.BaseURL+"/api/v1/mcp/servers/:id/oauth-flows", wrapper.StartMcpOAuth)
 	router.POST(options.BaseURL+"/api/v1/mcp/servers/:id/reconnection-runs", wrapper.ReconnectMcpServer)
 	router.GET(options.BaseURL+"/api/v1/mcp/tools", wrapper.ListMcpTools)
@@ -3919,6 +3948,42 @@ func (response TestMcpServer503JSONResponse) VisitTestMcpServerResponse(w http.R
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteMcpOAuthCredentialsRequestObject struct {
+	Id string `json:"id"`
+}
+
+type DeleteMcpOAuthCredentialsResponseObject interface {
+	VisitDeleteMcpOAuthCredentialsResponse(w http.ResponseWriter) error
+}
+
+type DeleteMcpOAuthCredentials200JSONResponse McpOAuthDeleteResponse
+
+func (response DeleteMcpOAuthCredentials200JSONResponse) VisitDeleteMcpOAuthCredentialsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteMcpOAuthCredentials500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response DeleteMcpOAuthCredentials500JSONResponse) VisitDeleteMcpOAuthCredentialsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -7776,6 +7841,9 @@ type StrictServerInterface interface {
 	// Test connect to one MCP server without persisting
 	// (POST /api/v1/mcp/servers/{id}/connection-tests)
 	TestMcpServer(ctx context.Context, request TestMcpServerRequestObject) (TestMcpServerResponseObject, error)
+	// Delete stored OAuth token and client metadata for one MCP server
+	// (DELETE /api/v1/mcp/servers/{id}/oauth-credentials)
+	DeleteMcpOAuthCredentials(ctx context.Context, request DeleteMcpOAuthCredentialsRequestObject) (DeleteMcpOAuthCredentialsResponseObject, error)
 	// Run interactive OAuth (discovery, DCR, browser authorization) for one MCP server
 	// (POST /api/v1/mcp/servers/{id}/oauth-flows)
 	StartMcpOAuth(ctx context.Context, request StartMcpOAuthRequestObject) (StartMcpOAuthResponseObject, error)
@@ -8681,6 +8749,32 @@ func (sh *strictHandler) TestMcpServer(ctx *gin.Context, id string) {
 		sh.options.HandlerErrorFunc(ctx, err)
 	} else if validResponse, ok := response.(TestMcpServerResponseObject); ok {
 		if err := validResponse.VisitTestMcpServerResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteMcpOAuthCredentials operation middleware
+func (sh *strictHandler) DeleteMcpOAuthCredentials(ctx *gin.Context, id string) {
+	var request DeleteMcpOAuthCredentialsRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteMcpOAuthCredentials(ctx, request.(DeleteMcpOAuthCredentialsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteMcpOAuthCredentials")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(DeleteMcpOAuthCredentialsResponseObject); ok {
+		if err := validResponse.VisitDeleteMcpOAuthCredentialsResponse(ctx.Writer); err != nil {
 			sh.options.ResponseErrorHandlerFunc(ctx, err)
 		}
 	} else if response != nil {

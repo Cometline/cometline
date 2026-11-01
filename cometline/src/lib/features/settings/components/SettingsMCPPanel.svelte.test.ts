@@ -355,7 +355,7 @@ describe('SettingsMCPPanel refresh status resync (fix for stuck toggle)', () => 
 
 		await waitFor(() => {
 			expect(container.textContent).toContain('CometMind is reloading MCP servers');
-			expect(container.querySelector('.status-badge.pending')).toBeTruthy();
+			expect(container.querySelector('.mcp-status-badge.pending')).toBeTruthy();
 		});
 	});
 
@@ -402,13 +402,13 @@ describe('SettingsMCPPanel refresh status resync (fix for stuck toggle)', () => 
 
 		await waitFor(() => {
 			expect(container.textContent).toContain('CometMind is reloading MCP servers');
-			expect(container.querySelector('.status-badge.pending')).toBeTruthy();
+			expect(container.querySelector('.mcp-status-badge.pending')).toBeTruthy();
 		});
 
 		await waitFor(
 			() => {
 				expect(container.textContent).not.toContain('CometMind is reloading MCP servers');
-				expect(container.querySelector('.status-badge.connected')).toBeTruthy();
+				expect(container.querySelector('.mcp-status-badge.connected')).toBeTruthy();
 				expect(container.textContent).toContain('connected');
 			},
 			{ timeout: 3_000 }
@@ -459,7 +459,7 @@ describe('SettingsMCPPanel refresh status resync (fix for stuck toggle)', () => 
 		await waitFor(() => expect(container.textContent).toContain('Connecting'));
 		await waitFor(
 			() => {
-				expect(container.querySelector('.status-badge.connected')).toBeTruthy();
+				expect(container.querySelector('.mcp-status-badge.connected')).toBeTruthy();
 				expect(container.textContent).toContain('connected');
 			},
 			{ timeout: 3_000 }

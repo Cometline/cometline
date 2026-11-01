@@ -1,15 +1,11 @@
 <script lang="ts">
 	import { ChevronDown, ChevronRight, Trash2 } from '@lucide/svelte';
 	import McpServerEditor from './McpServerEditor.svelte';
+	import McpStatusBadge from './McpStatusBadge.svelte';
 	import type { MCPServerConfig } from '#lib/cometmind-settings.js';
 	import type { McpServerStatus } from '#lib/client/cometmind.js';
 	import type { McpPanelController } from '#lib/features/settings/mcp-panel-controller.svelte.js';
-	import {
-		connectionSummary,
-		displayError,
-		statusClass,
-		statusLabel
-	} from '#lib/features/settings/mcp-panel-format.js';
+	import { connectionSummary, displayError } from '#lib/features/settings/mcp-panel-format.js';
 
 	let {
 		server,
@@ -44,12 +40,7 @@
 			<span class="row-main">
 				<span class="row-title">
 					<strong>{server.name}</strong>
-					<span class="status-badge {statusClass(status, server, mcpEnabled)}">
-						{statusLabel(status, server, mcpEnabled)}
-						{#if status?.tool_count}
-							· {status.tool_count} tools
-						{/if}
-					</span>
+					<McpStatusBadge {status} {server} {mcpEnabled} toolCount={status?.tool_count} />
 				</span>
 				<span class="row-summary">{connectionSummary(server)}</span>
 			</span>
@@ -207,35 +198,5 @@
 		padding: 0 11px 8px 37px;
 		font-size: 11px;
 		color: var(--status-error);
-	}
-
-	.status-badge {
-		display: inline-block;
-		padding: 1px 8px;
-		border-radius: 999px;
-		font-size: 10px;
-		font-weight: 650;
-		text-transform: capitalize;
-		background: rgba(15, 23, 42, 0.06);
-		color: var(--text-muted);
-	}
-
-	.status-badge.connected {
-		background: rgba(47, 111, 79, 0.12);
-		color: var(--color-2f6f4f);
-	}
-
-	.status-badge.error {
-		background: rgba(180, 35, 24, 0.12);
-		color: var(--status-error);
-	}
-
-	.status-badge.pending {
-		background: rgba(180, 130, 24, 0.14);
-		color: var(--color-8a5a10);
-	}
-
-	input {
-		width: 100%;
 	}
 </style>

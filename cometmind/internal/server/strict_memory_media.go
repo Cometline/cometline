@@ -26,6 +26,11 @@ func (s *strictServer) StartMcpOAuth(ctx context.Context, _ apigen.StartMcpOAuth
 	return nil, nil
 }
 
+func (s *strictServer) DeleteMcpOAuthCredentials(ctx context.Context, _ apigen.DeleteMcpOAuthCredentialsRequestObject) (apigen.DeleteMcpOAuthCredentialsResponseObject, error) {
+	delegateGin(ctx, s.app.handleDeleteMCPOAuthCredentials)
+	return nil, nil
+}
+
 func (s *strictServer) ReconnectMcpServer(ctx context.Context, _ apigen.ReconnectMcpServerRequestObject) (apigen.ReconnectMcpServerResponseObject, error) {
 	delegateGin(ctx, s.app.handleReconnectMCPServer)
 	return nil, nil

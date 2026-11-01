@@ -1750,6 +1750,27 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/mcp/servers/{id}/oauth-credentials:
+    delete:
+      tags: [MCP]
+      summary: Delete stored OAuth token and client metadata for one MCP server
+      operationId: deleteMcpOAuthCredentials
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OAuth credentials removed (or already absent)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/McpOAuthDeleteResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/mcp/servers/{id}/oauth-flows:
     post:
       tags: [MCP]
@@ -3916,6 +3937,14 @@ components:
         error_hint:
           type: string
           description: Short next-step message for Settings UI.
+
+    McpOAuthDeleteResponse:
+      type: object
+      additionalProperties: false
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
 
     McpReconnectResponse:
       type: object

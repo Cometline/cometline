@@ -49,6 +49,7 @@ import {
 	putMemorySettings as putMemorySettingsApi,
 	runStorageRetention as runStorageRetentionApi,
 	runStorageBackup as runStorageBackupApi,
+	deleteMcpOAuthCredentials as deleteMcpOAuthCredentialsApi,
 	reconnectMcpServer as reconnectMcpServerApi,
 	testMcpServer as testMcpServerApi,
 	rejectSkillDraft as rejectSkillDraftApi,
@@ -667,6 +668,13 @@ export async function startMcpOAuth(serverId: string): Promise<McpReconnectRespo
 	} catch (error) {
 		throw new Error(apiErrorMessage(error, 'OAuth connect failed'));
 	}
+}
+
+export async function deleteMcpOAuthCredentials(serverId: string): Promise<void> {
+	await deleteMcpOAuthCredentialsApi({
+		path: { id: serverId },
+		throwOnError: true
+	});
 }
 
 export async function deleteSkill(name: string, workspacePath = ''): Promise<void> {

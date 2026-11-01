@@ -721,6 +721,10 @@ export type McpTestResult = {
     error_hint?: string;
 };
 
+export type McpOAuthDeleteResponse = {
+    ok: boolean;
+};
+
 export type McpReconnectResponse = {
     ok: boolean;
     /**
@@ -3458,6 +3462,33 @@ export type ReconnectMcpServerResponses = {
 };
 
 export type ReconnectMcpServerResponse = ReconnectMcpServerResponses[keyof ReconnectMcpServerResponses];
+
+export type DeleteMcpOAuthCredentialsData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/mcp/servers/{id}/oauth-credentials';
+};
+
+export type DeleteMcpOAuthCredentialsErrors = {
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type DeleteMcpOAuthCredentialsError = DeleteMcpOAuthCredentialsErrors[keyof DeleteMcpOAuthCredentialsErrors];
+
+export type DeleteMcpOAuthCredentialsResponses = {
+    /**
+     * OAuth credentials removed (or already absent)
+     */
+    200: McpOAuthDeleteResponse;
+};
+
+export type DeleteMcpOAuthCredentialsResponse = DeleteMcpOAuthCredentialsResponses[keyof DeleteMcpOAuthCredentialsResponses];
 
 export type StartMcpOAuthData = {
     body?: never;

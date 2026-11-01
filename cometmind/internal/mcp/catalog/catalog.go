@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
+	mcppkg "github.com/Cometline/cometline/cometmind/internal/mcp"
 )
 
 //go:embed entries.json
@@ -77,7 +79,7 @@ func ByID(id string) (Entry, bool, error) {
 
 // HostKey normalizes an MCP URL for deduplication (host + path, lowercased).
 func HostKey(rawURL string) string {
-	trimmed := strings.TrimSpace(rawURL)
+	trimmed := mcppkg.NormalizeServerURL(strings.TrimSpace(rawURL))
 	if trimmed == "" {
 		return ""
 	}
@@ -85,9 +87,13 @@ func HostKey(rawURL string) string {
 	if err != nil || u.Host == "" {
 		return strings.ToLower(trimmed)
 	}
+	host := strings.ToLower(u.Hostname())
+	if host == "mcp.atlassian.com" || strings.HasSuffix(host, ".mcp.atlassian.com") {
+		return host
+	}
 	path := strings.TrimSuffix(u.EscapedPath(), "/")
 	if path == "" {
 		path = "/"
 	}
-	return strings.ToLower(u.Hostname()) + path
+	return host + path
 }

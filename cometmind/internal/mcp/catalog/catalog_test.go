@@ -43,6 +43,12 @@ func TestHostKeyDedupesByHostAndPath(t *testing.T) {
 	if a == "" || a != b {
 		t.Fatalf("host keys: %q vs %q", a, b)
 	}
+	if HostKey("https://mcp.atlassian.com/v1/mcp") != "mcp.atlassian.com" {
+		t.Fatalf("atlassian v1 host key")
+	}
+	if HostKey("https://mcp.atlassian.com/v2/mcp") != "mcp.atlassian.com" {
+		t.Fatalf("atlassian v2 host key")
+	}
 	if HostKey("https://mcp.linear.app/mcp") == HostKey("https://mcp.linear.app/mcp/readonly") {
 		t.Fatal("expected different host keys for linear endpoints")
 	}

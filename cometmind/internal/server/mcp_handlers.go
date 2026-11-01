@@ -92,6 +92,15 @@ func (a *App) handleStartMCPOAuth(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true, "connected": true})
 }
 
+func (a *App) handleDeleteMCPOAuthCredentials(c *gin.Context) {
+	id := c.Param("id")
+	if err := mcppkg.DeleteOAuthCredentials(id); err != nil {
+		writeError(c, http.StatusInternalServerError, "mcp_oauth_delete_failed", err.Error())
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
 func mcpOAuthFlowBody(err error) (bool, gin.H) {
 	var reconnectErr *mcppkg.OAuthReconnectError
 	if !errors.As(err, &reconnectErr) {

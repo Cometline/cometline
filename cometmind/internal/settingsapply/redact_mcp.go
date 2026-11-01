@@ -28,6 +28,7 @@ func RestoreMCPSecretsInCometmind(merged, before map[string]any) {
 		}
 		m["env"] = restoreStringMapSecrets(m["env"], prev["env"])
 		m["headers"] = restoreStringMapSecrets(m["headers"], prev["headers"])
+		stripMCPHasValueMetadata(m)
 		arr[i] = m
 	}
 	mcp["servers"] = arr
@@ -71,6 +72,9 @@ func restoreStringMapSecrets(patchVal, beforeVal any) any {
 	bm, _ := asMap(beforeVal)
 	out := map[string]any{}
 	for k, pv := range pm {
+		if stringsHasSuffix(k, "_has_value") {
+			continue
+		}
 		if IsSecretSentinel(pv) {
 			if bm != nil {
 				if prev, ok := bm[k]; ok {

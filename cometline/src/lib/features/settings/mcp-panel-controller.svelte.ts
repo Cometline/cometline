@@ -7,6 +7,7 @@ import {
 	findExistingCatalogServer,
 	isCatalogLocked,
 	materializeCatalogServer,
+	mergeCatalogConnectExisting,
 	unlockCatalogServer
 } from '#lib/features/settings/mcp-catalog.js';
 import { normalizeServerConnection } from '#lib/features/settings/mcp-url.js';
@@ -24,6 +25,7 @@ import {
 } from '#lib/features/settings/mcp-panel-format.js';
 import {
 	apiErrorMessage,
+	deleteMcpOAuthCredentials,
 	listMcpCatalog,
 	listMcpServers,
 	listMcpTools,
@@ -171,6 +173,9 @@ export function createMcpPanelController(deps: McpPanelControllerDeps) {
 	function removeServer(serverId: string) {
 		updateMcp({ servers: deps.getMcp().servers.filter((server) => server.id !== serverId) });
 		if (expandedServerId === serverId) expandedServerId = null;
+		void deleteMcpOAuthCredentials(serverId).catch(() => {
+			// Sidecar may be down until settings save; Reload also purges on remove.
+		});
 	}
 
 	function unlockServer(serverId: string) {
@@ -224,16 +229,7 @@ export function createMcpPanelController(deps: McpPanelControllerDeps) {
 			const existing = findExistingCatalogServer(servers, entry);
 			const materialized = materializeCatalogServer(entry);
 			const nextServer = existing
-				? {
-						...materialized,
-						id: existing.id,
-						env: { ...(existing.env ?? {}), ...(materialized.env ?? {}) },
-						headers: { ...(existing.headers ?? {}), ...(materialized.headers ?? {}) },
-						allowedTools:
-							(existing.allowedTools?.length ?? 0) > 0
-								? existing.allowedTools
-								: materialized.allowedTools
-					}
+				? mergeCatalogConnectExisting(existing, materialized)
 				: materialized;
 			const nextServers = existing
 				? servers.map((server) => (server.id === existing.id ? nextServer : server))
