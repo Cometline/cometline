@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	mcppkg "github.com/Cometline/cometline/cometmind/internal/mcp"
+	"github.com/Cometline/cometline/cometmind/internal/mcp/catalog"
 	"github.com/gin-gonic/gin"
 )
 
@@ -14,6 +15,15 @@ func (a *App) handleListMCPServers(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"servers": a.mcpMgr.ListServers()})
+}
+
+func (a *App) handleListMCPCatalog(c *gin.Context) {
+	entries, err := catalog.PublicList()
+	if err != nil {
+		writeError(c, http.StatusInternalServerError, "mcp_catalog_failed", err.Error())
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"entries": entries})
 }
 
 func (a *App) handleListMCPTools(c *gin.Context) {

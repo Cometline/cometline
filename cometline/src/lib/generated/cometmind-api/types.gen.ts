@@ -658,6 +658,39 @@ export type ListMcpServersResponse = {
     servers: Array<McpServerStatus>;
 };
 
+export type McpCatalogAuthKind = 'oauth' | 'api_key' | 'none';
+
+export type McpCatalogRequiredInput = {
+    key: string;
+    label: string;
+    /**
+     * env or header
+     */
+    kind: string;
+    secret: boolean;
+    placeholder?: string;
+};
+
+export type McpCatalogEntry = {
+    id: string;
+    version: string;
+    name: string;
+    description: string;
+    transport: 'http';
+    /**
+     * Official remote MCP endpoint (never typed by the user during one-click install).
+     */
+    url: string;
+    authKind: McpCatalogAuthKind;
+    oauthScopes: Array<string>;
+    defaultAllowedTools: Array<string>;
+    requiredInputs?: Array<McpCatalogRequiredInput>;
+};
+
+export type ListMcpCatalogResponse = {
+    entries: Array<McpCatalogEntry>;
+};
+
 export type McpToolInfo = {
     server_id: string;
     server_name: string;
@@ -3280,6 +3313,31 @@ export type PromoteSkillDraftResponses = {
 };
 
 export type PromoteSkillDraftResponse = PromoteSkillDraftResponses[keyof PromoteSkillDraftResponses];
+
+export type ListMcpCatalogData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/mcp/catalog';
+};
+
+export type ListMcpCatalogErrors = {
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type ListMcpCatalogError = ListMcpCatalogErrors[keyof ListMcpCatalogErrors];
+
+export type ListMcpCatalogResponses = {
+    /**
+     * Connector catalog
+     */
+    200: ListMcpCatalogResponse;
+};
+
+export type ListMcpCatalogResponse2 = ListMcpCatalogResponses[keyof ListMcpCatalogResponses];
 
 export type ListMcpServersData = {
     body?: never;

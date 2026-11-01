@@ -138,6 +138,7 @@ func (t patchSettingsTool) Execute(ctx context.Context, input json.RawMessage) (
 	before = settingsapply.StripDesktopKeys(before)
 	merged := settingsapply.MergePatch(before, in.Patch)
 	settingsapply.RestoreSecretsInProviders(merged, before)
+	settingsapply.RestoreMCPSecretsInCometmind(merged, before)
 	merged = settingsapply.StripDesktopKeys(merged)
 	plan, err := settingsapply.Classify(before, merged)
 	if err != nil {

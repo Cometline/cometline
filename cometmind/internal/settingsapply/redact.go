@@ -14,6 +14,7 @@ func RedactSecrets(doc map[string]any) map[string]any {
 	if cm, ok := asMap(out["cometmind"]); ok {
 		redactMemoryEmbedding(cm)
 		redactDiscord(cm)
+		redactMCP(cm)
 		out["cometmind"] = cm
 	}
 	return out

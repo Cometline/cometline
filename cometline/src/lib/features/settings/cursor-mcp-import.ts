@@ -80,7 +80,8 @@ function parseCursorMcpEntry(
 			args: cleanStringList(entry.args),
 			env: cleanStringMap(entry.env),
 			url: '',
-			headers: {}
+			headers: {},
+			source: 'import'
 		};
 	}
 
@@ -96,7 +97,8 @@ function parseCursorMcpEntry(
 		args: [],
 		env: {},
 		url,
-		headers: cleanStringMap(entry.headers)
+		headers: cleanStringMap(entry.headers),
+		source: 'import'
 	};
 }
 

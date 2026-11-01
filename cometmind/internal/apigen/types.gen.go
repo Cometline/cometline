@@ -286,6 +286,42 @@ func (e JobResourceStatus) Valid() bool {
 	}
 }
 
+// Defines values for McpCatalogAuthKind.
+const (
+	ApiKey McpCatalogAuthKind = "api_key"
+	None   McpCatalogAuthKind = "none"
+	Oauth  McpCatalogAuthKind = "oauth"
+)
+
+// Valid indicates whether the value is a known member of the McpCatalogAuthKind enum.
+func (e McpCatalogAuthKind) Valid() bool {
+	switch e {
+	case ApiKey:
+		return true
+	case None:
+		return true
+	case Oauth:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for McpCatalogEntryTransport.
+const (
+	Http McpCatalogEntryTransport = "http"
+)
+
+// Valid indicates whether the value is a known member of the McpCatalogEntryTransport enum.
+func (e McpCatalogEntryTransport) Valid() bool {
+	switch e {
+	case Http:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for McpServerStatusStatus.
 const (
 	McpServerStatusStatusConnected    McpServerStatusStatus = "connected"
@@ -1483,6 +1519,11 @@ type ListJobsResponse struct {
 	Jobs []JobResource `json:"jobs"`
 }
 
+// ListMcpCatalogResponse defines model for ListMcpCatalogResponse.
+type ListMcpCatalogResponse struct {
+	Entries []McpCatalogEntry `json:"entries"`
+}
+
 // ListMcpServersResponse defines model for ListMcpServersResponse.
 type ListMcpServersResponse struct {
 	Servers []McpServerStatus `json:"servers"`
@@ -1512,6 +1553,39 @@ type ListSkillDraftsResponse struct {
 type ListSkillsResponse struct {
 	Errors *[]string `json:"errors,omitempty"`
 	Skills []Skill   `json:"skills"`
+}
+
+// McpCatalogAuthKind defines model for McpCatalogAuthKind.
+type McpCatalogAuthKind string
+
+// McpCatalogEntry defines model for McpCatalogEntry.
+type McpCatalogEntry struct {
+	AuthKind            McpCatalogAuthKind         `json:"authKind"`
+	DefaultAllowedTools []string                   `json:"defaultAllowedTools"`
+	Description         string                     `json:"description"`
+	Id                  string                     `json:"id"`
+	Name                string                     `json:"name"`
+	OauthScopes         []string                   `json:"oauthScopes"`
+	RequiredInputs      *[]McpCatalogRequiredInput `json:"requiredInputs,omitempty"`
+	Transport           McpCatalogEntryTransport   `json:"transport"`
+
+	// Url Official remote MCP endpoint (never typed by the user during one-click install).
+	Url     string `json:"url"`
+	Version string `json:"version"`
+}
+
+// McpCatalogEntryTransport defines model for McpCatalogEntry.Transport.
+type McpCatalogEntryTransport string
+
+// McpCatalogRequiredInput defines model for McpCatalogRequiredInput.
+type McpCatalogRequiredInput struct {
+	Key string `json:"key"`
+
+	// Kind env or header
+	Kind        string  `json:"kind"`
+	Label       string  `json:"label"`
+	Placeholder *string `json:"placeholder,omitempty"`
+	Secret      bool    `json:"secret"`
 }
 
 // McpReconnectResponse defines model for McpReconnectResponse.

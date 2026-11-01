@@ -138,6 +138,8 @@ export interface CometMindStorageSettings {
 
 export type MCPTransport = 'stdio' | 'http';
 
+export type MCPServerSource = 'catalog' | 'user' | 'import';
+
 export interface MCPOAuthSettings {
 	clientId?: string;
 	scopes?: string[];
@@ -157,6 +159,9 @@ export interface MCPServerConfig {
 	headers?: Record<string, string>;
 	oauth?: MCPOAuthSettings;
 	allowedTools?: string[];
+	source?: MCPServerSource;
+	catalogId?: string;
+	catalogVersion?: string;
 }
 
 export interface CometMindMCPSettings {
@@ -427,6 +432,7 @@ function normalizeMCPServer(
 	if (!id) return null;
 	if (!existingIds.has(id)) existingIds.add(id);
 	const transport = normalizeMCPTransport(input.transport, 'stdio');
+	const source = normalizeMCPServerSource(input.source);
 	return {
 		id,
 		name: name || id,
@@ -438,8 +444,21 @@ function normalizeMCPServer(
 		url: String(input.url ?? '').trim(),
 		headers: cleanStringMap(input.headers),
 		oauth: normalizeMCPOAuth(input.oauth),
-		allowedTools: cleanStringList(input.allowedTools)
+		allowedTools: cleanStringList(input.allowedTools),
+		source,
+		catalogId: String(input.catalogId ?? '').trim() || undefined,
+		catalogVersion: String(input.catalogVersion ?? '').trim() || undefined
 	};
+}
+
+function normalizeMCPServerSource(value: unknown): MCPServerSource | undefined {
+	const raw = String(value ?? '')
+		.trim()
+		.toLowerCase();
+	if (raw === 'catalog' || raw === 'user' || raw === 'import') {
+		return raw;
+	}
+	return undefined;
 }
 
 function normalizeCometMindMCPSettings(
@@ -1458,7 +1477,10 @@ const providerSettingsSchema = z.object({
 							tokenUrl: z.string().optional()
 						})
 						.optional(),
-					allowedTools: z.array(z.string()).optional()
+					allowedTools: z.array(z.string()).optional(),
+					source: z.enum(['catalog', 'user', 'import']).optional(),
+					catalogId: z.string().optional(),
+					catalogVersion: z.string().optional()
 				})
 			)
 		}),

@@ -6,6 +6,7 @@
 	import type { MCPServerConfig, MCPTransport } from '#lib/cometmind-settings.js';
 	import type { McpServerStatus } from '#lib/client/cometmind.js';
 	import type { McpPanelController } from '#lib/features/settings/mcp-panel-controller.svelte.js';
+	import { isCatalogLocked } from '#lib/features/settings/mcp-catalog.js';
 	import {
 		displayError,
 		transportHint,
@@ -23,13 +24,27 @@
 		mcpEnabled: boolean;
 		controller: McpPanelController;
 	} = $props();
+
+	const locked = $derived(isCatalogLocked(server));
 </script>
 
 <div class="mcp-server-editor">
+	{#if locked}
+		<div class="catalog-lock-banner">
+			<p class="settings-field-hint">
+				Installed from the connector catalog (v{server.catalogVersion ?? '1'}). Fields stay
+				in sync with catalog updates until you unlock.
+			</p>
+			<SettingsButton variant="secondary" onclick={() => controller.unlockServer(server.id)}>
+				Unlock for editing
+			</SettingsButton>
+		</div>
+	{/if}
 	<SettingsField label="Display name">
 		<input
 			type="text"
 			value={server.name}
+			disabled={locked}
 			oninput={(e) => controller.updateServer(server.id, { name: e.currentTarget.value })}
 		/>
 	</SettingsField>
@@ -37,6 +52,7 @@
 	<SettingsField label="Connection type" note={transportHint(server.transport)}>
 		<select
 			value={server.transport}
+			disabled={locked}
 			onchange={(e) =>
 				controller.updateServer(server.id, {
 					transport: e.currentTarget.value as MCPTransport
@@ -53,6 +69,7 @@
 			<input
 				type="text"
 				value={server.command ?? ''}
+				disabled={locked}
 				oninput={(e) =>
 					controller.updateServer(server.id, {
 						command: e.currentTarget.value
@@ -65,6 +82,7 @@
 			<input
 				type="text"
 				value={controller.argsTexts[server.id] ?? ''}
+				disabled={locked}
 				oninput={(e) => {
 					controller.setArgsText(server.id, e.currentTarget.value);
 					controller.syncServerLists(server.id);
@@ -83,6 +101,7 @@
 			<input
 				type="text"
 				value={server.url ?? ''}
+				disabled={locked}
 				oninput={(e) => controller.updateServer(server.id, { url: e.currentTarget.value })}
 				onblur={() => controller.normalizeConnection(server.id)}
 				placeholder="https://example.com/mcp"
@@ -120,6 +139,7 @@
 		<SettingsField label="Environment variables" note="One KEY=value per line.">
 			<textarea
 				value={controller.envTexts[server.id] ?? ''}
+				disabled={locked}
 				oninput={(e) => {
 					controller.setEnvText(server.id, e.currentTarget.value);
 					controller.syncServerLists(server.id);
@@ -137,6 +157,7 @@
 		>
 			<textarea
 				value={controller.headerTexts[server.id] ?? ''}
+				disabled={locked}
 				oninput={(e) => {
 					controller.setHeaderText(server.id, e.currentTarget.value);
 					controller.syncServerLists(server.id);
@@ -163,6 +184,16 @@
 		flex-wrap: wrap;
 		gap: 8px;
 		align-items: center;
+	}
+
+	.catalog-lock-banner {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		padding: 10px;
+		border-radius: 10px;
+		background: rgba(15, 23, 42, 0.04);
+		border: 1px dashed var(--border-soft);
 	}
 
 	.mcp-server-editor {

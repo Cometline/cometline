@@ -147,6 +147,30 @@ func OAuthConnected(serverID string) bool {
 	return err == nil && tok != nil && strings.TrimSpace(tok.AccessToken) != ""
 }
 
+// DeleteOAuthCredentials removes token and client metadata files for a server.
+func DeleteOAuthCredentials(serverID string) error {
+	id := strings.TrimSpace(serverID)
+	if id == "" {
+		return fmt.Errorf("empty MCP server id")
+	}
+	invalidateOAuthTokenSource(id)
+	var firstErr error
+	tokenPath, err := oauthTokenPath(id)
+	if err == nil {
+		if err := os.Remove(tokenPath); err != nil && !os.IsNotExist(err) && firstErr == nil {
+			firstErr = err
+		}
+		_ = os.Remove(tokenPath + ".lock")
+	}
+	clientPath, err := oauthClientInfoPath(id)
+	if err == nil {
+		if err := os.Remove(clientPath); err != nil && !os.IsNotExist(err) && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
+}
+
 // TokenExpiry returns the token expiry time when a token file exists.
 func TokenExpiry(serverID string) *time.Time {
 	tok, err := LoadOAuthToken(serverID)

@@ -2,6 +2,7 @@
 	import SettingsToggle from './SettingsToggle.svelte';
 	import SettingsButton from './SettingsButton.svelte';
 	import McpServerItem from './mcp/McpServerItem.svelte';
+	import McpCatalogGallery from './mcp/McpCatalogGallery.svelte';
 	import { type CometMindMCPSettings } from '#lib/cometmind-settings.js';
 	import { createMcpPanelController } from '#lib/features/settings/mcp-panel-controller.svelte.js';
 	import {
@@ -33,6 +34,7 @@
 	});
 
 	onMount(() => {
+		void controller.loadCatalog();
 		void controller.refreshMcpRuntime();
 	});
 
@@ -78,6 +80,8 @@
 			{controller.mcpStatus}
 		</p>
 	{/if}
+
+	<McpCatalogGallery {controller} mcpEnabled={mcp.enabled} />
 
 	<div class="mcp-toolbar">
 		<SettingsButton variant="secondary" onclick={controller.addServer}>

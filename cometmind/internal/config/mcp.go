@@ -22,19 +22,31 @@ type MCPOAuthConfig struct {
 	TokenURL         string   `mapstructure:"token_url" json:"tokenUrl"`
 }
 
+// MCPServerSource tracks how an MCP server row was created.
+type MCPServerSource string
+
+const (
+	MCPServerSourceCatalog MCPServerSource = "catalog"
+	MCPServerSourceUser    MCPServerSource = "user"
+	MCPServerSourceImport  MCPServerSource = "import"
+)
+
 // MCPServerConfig is one configured MCP server.
 type MCPServerConfig struct {
-	ID           string            `mapstructure:"id" json:"id"`
-	Name         string            `mapstructure:"name" json:"name"`
-	Enabled      bool              `mapstructure:"enabled" json:"enabled"`
-	Transport    MCPTransport      `mapstructure:"transport" json:"transport"`
-	Command      string            `mapstructure:"command" json:"command"`
-	Args         []string          `mapstructure:"args" json:"args"`
-	Env          map[string]string `mapstructure:"env" json:"env"`
-	URL          string            `mapstructure:"url" json:"url"`
-	Headers      map[string]string `mapstructure:"headers" json:"headers"`
-	OAuth        *MCPOAuthConfig   `mapstructure:"oauth" json:"oauth"`
-	AllowedTools []string          `mapstructure:"allowed_tools" json:"allowedTools"`
+	ID             string            `mapstructure:"id" json:"id"`
+	Name           string            `mapstructure:"name" json:"name"`
+	Enabled        bool              `mapstructure:"enabled" json:"enabled"`
+	Transport      MCPTransport      `mapstructure:"transport" json:"transport"`
+	Command        string            `mapstructure:"command" json:"command"`
+	Args           []string          `mapstructure:"args" json:"args"`
+	Env            map[string]string `mapstructure:"env" json:"env"`
+	URL            string            `mapstructure:"url" json:"url"`
+	Headers        map[string]string `mapstructure:"headers" json:"headers"`
+	OAuth          *MCPOAuthConfig   `mapstructure:"oauth" json:"oauth"`
+	AllowedTools   []string          `mapstructure:"allowed_tools" json:"allowedTools"`
+	Source         MCPServerSource   `mapstructure:"source" json:"source,omitempty"`
+	CatalogID      string            `mapstructure:"catalog_id" json:"catalogId,omitempty"`
+	CatalogVersion string            `mapstructure:"catalog_version" json:"catalogVersion,omitempty"`
 }
 
 // MCPConfig groups MCP client settings.

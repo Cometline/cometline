@@ -76,6 +76,9 @@ type ServerInterface interface {
 	// Reset a blocked job for retry
 	// (POST /api/v1/jobs/{id}/retry-runs)
 	UnblockJob(c *gin.Context, id string)
+	// List embedded MCP connector catalog entries
+	// (GET /api/v1/mcp/catalog)
+	ListMcpCatalog(c *gin.Context)
 	// List configured MCP servers and runtime status
 	// (GET /api/v1/mcp/servers)
 	ListMcpServers(c *gin.Context)
@@ -772,6 +775,19 @@ func (siw *ServerInterfaceWrapper) UnblockJob(c *gin.Context) {
 	}
 
 	siw.Handler.UnblockJob(c, id)
+}
+
+// ListMcpCatalog operation middleware
+func (siw *ServerInterfaceWrapper) ListMcpCatalog(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListMcpCatalog(c)
 }
 
 // ListMcpServers operation middleware
@@ -2612,6 +2628,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.PATCH(options.BaseURL+"/api/v1/jobs/:id/lease", wrapper.HeartbeatJob)
 	router.PUT(options.BaseURL+"/api/v1/jobs/:id/lease", wrapper.ClaimJob)
 	router.POST(options.BaseURL+"/api/v1/jobs/:id/retry-runs", wrapper.UnblockJob)
+	router.GET(options.BaseURL+"/api/v1/mcp/catalog", wrapper.ListMcpCatalog)
 	router.GET(options.BaseURL+"/api/v1/mcp/servers", wrapper.ListMcpServers)
 	router.POST(options.BaseURL+"/api/v1/mcp/servers/:id/connection-tests", wrapper.TestMcpServer)
 	router.POST(options.BaseURL+"/api/v1/mcp/servers/:id/oauth-flows", wrapper.StartMcpOAuth)
@@ -3761,6 +3778,41 @@ func (response UnblockJob409JSONResponse) VisitUnblockJobResponse(w http.Respons
 type UnblockJob500JSONResponse struct{ InternalErrorJSONResponse }
 
 func (response UnblockJob500JSONResponse) VisitUnblockJobResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMcpCatalogRequestObject struct {
+}
+
+type ListMcpCatalogResponseObject interface {
+	VisitListMcpCatalogResponse(w http.ResponseWriter) error
+}
+
+type ListMcpCatalog200JSONResponse ListMcpCatalogResponse
+
+func (response ListMcpCatalog200JSONResponse) VisitListMcpCatalogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMcpCatalog500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ListMcpCatalog500JSONResponse) VisitListMcpCatalogResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -7715,6 +7767,9 @@ type StrictServerInterface interface {
 	// Reset a blocked job for retry
 	// (POST /api/v1/jobs/{id}/retry-runs)
 	UnblockJob(ctx context.Context, request UnblockJobRequestObject) (UnblockJobResponseObject, error)
+	// List embedded MCP connector catalog entries
+	// (GET /api/v1/mcp/catalog)
+	ListMcpCatalog(ctx context.Context, request ListMcpCatalogRequestObject) (ListMcpCatalogResponseObject, error)
 	// List configured MCP servers and runtime status
 	// (GET /api/v1/mcp/servers)
 	ListMcpServers(ctx context.Context, request ListMcpServersRequestObject) (ListMcpServersResponseObject, error)
@@ -8552,6 +8607,30 @@ func (sh *strictHandler) UnblockJob(ctx *gin.Context, id string) {
 		sh.options.HandlerErrorFunc(ctx, err)
 	} else if validResponse, ok := response.(UnblockJobResponseObject); ok {
 		if err := validResponse.VisitUnblockJobResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListMcpCatalog operation middleware
+func (sh *strictHandler) ListMcpCatalog(ctx *gin.Context) {
+	var request ListMcpCatalogRequestObject
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListMcpCatalog(ctx, request.(ListMcpCatalogRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListMcpCatalog")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(ListMcpCatalogResponseObject); ok {
+		if err := validResponse.VisitListMcpCatalogResponse(ctx.Writer); err != nil {
 			sh.options.ResponseErrorHandlerFunc(ctx, err)
 		}
 	} else if response != nil {

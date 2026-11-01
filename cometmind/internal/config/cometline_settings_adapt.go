@@ -263,16 +263,19 @@ func adaptMCPJSON(raw cometlineMCPJSON) MCPConfig {
 	out := MCPConfig{Enabled: raw.Enabled}
 	for _, srv := range raw.Servers {
 		entry := MCPServerConfig{
-			ID:           strings.TrimSpace(srv.ID),
-			Name:         strings.TrimSpace(srv.Name),
-			Enabled:      srv.Enabled,
-			Transport:    normalizeMCPTransport(srv.Transport),
-			Command:      strings.TrimSpace(srv.Command),
-			Args:         append([]string(nil), srv.Args...),
-			Env:          copyStringMapGo(srv.Env),
-			URL:          strings.TrimSpace(srv.URL),
-			Headers:      copyStringMapGo(srv.Headers),
-			AllowedTools: append([]string(nil), srv.AllowedTools...),
+			ID:             strings.TrimSpace(srv.ID),
+			Name:           strings.TrimSpace(srv.Name),
+			Enabled:        srv.Enabled,
+			Transport:      normalizeMCPTransport(srv.Transport),
+			Command:        strings.TrimSpace(srv.Command),
+			Args:           append([]string(nil), srv.Args...),
+			Env:            copyStringMapGo(srv.Env),
+			URL:            strings.TrimSpace(srv.URL),
+			Headers:        copyStringMapGo(srv.Headers),
+			AllowedTools:   append([]string(nil), srv.AllowedTools...),
+			Source:         catalogSourceFromJSON(srv.Source),
+			CatalogID:      strings.TrimSpace(srv.CatalogID),
+			CatalogVersion: strings.TrimSpace(srv.CatalogVersion),
 		}
 		if srv.OAuth != nil {
 			entry.OAuth = &MCPOAuthConfig{
@@ -286,6 +289,7 @@ func adaptMCPJSON(raw cometlineMCPJSON) MCPConfig {
 			out.Servers = append(out.Servers, entry)
 		}
 	}
+	out.Servers = syncMCPCatalogServers(out.Servers)
 	return out
 }
 

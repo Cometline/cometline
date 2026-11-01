@@ -1,0 +1,46 @@
+[
+  {
+    "id": "atlassian",
+    "version": "1",
+    "name": "Atlassian",
+    "description": "Jira, Confluence, and other Atlassian Cloud tools via the official remote MCP server.",
+    "transport": "http",
+    "url": "https://mcp.atlassian.com/v2/mcp",
+    "authKind": "oauth",
+    "oauthScopes": [],
+    "defaultAllowedTools": []
+  },
+  {
+    "id": "heptabase",
+    "version": "1",
+    "name": "Heptabase",
+    "description": "Search and update cards, whiteboards, journals, and databases in your Heptabase workspace.",
+    "transport": "http",
+    "url": "https://api.heptabase.com/mcp",
+    "authKind": "oauth",
+    "oauthScopes": [],
+    "defaultAllowedTools": []
+  },
+  {
+    "id": "linear",
+    "version": "1",
+    "name": "Linear",
+    "description": "Search, create, and update Linear issues, projects, and comments.",
+    "transport": "http",
+    "url": "https://mcp.linear.app/mcp",
+    "authKind": "oauth",
+    "oauthScopes": [],
+    "defaultAllowedTools": []
+  },
+  {
+    "id": "sentry",
+    "version": "1",
+    "name": "Sentry",
+    "description": "Inspect Sentry issues, projects, and Seer analysis from your organization.",
+    "transport": "http",
+    "url": "https://mcp.sentry.dev/mcp",
+    "authKind": "oauth",
+    "oauthScopes": [],
+    "defaultAllowedTools": []
+  }
+]

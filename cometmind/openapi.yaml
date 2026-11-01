@@ -1644,6 +1644,24 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/mcp/catalog:
+    get:
+      tags: [MCP]
+      summary: List embedded MCP connector catalog entries
+      description: >-
+        Secret-free connector recipes for Settings one-click install. URLs and OAuth scopes
+        are declared here; credentials are obtained via interactive oauth-flows or required inputs.
+      operationId: listMcpCatalog
+      responses:
+        '200':
+          description: Connector catalog
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListMcpCatalogResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/mcp/servers:
     get:
       tags: [MCP]
@@ -3784,6 +3802,71 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/McpServerStatus'
+
+    McpCatalogAuthKind:
+      type: string
+      enum: [oauth, api_key, none]
+
+    McpCatalogRequiredInput:
+      type: object
+      additionalProperties: false
+      required: [key, label, kind, secret]
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        kind:
+          type: string
+          description: env or header
+        secret:
+          type: boolean
+        placeholder:
+          type: string
+
+    McpCatalogEntry:
+      type: object
+      additionalProperties: false
+      required: [id, version, name, description, transport, url, authKind, oauthScopes, defaultAllowedTools]
+      properties:
+        id:
+          type: string
+        version:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        transport:
+          type: string
+          enum: [http]
+        url:
+          type: string
+          description: Official remote MCP endpoint (never typed by the user during one-click install).
+        authKind:
+          $ref: '#/components/schemas/McpCatalogAuthKind'
+        oauthScopes:
+          type: array
+          items:
+            type: string
+        defaultAllowedTools:
+          type: array
+          items:
+            type: string
+        requiredInputs:
+          type: array
+          items:
+            $ref: '#/components/schemas/McpCatalogRequiredInput'
+
+    ListMcpCatalogResponse:
+      type: object
+      additionalProperties: false
+      required: [entries]
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/McpCatalogEntry'
 
     McpToolInfo:
       type: object

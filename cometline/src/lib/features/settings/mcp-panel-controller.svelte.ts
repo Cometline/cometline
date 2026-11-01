@@ -3,6 +3,12 @@ import {
 	mergeImportedMcpServers,
 	parseCursorMcpJson
 } from '#lib/features/settings/cursor-mcp-import.js';
+import {
+	findExistingCatalogServer,
+	isCatalogLocked,
+	materializeCatalogServer,
+	unlockCatalogServer
+} from '#lib/features/settings/mcp-catalog.js';
 import { normalizeServerConnection } from '#lib/features/settings/mcp-url.js';
 import {
 	MCP_RELOADING_STATUS_MESSAGE,
@@ -18,17 +24,19 @@ import {
 } from '#lib/features/settings/mcp-panel-format.js';
 import {
 	apiErrorMessage,
+	listMcpCatalog,
 	listMcpServers,
 	listMcpTools,
 	reconnectMcpServer,
 	startMcpOAuth,
 	testMcpServer,
+	type McpCatalogEntry,
 	type McpServerStatus,
 	type McpToolInfo
 } from '#lib/client/cometmind.js';
 import { settingsStore } from '#lib/stores/settings.svelte.js';
 
-export type McpRowOp = 'reconnect' | 'oauth' | 'test';
+export type McpRowOp = 'reconnect' | 'oauth' | 'test' | 'catalog';
 type TextFieldMap = Record<string, string>;
 
 export interface McpPanelControllerDeps {
@@ -57,6 +65,9 @@ export function createMcpPanelController(deps: McpPanelControllerDeps) {
 	 * (the backend stops reporting disallowed tools). UI-only; not persisted.
 	 */
 	let knownToolsByServer = $state<Record<string, KnownMcpTool[]>>({});
+	let catalogEntries = $state<McpCatalogEntry[]>([]);
+	let catalogLoadError = $state('');
+	let catalogConnectBusy = $state<Record<string, boolean>>({});
 
 	// Only re-seed local text mirrors when the server *id set* changes (add/remove/import).
 	// syncServerLists() replaces the servers array on every env/args/header keystroke so
@@ -115,7 +126,8 @@ export function createMcpPanelController(deps: McpPanelControllerDeps) {
 			args: [],
 			env: {},
 			url: '',
-			headers: {}
+			headers: {},
+			source: 'user'
 		};
 		updateMcp({ enabled: true, servers: [...servers, server] });
 		expandedServerId = id;
@@ -159,6 +171,83 @@ export function createMcpPanelController(deps: McpPanelControllerDeps) {
 	function removeServer(serverId: string) {
 		updateMcp({ servers: deps.getMcp().servers.filter((server) => server.id !== serverId) });
 		if (expandedServerId === serverId) expandedServerId = null;
+	}
+
+	function unlockServer(serverId: string) {
+		const server = deps.getMcp().servers.find((item) => item.id === serverId);
+		if (!server) return;
+		updateServer(serverId, unlockCatalogServer(server));
+	}
+
+	async function loadCatalog() {
+		catalogLoadError = '';
+		try {
+			catalogEntries = (await listMcpCatalog()) ?? [];
+		} catch (err) {
+			catalogLoadError =
+				err instanceof Error ? err.message : 'Failed to load connector catalog';
+			catalogEntries = [];
+		}
+	}
+
+	function catalogStatusFor(entry: McpCatalogEntry): McpServerStatus | undefined {
+		const existing = findExistingCatalogServer(deps.getMcp().servers ?? [], entry);
+		return existing ? statusFor(existing.id) : undefined;
+	}
+
+	function catalogServerFor(entry: McpCatalogEntry): MCPServerConfig | undefined {
+		return findExistingCatalogServer(deps.getMcp().servers ?? [], entry);
+	}
+
+	function isCatalogConnectBusy(entryId: string): boolean {
+		return Boolean(catalogConnectBusy[entryId]);
+	}
+
+	async function finishCatalogConnect(server: MCPServerConfig) {
+		if (server.transport === 'http' && (server.oauth || server.url)) {
+			await connectOAuth(server);
+			return;
+		}
+		await reconnectServer(server.id);
+	}
+
+	async function connectCatalogEntry(entry: McpCatalogEntry) {
+		if ((entry.requiredInputs?.length ?? 0) > 0) {
+			mcpStatus = `${entry.name} needs credentials configured in the server editor before connecting.`;
+			return;
+		}
+		const entryId = entry.id;
+		catalogConnectBusy = { ...catalogConnectBusy, [entryId]: true };
+		mcpStatus = `Connecting ${entry.name}…`;
+		try {
+			const servers = deps.getMcp().servers ?? [];
+			const existing = findExistingCatalogServer(servers, entry);
+			const materialized = materializeCatalogServer(entry);
+			const nextServer = existing
+				? {
+						...materialized,
+						id: existing.id,
+						env: { ...(existing.env ?? {}), ...(materialized.env ?? {}) },
+						headers: { ...(existing.headers ?? {}), ...(materialized.headers ?? {}) },
+						allowedTools:
+							(existing.allowedTools?.length ?? 0) > 0
+								? existing.allowedTools
+								: materialized.allowedTools
+					}
+				: materialized;
+			const nextServers = existing
+				? servers.map((server) => (server.id === existing.id ? nextServer : server))
+				: [...servers, nextServer];
+			updateMcp({ enabled: true, servers: nextServers });
+			expandedServerId = nextServer.id;
+			await deps.getOnPersistBeforeRuntimeAction()?.({ mcp: deps.getMcp() });
+			void finishCatalogConnect(nextServer).finally(() => {
+				catalogConnectBusy = { ...catalogConnectBusy, [entryId]: false };
+			});
+		} catch (err) {
+			mcpStatus = apiErrorMessage(err, `Failed to connect ${entry.name}`);
+			catalogConnectBusy = { ...catalogConnectBusy, [entryId]: false };
+		}
 	}
 
 	function toggleExpanded(serverId: string) {
@@ -451,6 +540,19 @@ export function createMcpPanelController(deps: McpPanelControllerDeps) {
 		get expandedServerId() {
 			return expandedServerId;
 		},
+		get catalogEntries() {
+			return catalogEntries;
+		},
+		get catalogLoadError() {
+			return catalogLoadError;
+		},
+		isCatalogLocked,
+		isCatalogConnectBusy,
+		catalogStatusFor,
+		catalogServerFor,
+		loadCatalog,
+		connectCatalogEntry,
+		unlockServer,
 		syncTextFieldsOnServerSetChange,
 		updateMcp,
 		updateServer,

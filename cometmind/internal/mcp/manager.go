@@ -220,6 +220,10 @@ func (m *Manager) Reload(ctx context.Context, cfg Config) error {
 		return nil
 	}
 	m.mu.Lock()
+	oldIDs := make(map[string]struct{}, len(m.servers))
+	for id := range m.servers {
+		oldIDs[id] = struct{}{}
+	}
 	m.reloading = true
 	m.mu.Unlock()
 
@@ -227,7 +231,9 @@ func (m *Manager) Reload(ctx context.Context, cfg Config) error {
 	m.mu.Lock()
 	m.cfg = cfg
 	m.servers = make(map[string]*managedServer, len(cfg.Servers))
+	newIDs := make(map[string]struct{}, len(cfg.Servers))
 	for _, srv := range cfg.Servers {
+		newIDs[srv.ID] = struct{}{}
 		entry := &managedServer{cfg: srv}
 		if !cfg.Enabled || !srv.Enabled {
 			entry.status = StatusDisabled
@@ -235,6 +241,13 @@ func (m *Manager) Reload(ctx context.Context, cfg Config) error {
 			entry.status = StatusDisconnected
 		}
 		m.servers[srv.ID] = entry
+	}
+	for id := range oldIDs {
+		if _, ok := newIDs[id]; !ok {
+			if err := DeleteOAuthCredentials(id); err != nil {
+				logging.L().Warn("mcp.oauth_delete_failed", zap.String("server", id), zap.Error(err))
+			}
+		}
 	}
 	m.mu.Unlock()
 

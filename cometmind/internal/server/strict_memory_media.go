@@ -11,6 +11,11 @@ func (s *strictServer) ListMcpServers(ctx context.Context, _ apigen.ListMcpServe
 	return nil, nil
 }
 
+func (s *strictServer) ListMcpCatalog(ctx context.Context, _ apigen.ListMcpCatalogRequestObject) (apigen.ListMcpCatalogResponseObject, error) {
+	delegateGin(ctx, s.app.handleListMCPCatalog)
+	return nil, nil
+}
+
 func (s *strictServer) TestMcpServer(ctx context.Context, _ apigen.TestMcpServerRequestObject) (apigen.TestMcpServerResponseObject, error) {
 	delegateGin(ctx, s.app.handleTestMCPServer)
 	return nil, nil

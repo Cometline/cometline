@@ -25,6 +25,7 @@ import {
 	listSessions as listSessionsApi,
 	listSkills as listSkillsApi,
 	listMcpServers as listMcpServersApi,
+	listMcpCatalog as listMcpCatalogApi,
 	listMcpTools as listMcpToolsApi,
 	listWorkspaces as listWorkspacesApi,
 	deleteWorkspace as deleteWorkspaceApi,
@@ -91,6 +92,7 @@ import type {
 	ListMemoriesResponse,
 	ListSkillsResponse,
 	McpReconnectResponse,
+	McpCatalogEntry,
 	McpServerStatus,
 	McpTestResult,
 	McpToolInfo,
@@ -144,6 +146,7 @@ export type {
 	CompactMemoryPreviewResponse,
 	MemoryCompactionResult,
 	CreateMemoryRequest,
+	McpCatalogEntry,
 	McpServerStatus,
 	McpToolInfo,
 	MemoryResource,
@@ -613,6 +616,13 @@ export function syncSkills(workspacePath = ''): Promise<SyncSkillsResponse> {
 export async function listMcpServers(): Promise<McpServerStatus[]> {
 	const { data } = await listMcpServersApi({ throwOnError: true });
 	return data.servers ?? [];
+}
+
+export type { McpCatalogEntry } from '#lib/generated/cometmind-api/types.gen.js';
+
+export async function listMcpCatalog(): Promise<McpCatalogEntry[]> {
+	const { data } = await listMcpCatalogApi({ throwOnError: true });
+	return data.entries ?? [];
 }
 
 export async function listMcpTools(): Promise<McpToolInfo[]> {
