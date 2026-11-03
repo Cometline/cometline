@@ -14,6 +14,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
 import type { ProviderConfig } from '#lib/types.js';
+import EmbeddingModelSection from './model-roles/EmbeddingModelSection.svelte';
 import SettingsMemoryPanel from './SettingsMemoryPanel.svelte';
 import { createSettingsController } from '../settings-controller.svelte';
 import { settingsStore } from '#lib/stores/settings.svelte.js';
@@ -84,9 +85,18 @@ function selectModel(select: HTMLSelectElement, value: string) {
 	select.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+function renderEmbeddingSection() {
+	const panel = render(SettingsMemoryPanel, { props: { providers } });
+	const embedding = render(EmbeddingModelSection, {
+		props: { panel: panel.component.controller() }
+	});
+	return { ...panel, embedding };
+}
+
 describe('SettingsMemoryPanel embedding selection', () => {
 	it('flips isDirty() to true when an embedding model is selected', async () => {
-		const { component, container } = render(SettingsMemoryPanel, { props: { providers } });
+		const { component, embedding } = renderEmbeddingSection();
+		const { container } = embedding;
 
 		// Wait for the async reload() to render the dropdown with its options.
 		let select!: HTMLSelectElement;
@@ -109,7 +119,8 @@ describe('SettingsMemoryPanel embedding selection', () => {
 	});
 
 	it('isDirty() is a pure read and does not mutate panel state', async () => {
-		const { component, container } = render(SettingsMemoryPanel, { props: { providers } });
+		const { component, embedding } = renderEmbeddingSection();
+		const { container } = embedding;
 
 		let select!: HTMLSelectElement;
 		await waitFor(() => {
@@ -158,7 +169,8 @@ describe('SettingsMemoryPanel embedding selection', () => {
 	// call works even with the buggy (state-mutating) implementation; the failure
 	// only surfaces when `isDirty()` is read from inside a reactive `$derived`.
 	it('enables the controller save button when an embedding model is selected', async () => {
-		const { component, container } = render(SettingsMemoryPanel, { props: { providers } });
+		const { component, embedding } = renderEmbeddingSection();
+		const { container } = embedding;
 
 		let select!: HTMLSelectElement;
 		await waitFor(() => {

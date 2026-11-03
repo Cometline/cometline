@@ -140,6 +140,19 @@
 			/>
 
 			<div class="settings-pane scrollbar-none">
+				{#key panelController.memoryPanelKey}
+					<div
+						class="memory-panel-host"
+						hidden={settingsController.activeSection !== 'memory'}
+					>
+						<SettingsMemoryPanel
+							bind:this={memoryPanel}
+							providers={draft.providers}
+							savedEmbedding={draft.cometmind.memory.embedding}
+							onEmbeddingSaved={panelController.persistMemoryEmbedding}
+						/>
+					</div>
+				{/key}
 				{#if settingsController.activeSection === 'models'}
 					<div class="settings-panel-stack">
 						<SettingsTabPersistence section="models" />
@@ -173,18 +186,11 @@
 							bind:defaultModelId={draft.defaultModelId}
 							bind:defaultProviderId={draft.defaultProviderId}
 							providers={draft.providers}
+							memoryPanel={memoryPanel?.controller()}
 						/>
 					</div>
 				{:else if settingsController.activeSection === 'memory'}
 					<SettingsTabPersistence section="memory" />
-					{#key panelController.memoryPanelKey}
-						<SettingsMemoryPanel
-							bind:this={memoryPanel}
-							providers={draft.providers}
-							savedEmbedding={draft.cometmind.memory.embedding}
-							onEmbeddingSaved={panelController.persistMemoryEmbedding}
-						/>
-					{/key}
 				{:else if settingsController.activeSection === 'agent'}
 					<SettingsTabPersistence section="agent" />
 					{#key panelController.cometmindPanelKey}
@@ -355,6 +361,10 @@
 		min-width: 0;
 		min-height: 0;
 		overflow-y: auto;
+	}
+
+	.memory-panel-host[hidden] {
+		display: none;
 	}
 
 	@media (max-width: 780px) {

@@ -2,7 +2,7 @@
 	import SettingsButton from './SettingsButton.svelte';
 	import SettingsMCPPanel from './SettingsMCPPanel.svelte';
 	import type { CometMindMCPSettings, MCPServerConfig } from '#lib/cometmind-settings.js';
-	import { listMcpServers } from '#lib/client/cometmind.js';
+	import { listMcpServers, startMcpOAuth } from '#lib/client/cometmind.js';
 	import type { McpServerStatus } from '#lib/generated/cometmind-api/index.js';
 	import {
 		connectorServerConfig,
@@ -22,6 +22,8 @@
 	let mcpPanel = $state<SettingsMCPPanel | undefined>();
 	let connectors = $state<DefaultConnector[]>([]);
 	let catalogError = $state('');
+	let connectError = $state('');
+	let connectingId = $state('');
 	let serverStatuses = $state<McpServerStatus[]>([]);
 
 	$effect(() => {
@@ -65,14 +67,44 @@
 		return configuredIds.has(defaultConnectorServerId(connector.id));
 	}
 
-	function connect(connector: DefaultConnector) {
-		if (isConnected(connector)) return;
+	function isUnavailable(connector: DefaultConnector): boolean {
+		return connector.available === false || connector.modes.length === 0;
+	}
+
+	function needsOAuth(connector: DefaultConnector): boolean {
+		const auth = connector.modes[0]?.auth;
+		return auth === 'oauth-or-token' || auth === 'token';
+	}
+
+	async function connect(connector: DefaultConnector) {
+		if (isUnavailable(connector) || isConnected(connector) || connectingId) return;
 		const server = connectorServerConfig(connector);
+		connectingId = connector.id;
+		connectError = '';
 		mcp = {
 			...mcp,
 			enabled: true,
 			servers: [...(mcp.servers ?? []), server]
 		};
+		if (!needsOAuth(connector)) {
+			connectingId = '';
+			return;
+		}
+		try {
+			await onPersistBeforeRuntimeAction?.({ mcp });
+			const result = await startMcpOAuth(server.id);
+			if (result?.connected === false) {
+				connectError =
+					result.error_hint ||
+					result.error ||
+					`${connector.name} did not finish signing in.`;
+			}
+			serverStatuses = await listMcpServers();
+		} catch (error) {
+			connectError = error instanceof Error ? error.message : 'OAuth connect failed';
+		} finally {
+			connectingId = '';
+		}
 	}
 
 	function disconnect(connector: DefaultConnector) {
@@ -116,12 +148,15 @@
 			{#if catalogError}
 				<p class="catalog-error">{catalogError}</p>
 			{/if}
+			{#if connectError}
+				<p class="catalog-error">{connectError}</p>
+			{/if}
 			<div class="connector-list">
 				{#each connectors as connector (connector.id)}
 					{@const server = (mcp.servers ?? []).find(
 						(item) => item.id === defaultConnectorServerId(connector.id)
 					)}
-					<article class="connector-card">
+					<article class="connector-card" class:is-unavailable={isUnavailable(connector)}>
 						<span class="connector-icon" {@attach icon(connector.iconSvg)}></span>
 						<div class="connector-copy">
 							<h4>
@@ -132,14 +167,27 @@
 							</h4>
 							<p>{connector.description}</p>
 							<p class="connector-meta">
-								{connector.modes[0]?.id === 'local' ? 'Local' : 'Remote'}
-								{#if server}
-									· {modeLabel(server)} server configured
+								{#if isUnavailable(connector)}
+									{connector.unavailableReason || 'Currently unavailable'}
+								{:else}
+									{connector.modes[0]?.id === 'local' ? 'Local' : 'Remote'}
+									{#if server}
+										· {modeLabel(server)} server configured
+									{/if}
 								{/if}
 							</p>
 						</div>
-						{#if connector.modes.length === 0}
-							<span class="connector-unavailable">Unavailable</span>
+						{#if isUnavailable(connector)}
+							{#if isConnected(connector)}
+								<SettingsButton
+									variant="secondary"
+									onclick={() => disconnect(connector)}
+								>
+									Disconnect
+								</SettingsButton>
+							{:else}
+								<span class="connector-unavailable">Currently unavailable</span>
+							{/if}
 						{:else if isConnected(connector)}
 							<SettingsButton
 								variant="secondary"
@@ -148,8 +196,12 @@
 								Disconnect
 							</SettingsButton>
 						{:else}
-							<SettingsButton variant="secondary" onclick={() => connect(connector)}>
-								Connect
+							<SettingsButton
+								variant="secondary"
+								disabled={connectingId !== ''}
+								onclick={() => connect(connector)}
+							>
+								{connectingId === connector.id ? 'Connecting…' : 'Connect'}
 							</SettingsButton>
 						{/if}
 					</article>
@@ -163,8 +215,14 @@
 
 <style>
 	.connector-list {
+		--connector-row-height: 92px;
 		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		grid-auto-rows: var(--connector-row-height);
 		gap: 8px;
+		max-height: calc(var(--connector-row-height) * 5 + 8px * 4);
+		overflow-y: auto;
+		padding-right: 2px;
 	}
 
 	.connector-card {
@@ -172,10 +230,16 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 16px;
+		min-height: 0;
 		padding: 12px;
 		border: 1px solid var(--border-soft);
 		border-radius: 12px;
 		background: rgba(255, 255, 255, 0.58);
+		overflow: hidden;
+	}
+
+	.connector-card.is-unavailable {
+		opacity: 0.55;
 	}
 
 	.connector-icon {
@@ -234,6 +298,11 @@
 		color: color-mix(in srgb, var(--text-main) 72%, transparent);
 		font-size: 12px;
 		line-height: 1.45;
+		overflow: hidden;
+		display: -webkit-box;
+		line-clamp: 2;
+		-webkit-line-clamp: 2;
+		-webkit-box-orient: vertical;
 	}
 
 	.connector-meta {
@@ -241,6 +310,11 @@
 	}
 
 	@media (max-width: 720px) {
+		.connector-list {
+			grid-template-columns: 1fr;
+			max-height: calc(var(--connector-row-height) * 5 + 8px * 4);
+		}
+
 		.connector-card {
 			align-items: flex-start;
 			flex-direction: column;

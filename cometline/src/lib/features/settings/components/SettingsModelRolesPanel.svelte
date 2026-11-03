@@ -13,19 +13,24 @@
 		withTitleModel,
 		withTitleProvider
 	} from '#lib/features/settings/model-roles-panel-roles.js';
+	import EmbeddingModelSection from './model-roles/EmbeddingModelSection.svelte';
+	import GenerationModelSection from './model-roles/GenerationModelSection.svelte';
 	import DefaultModelPicker from './model-roles/DefaultModelPicker.svelte';
 	import ModelRoleSection from './model-roles/ModelRoleSection.svelte';
+	import type { SettingsMemoryPanel } from '#lib/features/settings/settings-memory-panel.svelte.js';
 
 	let {
 		cometmind = $bindable(),
 		defaultModelId = $bindable(''),
 		defaultProviderId = $bindable(''),
-		providers = []
+		providers = [],
+		memoryPanel
 	}: {
 		cometmind: CometMindSettings;
 		defaultModelId: string;
 		defaultProviderId: string;
 		providers?: ProviderConfig[];
+		memoryPanel?: SettingsMemoryPanel;
 	} = $props();
 
 	const runtimeProviders = $derived(
@@ -61,6 +66,11 @@
 			</div>
 			<DefaultModelPicker bind:defaultModelId bind:defaultProviderId {providers} />
 		</div>
+
+		<GenerationModelSection bind:cometmind />
+		{#if memoryPanel}
+			<EmbeddingModelSection panel={memoryPanel} />
+		{/if}
 
 		<ModelRoleSection
 			title="Autonomous jobs"
