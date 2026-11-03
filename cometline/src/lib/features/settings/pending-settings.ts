@@ -1,7 +1,14 @@
 import { cloneCometMindSettings, normalizeCometMindSettings } from '#lib/cometmind-settings.js';
 import type { ProviderConfig, ProviderSettings } from '#lib/types.js';
 
-export type SettingsSection = 'models' | 'memory' | 'agent' | 'appearance' | 'shortcuts' | 'app';
+export type SettingsSection =
+	| 'models'
+	| 'memory'
+	| 'agent'
+	| 'connector'
+	| 'appearance'
+	| 'shortcuts'
+	| 'app';
 
 function cloneProvider(provider: ProviderConfig): ProviderConfig {
 	return {
@@ -67,9 +74,13 @@ function agentSectionSnapshot(settings: ProviderSettings): string {
 		logLevel: cometmind.logLevel,
 		acp: cometmind.acp,
 		skills: cometmind.skills,
-		mcp: cometmind.mcp,
 		gateway: { discord: discordPending }
 	});
+}
+
+function connectorSectionSnapshot(settings: ProviderSettings): string {
+	const cometmind = cloneCometMindSettings(normalizeCometMindSettings(settings.cometmind));
+	return JSON.stringify({ mcp: cometmind.mcp });
 }
 
 function appearanceSectionSnapshot(settings: ProviderSettings): string {
@@ -103,6 +114,8 @@ export function sectionPendingDirty(
 			return modelsSectionSnapshot(draft) !== modelsSectionSnapshot(persisted);
 		case 'agent':
 			return agentSectionSnapshot(draft) !== agentSectionSnapshot(persisted);
+		case 'connector':
+			return connectorSectionSnapshot(draft) !== connectorSectionSnapshot(persisted);
 		case 'appearance':
 			return appearanceSectionSnapshot(draft) !== appearanceSectionSnapshot(persisted);
 		case 'app':
@@ -130,9 +143,13 @@ export const SECTION_PERSISTENCE_HINTS: Record<
 		action: 'Compaction preview and run'
 	},
 	agent: {
-		pending: 'Runtime, MCP, skills, and Discord fields',
+		pending: 'Runtime, skills, and Discord fields',
 		instant: 'Discord gateway Run toggle',
-		action: 'Refresh skills, sync symlinks, MCP test'
+		action: 'Discord gateway actions'
+	},
+	connector: {
+		pending: 'Default and custom MCP connectors',
+		action: 'Connect, test, and refresh MCP servers'
 	},
 	appearance: {
 		pending: 'Hero composer, terminal, caret trail, response sound, and persona'

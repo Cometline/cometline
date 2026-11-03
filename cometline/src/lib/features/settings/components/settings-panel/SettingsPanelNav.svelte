@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Brain, Keyboard, Palette, Power, Settings, Workflow } from '@lucide/svelte';
+	import { Brain, Cable, Keyboard, Palette, Power, Settings, Workflow } from '@lucide/svelte';
 	import type { SettingsSection } from '../../settings-controller.svelte';
 
 	let {
@@ -16,6 +16,7 @@
 		{ section: 'models', label: 'Models', icon: Settings, tracksPending: true },
 		{ section: 'memory', label: 'Memory', icon: Brain, tracksPending: true },
 		{ section: 'agent', label: 'Agent', icon: Workflow, tracksPending: true },
+		{ section: 'connector', label: 'Connector', icon: Cable, tracksPending: true },
 		{ section: 'appearance', label: 'Appearance', icon: Palette, tracksPending: true },
 		{ section: 'shortcuts', label: 'Shortcuts', icon: Keyboard, tracksPending: false },
 		{ section: 'app', label: 'App', icon: Power, tracksPending: true }

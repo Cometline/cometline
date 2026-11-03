@@ -53,6 +53,7 @@
 		busy={controller.busy}
 		onSelectTab={setTab}
 		onRefresh={() => void controller.refreshCurrent({ keepSelection: true })}
+		onSync={() => void controller.syncSkillLinks()}
 	/>
 
 	{#if tab === 'drafts'}

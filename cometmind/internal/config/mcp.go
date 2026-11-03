@@ -17,6 +17,7 @@ const (
 // MCPOAuthConfig holds OAuth client metadata (tokens stored separately).
 type MCPOAuthConfig struct {
 	ClientID         string   `mapstructure:"client_id" json:"clientId"`
+	ClientSecret     string   `mapstructure:"client_secret" json:"-"`
 	Scopes           []string `mapstructure:"scopes" json:"scopes"`
 	AuthorizationURL string   `mapstructure:"authorization_url" json:"authorizationUrl"`
 	TokenURL         string   `mapstructure:"token_url" json:"tokenUrl"`
@@ -66,6 +67,7 @@ func (c *Config) MCPSettings() mcppkg.Config {
 		if s.OAuth != nil {
 			entry.OAuth = &mcppkg.OAuthConfig{
 				ClientID:         strings.TrimSpace(s.OAuth.ClientID),
+				ClientSecret:     strings.TrimSpace(s.OAuth.ClientSecret),
 				Scopes:           append([]string(nil), s.OAuth.Scopes...),
 				AuthorizationURL: strings.TrimSpace(s.OAuth.AuthorizationURL),
 				TokenURL:         strings.TrimSpace(s.OAuth.TokenURL),

@@ -58,11 +58,10 @@
 
 <div class="settings-section">
 	<div class="settings-section-heading">
-		<h3>MCP servers</h3>
+		<h3>Custom connectors</h3>
 		<p>
-			Connect external tool servers so CometMind can search, browse, and interact with
-			services beyond built-in tools. You can also add servers manually under
-			<code>cometmind.mcp</code> in <code>~/.cometmind/cometline-settings.json</code>.
+			Add your own MCP servers, import a Cursor <code>mcp.json</code>, or edit a connector
+			after you enable it. These settings stay separate from Agent settings.
 		</p>
 	</div>
 
@@ -104,7 +103,7 @@
 
 	<div class="mcp-server-list">
 		<div class="mcp-server-list-header">
-			<span>Configured servers</span>
+			<span>Custom and enabled connectors</span>
 			<strong>{mcp.servers.length}</strong>
 		</div>
 
