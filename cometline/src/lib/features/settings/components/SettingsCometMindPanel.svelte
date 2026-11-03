@@ -10,20 +10,15 @@
 	import type { SkillResource } from '#lib/types.js';
 	import { onMount } from 'svelte';
 	import ConfirmActionModal from '#lib/components/ConfirmActionModal.svelte';
-	import SettingsMCPPanel from './SettingsMCPPanel.svelte';
 
 	let {
 		cometmind = $bindable(),
 		providers = [],
-		onPickWorkspace,
-		onPersistBeforeRuntimeAction
+		onPickWorkspace
 	}: {
 		cometmind: CometMindSettings;
 		providers?: ProviderConfig[];
 		onPickWorkspace?: () => void | Promise<void>;
-		onPersistBeforeRuntimeAction?: (
-			overrides?: Partial<Pick<CometMindSettings, 'mcp'>>
-		) => Promise<void>;
 	} = $props();
 
 	type SkillSourceFilter =
@@ -109,7 +104,6 @@
 	let deletePending = $state<SkillResource | null>(null);
 	let gatewayRunning = $state(false);
 	let gatewayBusy = $state(false);
-	let mcpPanel: SettingsMCPPanel | undefined = $state();
 	let skillSearch = $state('');
 	let skillSourceFilter = $state<SkillSourceFilter>('all');
 
@@ -280,7 +274,6 @@
 
 	export function syncFields() {
 		syncListsFromText();
-		mcpPanel?.syncFields();
 	}
 
 	// Flushes the local text mirrors (allowedUsersText /
@@ -336,11 +329,6 @@
 			{onSyncSkills}
 			{onExportSkill}
 			{requestDeleteSkill}
-		/>
-		<SettingsMCPPanel
-			bind:this={mcpPanel}
-			bind:mcp={cometmind.mcp}
-			{onPersistBeforeRuntimeAction}
 		/>
 		<SettingsCometMindQueue
 			bind:cometmind

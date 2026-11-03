@@ -76,6 +76,23 @@ describe('pending-settings', () => {
 		expect(sectionPendingDirty('appearance', draft, base)).toBe(true);
 	});
 
+	it('tracks MCP edits in Connector instead of Agent', () => {
+		const base = normalizeSettings(defaultSettings());
+		const draft = normalizeSettings({
+			...base,
+			cometmind: {
+				...base.cometmind,
+				mcp: {
+					...base.cometmind.mcp,
+					enabled: !base.cometmind.mcp.enabled
+				}
+			}
+		});
+
+		expect(sectionPendingDirty('connector', draft, base)).toBe(true);
+		expect(sectionPendingDirty('agent', draft, base)).toBe(false);
+	});
+
 	it('produces stable snapshots', () => {
 		const settings = normalizeSettings(defaultSettings());
 		expect(pendingSettingsSnapshot(settings)).toBe(pendingSettingsSnapshot(settings));

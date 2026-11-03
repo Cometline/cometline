@@ -6,7 +6,14 @@ import {
 	type SettingsSection as PendingSettingsSection
 } from '#lib/features/settings/pending-settings.js';
 
-export type SettingsSection = 'models' | 'memory' | 'agent' | 'appearance' | 'shortcuts' | 'app';
+export type SettingsSection =
+	| 'models'
+	| 'memory'
+	| 'agent'
+	| 'connector'
+	| 'appearance'
+	| 'shortcuts'
+	| 'app';
 
 export function createSettingsController(deps: {
 	getDraft: () => ProviderSettings;

@@ -6,6 +6,7 @@
 	import SettingsAppearancePanel from './SettingsAppearancePanel.svelte';
 	import SettingsGeneralPanel from './SettingsGeneralPanel.svelte';
 	import SettingsCometMindPanel from './SettingsCometMindPanel.svelte';
+	import SettingsConnectorPanel from './SettingsConnectorPanel.svelte';
 	import SettingsModelRolesPanel from './SettingsModelRolesPanel.svelte';
 	import { normalizeModelRoleDraft } from '#lib/features/settings/model-role-draft.js';
 	import SettingsMemoryPanel from './SettingsMemoryPanel.svelte';
@@ -40,6 +41,7 @@
 	let selectedProviderId = $state<string>(settingsStore.settings.providers[0]?.id || '');
 	let modelSearch = $state('');
 	let cometmindPanel = $state<SettingsCometMindPanel | undefined>();
+	let connectorPanel = $state<SettingsConnectorPanel | undefined>();
 	let memoryPanel = $state<SettingsMemoryPanel | undefined>();
 
 	let selectedProvider = $derived(
@@ -66,7 +68,7 @@
 			modelSearch = search;
 		},
 		getSelectedProvider: () => selectedProvider,
-		getCometmindPanel: () => cometmindPanel,
+		getCometmindPanel: () => connectorPanel ?? cometmindPanel,
 		getMemoryPanel: () => memoryPanel,
 		closeSettings,
 		getMode: () => mode,
@@ -191,6 +193,14 @@
 							bind:cometmind={draft.cometmind}
 							providers={draft.providers}
 							onPickWorkspace={panelController.pickGatewayWorkspace}
+						/>
+					{/key}
+				{:else if settingsController.activeSection === 'connector'}
+					<SettingsTabPersistence section="connector" />
+					{#key panelController.cometmindPanelKey}
+						<SettingsConnectorPanel
+							bind:this={connectorPanel}
+							bind:mcp={draft.cometmind.mcp}
 							onPersistBeforeRuntimeAction={panelController.persistDraftForRuntime}
 						/>
 					{/key}

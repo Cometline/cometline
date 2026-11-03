@@ -21,6 +21,8 @@
 				Customize hero composer glow, caret trail, and the project icon.
 			{:else if activeSection === 'agent'}
 				Configure the runtime, OpenCode subagents, skills, and the Discord gateway.
+			{:else if activeSection === 'connector'}
+				Connect verified services or add your own MCP servers.
 			{:else if activeSection === 'memory'}
 				Manage global memories, retrieval thresholds, and compaction.
 			{:else if activeSection === 'shortcuts'}
