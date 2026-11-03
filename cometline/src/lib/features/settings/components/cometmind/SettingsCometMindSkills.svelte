@@ -25,7 +25,5 @@
 		bind:checked={cometmind.skills.synthesisEnabled}
 		disabled={!cometmind.skills.enabled}
 	/>
-	<p class="settings-field-hint">
-		Browse, refresh, and sync skills from the Skills page.
-	</p>
+	<p class="settings-field-hint">Browse, refresh, and sync skills from the Skills page.</p>
 </div>

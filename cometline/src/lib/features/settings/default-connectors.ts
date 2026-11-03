@@ -106,7 +106,9 @@ function parseMode(value: unknown): DefaultConnectorMode | null {
 		transport: value.transport,
 		url: typeof value.url === 'string' ? value.url : undefined,
 		command: typeof value.command === 'string' ? value.command : undefined,
-		args: Array.isArray(value.args) ? value.args.filter((item) => typeof item === 'string') : undefined,
+		args: Array.isArray(value.args)
+			? value.args.filter((item) => typeof item === 'string')
+			: undefined,
 		auth:
 			value.auth === 'token' || value.auth === 'oauth-or-token' || value.auth === 'none'
 				? value.auth

@@ -107,8 +107,9 @@
 			<div class="settings-section-heading">
 				<h3>Default connectors</h3>
 				<p>
-					Enable verified MCP services without writing the configuration yourself. Connecting
-					one creates a normal MCP server entry and does not remove your custom servers.
+					Enable verified MCP services without writing the configuration yourself.
+					Connecting one creates a normal MCP server entry and does not remove your custom
+					servers.
 				</p>
 			</div>
 
@@ -140,7 +141,10 @@
 						{#if connector.modes.length === 0}
 							<span class="connector-unavailable">Unavailable</span>
 						{:else if isConnected(connector)}
-							<SettingsButton variant="secondary" onclick={() => disconnect(connector)}>
+							<SettingsButton
+								variant="secondary"
+								onclick={() => disconnect(connector)}
+							>
 								Disconnect
 							</SettingsButton>
 						{:else}
@@ -153,11 +157,7 @@
 			</div>
 		</div>
 
-		<SettingsMCPPanel
-			bind:this={mcpPanel}
-			bind:mcp
-			{onPersistBeforeRuntimeAction}
-		/>
+		<SettingsMCPPanel bind:this={mcpPanel} bind:mcp {onPersistBeforeRuntimeAction} />
 	</div>
 </section>
 
