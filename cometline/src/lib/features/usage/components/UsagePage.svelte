@@ -18,10 +18,6 @@
 </script>
 
 <div class="usage-page settings-ui">
-	<p class="usage-desc">
-		Usage is kept for one year. Estimated cost uses public API rates. Cached input is billed at
-		the cache rate when the provider reports it.
-	</p>
 	<UsageToolbar {controller} />
 
 	{#if controller.error}
