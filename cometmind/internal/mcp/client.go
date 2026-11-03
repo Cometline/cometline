@@ -174,8 +174,7 @@ func listTools(ctx context.Context, session *mcp.ClientSession, cfg ServerConfig
 	if err != nil {
 		return nil, fmt.Errorf("list tools: %w", err)
 	}
-	switch ToolExposeMode(cfg.AllowedTools) {
-	case "none":
+	if ToolExposeMode(cfg.AllowedTools) == "none" {
 		return nil, nil
 	}
 	allowed := allowedToolSet(cfg.AllowedTools)
