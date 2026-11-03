@@ -176,24 +176,51 @@ export function sameToolNames(prev: KnownMcpTool[], next: KnownMcpTool[]): boole
 	return prev.length === next.length && !prev.some((t, i) => t.name !== next[i]?.name);
 }
 
+/**
+ * Allow-list sentinel for "expose nothing". An empty list still means "expose
+ * every tool", including ones discovered later, so deny-all cannot be stored
+ * as []. The backend recognizes the same marker.
+ */
+export const DENY_ALL_TOOLS = '-';
+
+export function toolExposeMode(allowed: string[] | undefined): 'all' | 'none' | 'list' {
+	const names = allowed ?? [];
+	if (names.length === 0) return 'all';
+	if (names.length === 1 && names[0]?.trim() === DENY_ALL_TOOLS) return 'none';
+	return 'list';
+}
+
 /** A tool is allowed when the allow-list is empty (expose all) or contains it. */
 export function isToolAllowed(server: MCPServerConfig, toolName: string): boolean {
-	const allow = server.allowedTools ?? [];
-	return allow.length === 0 || allow.includes(toolName);
+	const mode = toolExposeMode(server.allowedTools);
+	if (mode === 'all') return true;
+	if (mode === 'none') return false;
+	return (server.allowedTools ?? []).includes(toolName);
+}
+
+/**
+ * Turn every known tool on (empty list, so later discoveries stay exposed) or
+ * off (the deny-all marker, so an empty list is not read as "expose all").
+ */
+export function setAllAllowedTools(enabled: boolean): string[] {
+	return enabled ? [] : [DENY_ALL_TOOLS];
 }
 
 /**
  * Toggle a single tool on/off. An empty allow-list means "all allowed", so the
  * first time a user turns one tool off we materialize the full known list minus
  * that tool. If every known tool ends up enabled again, collapse back to an
- * empty list (the "expose everything" default, including tools discovered later).
+ * empty list. Turning the last tool off stores the deny-all marker instead of
+ * [], which would reopen every tool.
  */
 export function toggledAllowedTools(
 	known: string[],
 	current: string[],
 	toolName: string
 ): string[] {
-	const currentlyAllowed = current.length === 0 ? new Set(known) : new Set(current);
+	const mode = toolExposeMode(current);
+	const currentlyAllowed =
+		mode === 'all' ? new Set(known) : mode === 'none' ? new Set<string>() : new Set(current);
 
 	if (currentlyAllowed.has(toolName)) {
 		currentlyAllowed.delete(toolName);
@@ -201,8 +228,23 @@ export function toggledAllowedTools(
 		currentlyAllowed.add(toolName);
 	}
 
-	const allEnabled = known.length > 0 && known.every((name) => currentlyAllowed.has(name));
-	return allEnabled ? [] : known.filter((name) => currentlyAllowed.has(name));
+	const enabled = known.filter((name) => currentlyAllowed.has(name));
+	if (known.length > 0 && enabled.length === known.length) return [];
+	if (enabled.length === 0) return [DENY_ALL_TOOLS];
+	return enabled;
+}
+
+/** Case-insensitive match against a tool name or description. Empty query matches all. */
+export function toolMatchesQuery(
+	tool: { name: string; description?: string },
+	query: string
+): boolean {
+	const needle = query.trim().toLowerCase();
+	if (!needle) return true;
+	return (
+		tool.name.toLowerCase().includes(needle) ||
+		(tool.description ?? '').toLowerCase().includes(needle)
+	);
 }
 
 export function isMcpStatusError(message: string): boolean {

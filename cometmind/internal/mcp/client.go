@@ -174,6 +174,10 @@ func listTools(ctx context.Context, session *mcp.ClientSession, cfg ServerConfig
 	if err != nil {
 		return nil, fmt.Errorf("list tools: %w", err)
 	}
+	switch ToolExposeMode(cfg.AllowedTools) {
+	case "none":
+		return nil, nil
+	}
 	allowed := allowedToolSet(cfg.AllowedTools)
 	out := make([]DiscoveredTool, 0, len(res.Tools))
 	for _, tool := range res.Tools {
@@ -200,7 +204,7 @@ func listTools(ctx context.Context, session *mcp.ClientSession, cfg ServerConfig
 }
 
 func allowedToolSet(names []string) map[string]struct{} {
-	if len(names) == 0 {
+	if ToolExposeMode(names) != "list" {
 		return nil
 	}
 	out := make(map[string]struct{}, len(names))

@@ -2,7 +2,6 @@
 	import SettingsButton from '../SettingsButton.svelte';
 	import SettingsField from '../SettingsField.svelte';
 	import McpOAuthBlock from './McpOAuthBlock.svelte';
-	import McpToolToggles from './McpToolToggles.svelte';
 	import type { MCPServerConfig, MCPTransport } from '#lib/cometmind-settings.js';
 	import type { McpServerStatus } from '#lib/client/cometmind.js';
 	import type { McpPanelController } from '#lib/features/settings/mcp-panel-controller.svelte.js';
@@ -153,8 +152,6 @@
 
 		<McpOAuthBlock {server} {status} {controller} />
 	{/if}
-
-	<McpToolToggles {server} {controller} />
 </div>
 
 <style>

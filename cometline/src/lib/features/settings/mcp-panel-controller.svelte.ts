@@ -11,8 +11,11 @@ import {
 	mergePersistedServers,
 	newServerId,
 	parseServerTextFields,
+	DENY_ALL_TOOLS,
 	sameToolNames,
+	setAllAllowedTools,
 	toggledAllowedTools,
+	toolExposeMode,
 	withTimeout,
 	type KnownMcpTool
 } from '#lib/features/settings/mcp-panel-format.js';
@@ -50,6 +53,7 @@ export function createMcpPanelController(deps: McpPanelControllerDeps) {
 	let headerTexts = $state<TextFieldMap>({});
 	let argsTexts = $state<TextFieldMap>({});
 	let expandedServerId = $state<string | null>(null);
+	let editingServerId = $state<string | null>(null);
 	/**
 	 * Tools we have ever seen for a server during this Settings session, keyed by
 	 * server id. Seeded from discovered tools (toolPreview) and each server's
@@ -119,6 +123,7 @@ export function createMcpPanelController(deps: McpPanelControllerDeps) {
 		};
 		updateMcp({ enabled: true, servers: [...servers, server] });
 		expandedServerId = id;
+		editingServerId = id;
 	}
 
 	async function importFromCursor() {
@@ -148,6 +153,7 @@ export function createMcpPanelController(deps: McpPanelControllerDeps) {
 				servers: mergeImportedMcpServers(existing, imported)
 			});
 			expandedServerId = imported[0]?.id ?? expandedServerId;
+			editingServerId = imported[0]?.id ?? editingServerId;
 			mcpStatus = `Imported ${imported.length} server(s) from Cursor. Save settings to apply.`;
 		} catch (err) {
 			mcpStatus = err instanceof Error ? err.message : 'Failed to import from Cursor';
@@ -159,10 +165,25 @@ export function createMcpPanelController(deps: McpPanelControllerDeps) {
 	function removeServer(serverId: string) {
 		updateMcp({ servers: deps.getMcp().servers.filter((server) => server.id !== serverId) });
 		if (expandedServerId === serverId) expandedServerId = null;
+		if (editingServerId === serverId) editingServerId = null;
 	}
 
 	function toggleExpanded(serverId: string) {
-		expandedServerId = expandedServerId === serverId ? null : serverId;
+		if (expandedServerId === serverId) {
+			expandedServerId = null;
+			editingServerId = null;
+			return;
+		}
+		expandedServerId = serverId;
+	}
+
+	function toggleEditing(serverId: string) {
+		if (editingServerId === serverId) {
+			editingServerId = null;
+			return;
+		}
+		editingServerId = serverId;
+		expandedServerId = serverId;
 	}
 
 	function statusFor(serverId: string): McpServerStatus | undefined {
@@ -180,7 +201,9 @@ export function createMcpPanelController(deps: McpPanelControllerDeps) {
 	 * call from the template.
 	 */
 	function knownToolsFor(server: MCPServerConfig): KnownMcpTool[] {
-		return mergeKnownTools(knownToolsByServer[server.id] ?? [], [], server.allowedTools ?? []);
+		const extra =
+			toolExposeMode(server.allowedTools) === 'list' ? (server.allowedTools ?? []) : [];
+		return mergeKnownTools(knownToolsByServer[server.id] ?? [], [], extra);
 	}
 
 	/**
@@ -192,11 +215,9 @@ export function createMcpPanelController(deps: McpPanelControllerDeps) {
 		let changed = false;
 		const next = { ...knownToolsByServer };
 		for (const server of deps.getMcp().servers ?? []) {
-			const merged = mergeKnownTools(
-				next[server.id] ?? [],
-				toolsForServer(server.id),
-				server.allowedTools ?? []
-			);
+			const extra =
+				toolExposeMode(server.allowedTools) === 'list' ? (server.allowedTools ?? []) : [];
+			const merged = mergeKnownTools(next[server.id] ?? [], toolsForServer(server.id), extra);
 			if (!sameToolNames(next[server.id] ?? [], merged)) {
 				next[server.id] = merged;
 				changed = true;
@@ -211,6 +232,11 @@ export function createMcpPanelController(deps: McpPanelControllerDeps) {
 		const known = (knownToolsByServer[serverId] ?? []).map((tool) => tool.name);
 		const next = toggledAllowedTools(known, server.allowedTools ?? [], toolName);
 		updateServer(serverId, { allowedTools: next });
+	}
+
+	function setAllTools(serverId: string, enabled: boolean) {
+		if (!deps.getMcp().servers.some((item) => item.id === serverId)) return;
+		updateServer(serverId, { allowedTools: setAllAllowedTools(enabled) });
 	}
 
 	function setRowBusy(serverId: string, op: McpRowOp | null) {
@@ -305,12 +331,14 @@ export function createMcpPanelController(deps: McpPanelControllerDeps) {
 		try {
 			const result = await testMcpServer(serverId);
 			if (result.ok) {
+				editingServerId = null;
+				expandedServerId = serverId;
 				knownToolsByServer = {
 					...knownToolsByServer,
 					[serverId]: mergeKnownTools(
 						knownToolsByServer[serverId] ?? [],
 						[],
-						result.tools ?? []
+						(result.tools ?? []).filter((name) => name.trim() !== DENY_ALL_TOOLS)
 					)
 				};
 				mcpStatus = `Test ok · ${result.tool_count} tool${result.tool_count === 1 ? '' : 's'}.`;
@@ -451,6 +479,9 @@ export function createMcpPanelController(deps: McpPanelControllerDeps) {
 		get expandedServerId() {
 			return expandedServerId;
 		},
+		get editingServerId() {
+			return editingServerId;
+		},
 		syncTextFieldsOnServerSetChange,
 		updateMcp,
 		updateServer,
@@ -458,9 +489,11 @@ export function createMcpPanelController(deps: McpPanelControllerDeps) {
 		importFromCursor,
 		removeServer,
 		toggleExpanded,
+		toggleEditing,
 		statusFor,
 		knownToolsFor,
 		toggleTool,
+		setAllTools,
 		isRowBusy,
 		refreshMcpRuntime,
 		reconnectServer,

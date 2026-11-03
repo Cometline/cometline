@@ -115,6 +115,7 @@
 					{server}
 					status={controller.statusFor(server.id)}
 					expanded={controller.expandedServerId === server.id}
+					editing={controller.editingServerId === server.id}
 					mcpEnabled={mcp.enabled}
 					{controller}
 				/>

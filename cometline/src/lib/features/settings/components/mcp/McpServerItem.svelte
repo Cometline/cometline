@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { ChevronDown, ChevronRight, Trash2 } from '@lucide/svelte';
+	import { ChevronDown, ChevronRight, Pencil, Trash2 } from '@lucide/svelte';
 	import McpServerEditor from './McpServerEditor.svelte';
+	import McpToolToggles from './McpToolToggles.svelte';
 	import type { MCPServerConfig } from '#lib/cometmind-settings.js';
 	import type { McpServerStatus } from '#lib/client/cometmind.js';
 	import type { McpPanelController } from '#lib/features/settings/mcp-panel-controller.svelte.js';
@@ -15,12 +16,14 @@
 		server,
 		status,
 		expanded,
+		editing = false,
 		mcpEnabled,
 		controller
 	}: {
 		server: MCPServerConfig;
 		status: McpServerStatus | undefined;
 		expanded: boolean;
+		editing?: boolean;
 		mcpEnabled: boolean;
 		controller: McpPanelController;
 	} = $props();
@@ -55,17 +58,35 @@
 			</span>
 		</button>
 		<div class="mcp-server-actions">
-			<label class="row-toggle" title="Enable this server">
-				<input
-					type="checkbox"
-					checked={server.enabled}
-					onchange={(e) =>
-						controller.updateServer(server.id, {
-							enabled: e.currentTarget.checked
-						})}
-				/>
-				<span>On</span>
-			</label>
+			<button
+				type="button"
+				class="row-switch"
+				class:on={server.enabled}
+				role="switch"
+				aria-checked={server.enabled}
+				aria-label={server.enabled ? `Disable ${server.name}` : `Enable ${server.name}`}
+				title={server.enabled ? 'Server on' : 'Server off'}
+				onclick={(e) => {
+					e.stopPropagation();
+					controller.updateServer(server.id, { enabled: !server.enabled });
+				}}
+			>
+				<span></span>
+			</button>
+			<button
+				type="button"
+				class="row-edit"
+				class:active={editing}
+				aria-pressed={editing}
+				aria-label={editing ? `Close ${server.name} editor` : `Edit ${server.name}`}
+				title={editing ? 'Close editor' : 'Edit connection'}
+				onclick={(e) => {
+					e.stopPropagation();
+					controller.toggleEditing(server.id);
+				}}
+			>
+				<Pencil size={14} />
+			</button>
 			<button
 				type="button"
 				class="row-remove"
@@ -85,8 +106,10 @@
 		<p class="row-error">{displayError(status)}</p>
 	{/if}
 
-	{#if expanded}
+	{#if editing}
 		<McpServerEditor {server} {status} {mcpEnabled} {controller} />
+	{:else if expanded}
+		<McpToolToggles {server} {controller} />
 	{/if}
 </div>
 
@@ -110,10 +133,39 @@
 	.mcp-server-actions {
 		display: inline-flex;
 		align-items: center;
-		gap: 4px;
+		gap: 6px;
 		flex-shrink: 0;
 	}
 
+	.row-switch {
+		display: inline-flex;
+		align-items: center;
+		justify-content: flex-start;
+		flex-shrink: 0;
+		width: 36px;
+		height: 22px;
+		margin: 0;
+		padding: 2px;
+		border: 0;
+		border-radius: 999px;
+		background: rgba(203, 213, 225, 0.72);
+		cursor: pointer;
+	}
+
+	.row-switch span {
+		width: 18px;
+		height: 18px;
+		border-radius: 999px;
+		background: white;
+		box-shadow: 0 1px 4px rgba(15, 23, 42, 0.16);
+	}
+
+	.row-switch.on {
+		justify-content: flex-end;
+		background: var(--color-7aa1aa);
+	}
+
+	.row-edit,
 	.row-remove {
 		display: inline-flex;
 		align-items: center;
@@ -124,6 +176,13 @@
 		border-radius: 8px;
 		padding: 6px;
 		cursor: pointer;
+	}
+
+	.row-edit:hover,
+	.row-edit.active {
+		color: var(--text-main);
+		background: rgba(15, 23, 42, 0.06);
+		border-color: rgba(15, 23, 42, 0.1);
 	}
 
 	.row-remove:hover {
@@ -188,18 +247,6 @@
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
-	}
-
-	.row-toggle {
-		display: inline-flex;
-		align-items: center;
-		gap: 6px;
-		padding-right: 2px;
-		font-size: 11px;
-		font-weight: 600;
-		color: var(--text-muted);
-		cursor: pointer;
-		flex-shrink: 0;
 	}
 
 	.row-error {

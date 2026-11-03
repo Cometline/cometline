@@ -8,9 +8,13 @@ import {
 	parseArgs,
 	parseEnv,
 	sameToolNames,
+	DENY_ALL_TOOLS,
+	isToolAllowed,
+	setAllAllowedTools,
 	statusClass,
 	statusLabel,
-	toggledAllowedTools
+	toggledAllowedTools,
+	toolMatchesQuery
 } from './mcp-panel-format';
 
 const server: MCPServerConfig = {
@@ -104,5 +108,25 @@ describe('mcp-panel-format', () => {
 	it('materializes and collapses the allow-list when toggling tools', () => {
 		expect(toggledAllowedTools(['a', 'b'], [], 'a')).toEqual(['b']);
 		expect(toggledAllowedTools(['a', 'b'], ['b'], 'a')).toEqual([]);
+		expect(toggledAllowedTools(['a', 'b'], ['b'], 'b')).toEqual([DENY_ALL_TOOLS]);
+		expect(toggledAllowedTools(['a'], [DENY_ALL_TOOLS], 'a')).toEqual([]);
+	});
+
+	it('opens every tool or stores the deny-all marker', () => {
+		expect(setAllAllowedTools(true)).toEqual([]);
+		expect(setAllAllowedTools(false)).toEqual([DENY_ALL_TOOLS]);
+		expect(isToolAllowed({ ...server, allowedTools: [] }, 'deploy')).toBe(true);
+		expect(isToolAllowed({ ...server, allowedTools: [DENY_ALL_TOOLS] }, 'deploy')).toBe(false);
+		expect(isToolAllowed({ ...server, allowedTools: ['deploy'] }, 'deploy')).toBe(true);
+	});
+
+	it('filters tools by name or description', () => {
+		expect(toolMatchesQuery({ name: 'vercel_deploy', description: 'Ship a project' }, 'ship')).toBe(
+			true
+		);
+		expect(toolMatchesQuery({ name: 'vercel_deploy', description: 'Ship a project' }, 'LOG')).toBe(
+			false
+		);
+		expect(toolMatchesQuery({ name: 'vercel_deploy' }, '  ')).toBe(true);
 	});
 });
