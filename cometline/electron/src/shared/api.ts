@@ -164,6 +164,8 @@ export interface TerminalResizePayload {
 
 export interface ComposerHistoryEntry {
 	display: string;
+	text?: string;
+	pastes?: string[];
 	timestamp: number;
 	workspacePath: string;
 	sessionId: string;

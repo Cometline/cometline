@@ -5,6 +5,7 @@ import {
 	listUserMessageTexts,
 	trimHistoryEntries,
 	type ComposerHistoryEntry,
+	type ComposerRecall,
 	type PendingUnsentDraft
 } from '#lib/features/composer/composer-history.js';
 import type { ImageAttachment } from '#lib/types.js';
@@ -148,8 +149,12 @@ function createComposerHistoryStore() {
 	async function append(entry: Omit<ComposerHistoryEntry, 'timestamp'> & { timestamp?: number }) {
 		const display = entry.display.trim();
 		if (!display) return;
+		const text = entry.text?.trim() && entry.text !== entry.display ? entry.text : undefined;
+		const pastes = entry.pastes?.filter((item) => item.length > 0);
 		const full: ComposerHistoryEntry = {
 			display: entry.display,
+			text,
+			pastes: pastes?.length ? pastes : undefined,
 			timestamp: entry.timestamp ?? Date.now(),
 			workspacePath: entry.workspacePath,
 			sessionId: entry.sessionId
@@ -177,7 +182,7 @@ function createComposerHistoryStore() {
 		sessionId: string;
 		workspacePath: string;
 		transcriptUserTexts?: string[];
-	}): Promise<string[]> {
+	}): Promise<ComposerRecall[]> {
 		await ensureLoaded();
 		const pending = getPending(options.sessionId);
 		return buildRecallList({

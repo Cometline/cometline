@@ -251,7 +251,9 @@
 }
 
 .settings-panel-frame
-	input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='range']),
+	input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='range']):not(
+		.tool-search-input
+	),
 .settings-panel-frame select,
 .settings-panel-frame textarea {
 	width: 100%;
@@ -266,7 +268,9 @@
 }
 
 .settings-panel-frame
-	input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='range']):focus,
+	input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='range']):not(
+		.tool-search-input
+	):focus,
 .settings-panel-frame select:focus,
 .settings-panel-frame textarea:focus {
 	border-color: rgba(0, 102, 204, 0.35);
@@ -289,8 +293,8 @@
 }
 
 .settings-panel-frame
-	input:not([type='checkbox']):not([type='radio']):not([type='color']):not(
-		[type='range']
+	input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='range']):not(
+		.tool-search-input
 	):disabled,
 .settings-panel-frame select:disabled {
 	--settings-select-chevron-color: rgba(100, 116, 139, 0.82);

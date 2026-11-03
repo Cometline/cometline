@@ -1,4 +1,5 @@
-const POLL_INTERVAL_MS = 1000;
+const FAST_POLL_INTERVAL_MS = 1000;
+const STEADY_POLL_INTERVAL_MS = 10_000;
 const BASE_URL = 'http://127.0.0.1:7700';
 /** Keep showing "Starting CometMind…" through cold-start failures before escalating to error. */
 const CONNECTING_GRACE_ATTEMPTS = 30;
@@ -8,8 +9,10 @@ type Status = 'connecting' | 'ready' | 'error';
 function createConnectionState() {
 	let status = $state<Status>('connecting');
 	let message = $state('');
-	let timer: ReturnType<typeof setInterval> | null = null;
+	let timer: ReturnType<typeof setTimeout> | null = null;
 	let failedAttempts = 0;
+	let polling = false;
+	let checkInFlight = false;
 
 	function applyFailure(nextMessage: string) {
 		failedAttempts += 1;
@@ -56,17 +59,41 @@ function createConnectionState() {
 		failedAttempts = 0;
 	}
 
+	function pollInterval() {
+		// Startup and outages stay on the fast cadence. A healthy sidecar does not
+		// need a health request every second from every open window.
+		return status === 'ready' ? STEADY_POLL_INTERVAL_MS : FAST_POLL_INTERVAL_MS;
+	}
+
+	function scheduleNext() {
+		if (!polling || timer) return;
+		timer = setTimeout(() => {
+			timer = null;
+			void runScheduledCheck();
+		}, pollInterval());
+	}
+
+	async function runScheduledCheck() {
+		if (!polling || checkInFlight) return;
+		checkInFlight = true;
+		try {
+			await check();
+		} finally {
+			checkInFlight = false;
+			scheduleNext();
+		}
+	}
+
 	function startPolling() {
-		void check();
-		if (timer) return;
-		timer = setInterval(() => {
-			void check();
-		}, POLL_INTERVAL_MS);
+		if (polling) return;
+		polling = true;
+		void runScheduledCheck();
 	}
 
 	function stopPolling() {
+		polling = false;
 		if (timer) {
-			clearInterval(timer);
+			clearTimeout(timer);
 			timer = null;
 		}
 	}

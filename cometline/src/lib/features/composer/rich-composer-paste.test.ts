@@ -10,6 +10,7 @@ import {
 import {
 	PASTE_COLLAPSE_MIN_CHARS,
 	parsePastedDisplay,
+	restorePastedDisplay,
 	pastedTextLabel,
 	shouldCollapsePastedText,
 	storedPastedText
@@ -48,6 +49,17 @@ describe('parsePastedDisplay', () => {
 			{ kind: 'paste', label: 'Pasted text' },
 			{ kind: 'text', text: ' tail' }
 		]);
+	});
+
+	it('puts stored paste bodies back onto matching tokens', () => {
+		expect(restorePastedDisplay('[Pasted ~3 lines] hihi', ['alpha\nbeta\ngamma'])).toEqual([
+			{ kind: 'paste', label: 'Pasted ~3 lines', text: 'alpha\nbeta\ngamma' },
+			{ kind: 'text', text: ' hihi' }
+		]);
+		expect(restorePastedDisplay('[Pasted text]', undefined)?.[0]).toEqual({
+			kind: 'paste',
+			label: 'Pasted text'
+		});
 	});
 
 	it('does not invent a boundary inside a raw paste', () => {

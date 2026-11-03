@@ -183,15 +183,20 @@
 	.provider-shell {
 		display: grid;
 		grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
+		grid-template-rows: minmax(0, 1fr);
 		gap: 14px;
+		height: min(640px, calc(100vh - 220px));
 		min-height: 0;
+		overflow: hidden;
 	}
 
 	.provider-sidebar {
 		display: flex;
 		flex-direction: column;
 		gap: 10px;
+		height: 100%;
 		min-height: 0;
+		overflow: hidden;
 		padding-right: 12px;
 		border-right: 1px solid var(--border-soft);
 	}
@@ -208,15 +213,24 @@
 
 	.provider-list {
 		display: flex;
+		flex: 1;
 		flex-direction: column;
 		gap: 6px;
-		overflow: auto;
 		min-height: 0;
+		overflow-x: hidden;
+		overflow-y: auto;
+		padding-right: 4px;
+		scrollbar-gutter: stable;
 	}
 
 	.provider-detail {
+		height: 100%;
 		min-width: 0;
-		overflow: auto;
+		min-height: 0;
+		overflow-x: hidden;
+		overflow-y: auto;
+		padding-right: 6px;
+		scrollbar-gutter: stable;
 	}
 
 	.detail-heading {

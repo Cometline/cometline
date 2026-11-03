@@ -44,10 +44,24 @@ describe('parseHistoryJsonl / serializeHistoryEntry', () => {
 			})
 		).toEqual({
 			display: 'hi',
+			text: undefined,
+			pastes: undefined,
 			workspacePath: '/old',
 			sessionId: 'x',
 			timestamp: 1
 		});
+	});
+
+	it('keeps paste bodies beside the display label', () => {
+		const saved = serializeHistoryEntry({
+			display: '[Pasted ~3 lines] hihi',
+			text: 'alpha\nbeta\ngamma hihi',
+			pastes: ['alpha\nbeta\ngamma'],
+			workspacePath: '/repo',
+			sessionId: 's1',
+			timestamp: 4
+		});
+		expect(parseHistoryJsonl(saved)[0]?.pastes).toEqual(['alpha\nbeta\ngamma']);
 	});
 });
 
@@ -70,7 +84,12 @@ describe('buildRecallList', () => {
 			],
 			transcriptUserTexts: ['newer', 'only-in-transcript']
 		});
-		expect(list).toEqual(['unsent draft', 'newer', 'older', 'only-in-transcript']);
+		expect(list.map((item) => item.display)).toEqual([
+			'unsent draft',
+			'newer',
+			'older',
+			'only-in-transcript'
+		]);
 	});
 
 	it('dedupes pending against history and normalizes trailing slashes on workspace', () => {
@@ -79,7 +98,7 @@ describe('buildRecallList', () => {
 			workspacePath: '/repo/',
 			historyEntries: [entry('same', '/repo', 's1', 1), entry('prev', '/repo', 's1', 2)]
 		});
-		expect(list).toEqual(['same', 'prev']);
+		expect(list.map((item) => item.display)).toEqual(['same', 'prev']);
 	});
 });
 

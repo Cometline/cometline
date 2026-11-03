@@ -334,8 +334,16 @@ export function createSettingsDomain(dependencies: SettingsDomainDependencies) {
 		const entry = value as JsonRecord;
 		const display = typeof entry.display === 'string' ? entry.display : '';
 		if (!display.trim()) return null;
+		const text = typeof entry.text === 'string' && entry.text.trim() ? entry.text : undefined;
+		const pastes = Array.isArray(entry.pastes)
+			? entry.pastes.filter(
+					(item): item is string => typeof item === 'string' && item.length > 0
+				)
+			: undefined;
 		return {
 			display,
+			text,
+			pastes: pastes?.length ? pastes : undefined,
 			timestamp:
 				typeof entry.timestamp === 'number' && Number.isFinite(entry.timestamp)
 					? entry.timestamp
@@ -353,6 +361,8 @@ export function createSettingsDomain(dependencies: SettingsDomainDependencies) {
 	function serializeComposerHistoryEntry(entry: ComposerHistoryEntry) {
 		return JSON.stringify({
 			display: entry.display,
+			...(entry.text && entry.text !== entry.display ? { text: entry.text } : {}),
+			...(entry.pastes?.length ? { pastes: entry.pastes } : {}),
 			timestamp: entry.timestamp,
 			workspacePath: entry.workspacePath,
 			sessionId: entry.sessionId

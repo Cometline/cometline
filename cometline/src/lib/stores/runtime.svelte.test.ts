@@ -91,4 +91,45 @@ describe('connectionState', () => {
 		expect(connectionState.status).toBe('ready');
 		expect(connectionState.message).toBe('');
 	});
+
+	it('polls every second until healthy, then backs off to 10 seconds', async () => {
+		vi.mocked(fetch)
+			.mockRejectedValueOnce(new Error('Failed to fetch'))
+			.mockResolvedValue(new Response('ok', { status: 200 }));
+		const { connectionState } = await import('./runtime.svelte');
+
+		connectionState.startPolling();
+		await vi.advanceTimersByTimeAsync(0);
+		expect(fetch).toHaveBeenCalledTimes(1);
+		expect(connectionState.status).toBe('connecting');
+
+		await vi.advanceTimersByTimeAsync(1000);
+		expect(fetch).toHaveBeenCalledTimes(2);
+		expect(connectionState.status).toBe('ready');
+
+		await vi.advanceTimersByTimeAsync(9999);
+		expect(fetch).toHaveBeenCalledTimes(2);
+		await vi.advanceTimersByTimeAsync(1);
+		expect(fetch).toHaveBeenCalledTimes(3);
+	});
+
+	it('returns to the fast poll as soon as a healthy connection drops', async () => {
+		vi.mocked(fetch)
+			.mockResolvedValueOnce(new Response('ok', { status: 200 }))
+			.mockRejectedValueOnce(new Error('Failed to fetch'))
+			.mockResolvedValue(new Response('ok', { status: 200 }));
+		const { connectionState } = await import('./runtime.svelte');
+
+		connectionState.startPolling();
+		await vi.advanceTimersByTimeAsync(0);
+		expect(connectionState.status).toBe('ready');
+
+		await vi.advanceTimersByTimeAsync(10_000);
+		expect(connectionState.status).toBe('error');
+		expect(fetch).toHaveBeenCalledTimes(2);
+
+		await vi.advanceTimersByTimeAsync(1000);
+		expect(connectionState.status).toBe('ready');
+		expect(fetch).toHaveBeenCalledTimes(3);
+	});
 });

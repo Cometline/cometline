@@ -67,12 +67,16 @@
 		return rich.getFilePaths();
 	}
 
+	export function getPasteBodies(): string[] {
+		return rich.getPasteBodies();
+	}
+
 	export function getPasteDisplayText(): string | undefined {
 		return rich.getPasteDisplayText();
 	}
 
-	export function setText(text: string) {
-		rich.setText(text);
+	export function setText(text: string, pastes?: readonly string[], display?: string) {
+		rich.setText(text, pastes, display);
 	}
 
 	/** Clears the editor (used after send). */

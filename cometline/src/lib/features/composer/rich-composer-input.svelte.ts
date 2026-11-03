@@ -16,11 +16,16 @@ import {
 import {
 	decorateEditor,
 	selectionTextWithPasteChips,
+	pasteBodies,
 	serialize,
 	serializePasteDisplay,
 	type DecorateOptions
 } from '#lib/features/composer/rich-composer-decorate.js';
-import { storedPastedText } from '#lib/features/composer/rich-composer-paste.js';
+import {
+	restorePastedDisplay,
+	storedPastedText,
+	type PastedDisplayPart
+} from '#lib/features/composer/rich-composer-paste.js';
 import {
 	findActiveMention,
 	replaceRangeWithNodes,
@@ -291,6 +296,18 @@ export function createRichComposerInputController(deps: {
 		updateMentionState();
 	}
 
+	function expandedRecallText(parts: PastedDisplayPart[]): string {
+		return parts
+			.map((part) => (part.kind === 'paste' ? (part.text ?? `[${part.label}]`) : part.text))
+			.join('');
+	}
+
+	function getPasteBodies(): string[] {
+		const editor = deps.getEditor();
+		if (!editor) return [];
+		return pasteBodies(editor);
+	}
+
 	function getPasteDisplayText(): string | undefined {
 		const editor = deps.getEditor();
 		if (!editor) return undefined;
@@ -310,10 +327,30 @@ export function createRichComposerInputController(deps: {
 		return paths;
 	}
 
-	function setText(text: string) {
+	function setText(text: string, pastes?: readonly string[], display?: string) {
 		const editor = deps.getEditor();
 		if (!editor) {
 			deps.setValue(text);
+			return;
+		}
+		const restored = pastes?.length ? restorePastedDisplay(display ?? text, pastes) : null;
+		if (restored) {
+			syncing = true;
+			const fragment = document.createDocumentFragment();
+			for (const part of restored) {
+				if (part.kind === 'paste' && part.text) {
+					fragment.append(makePasteChip(part.text));
+				} else if (part.kind === 'paste') {
+					fragment.append(document.createTextNode(`[${part.label}]`));
+				} else if (part.text) {
+					fragment.append(document.createTextNode(part.text));
+				}
+			}
+			fragment.append(document.createTextNode('\u00a0'));
+			editor.replaceChildren(fragment);
+			syncing = false;
+			deps.setValue(expandedRecallText(restored));
+			focus({ position: 'end' });
 			return;
 		}
 		// History recall and draft restore go through setText. Keep collapsed
@@ -380,6 +417,7 @@ export function createRichComposerInputController(deps: {
 		insertText,
 		insertFileMention,
 		getFilePaths,
+		getPasteBodies,
 		getPasteDisplayText,
 		setText,
 		clear,

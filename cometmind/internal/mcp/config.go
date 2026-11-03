@@ -37,6 +37,24 @@ type ServerConfig struct {
 	AllowedTools []string
 }
 
+// DenyAllTools is the allow-list sentinel for "expose nothing". An empty
+// allow-list still means "expose every tool", including ones discovered later,
+// so a real deny-all cannot be stored as [].
+const DenyAllTools = "-"
+
+// ToolExposeMode reports how an allow-list should be applied.
+// "all" is the empty-list default, "none" is DenyAllTools, and "list" is an
+// explicit subset.
+func ToolExposeMode(names []string) string {
+	if len(names) == 0 {
+		return "all"
+	}
+	if len(names) == 1 && strings.TrimSpace(names[0]) == DenyAllTools {
+		return "none"
+	}
+	return "list"
+}
+
 // Config is the runtime MCP settings slice.
 type Config struct {
 	Enabled bool

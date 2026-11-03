@@ -29,7 +29,7 @@
 	{#if installed.length === 0}
 		<p class="settings-field-hint">No models installed yet.</p>
 	{:else}
-		<div class="settings-scroll-list model-list scrollbar-none">
+		<div class="model-list">
 			{#each installed as model (model.name)}
 				{@const limits = modelStore.limitFor(provider.id, model.name)}
 				<div class="installed-row">

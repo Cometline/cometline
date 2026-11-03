@@ -80,7 +80,7 @@
 			spellcheck="false"
 		/>
 
-		<div class="settings-scroll-list model-list scrollbar-none">
+		<div class="model-list">
 			{#each filteredModels as model (model)}
 				{@const limits = modelStore.limitFor(provider.id, model)}
 				<ModelRow
@@ -133,6 +133,12 @@
 	.model-search {
 		width: 100%;
 		margin-bottom: 10px;
+	}
+
+	.model-list {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
 	}
 
 	.empty-models {
