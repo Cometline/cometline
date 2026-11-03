@@ -92,6 +92,7 @@ type cometlineStorageJSON struct {
 
 type cometlineMCPOAuthJSON struct {
 	ClientID         string   `json:"clientId"`
+	ClientSecret     string   `json:"-"`
 	Scopes           []string `json:"scopes"`
 	AuthorizationURL string   `json:"authorizationUrl"`
 	TokenURL         string   `json:"tokenUrl"`

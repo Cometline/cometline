@@ -43,6 +43,10 @@
 	export async function saveMemorySettings() {
 		await panel.saveMemorySettings();
 	}
+
+	export function controller() {
+		return panel;
+	}
 </script>
 
 {#if panel.s.loading}

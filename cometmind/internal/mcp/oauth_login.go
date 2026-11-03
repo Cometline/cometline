@@ -25,6 +25,12 @@ const OAuthCallbackPath = "/mcp/oauth/callback"
 const oauthInteractiveTimeout = 5 * time.Minute
 
 // RedirectURL returns the full loopback redirect URI.
+func isGoogleMCPURL(rawURL string) bool {
+	host := strings.ToLower(NormalizeServerURL(rawURL))
+	return strings.Contains(host, "gmailmcp.googleapis.com") ||
+		strings.Contains(host, "calendarmcp.googleapis.com")
+}
+
 func RedirectURL() string {
 	return fmt.Sprintf("http://localhost:%d%s", OAuthCallbackPort, OAuthCallbackPath)
 }
@@ -61,20 +67,27 @@ func (m *Manager) StartOAuth(ctx context.Context, serverID string) error {
 	}
 
 	manualClientID := ""
+	manualClientSecret := ""
 	var scopes []string
 	if cfg.OAuth != nil {
 		manualClientID = strings.TrimSpace(cfg.OAuth.ClientID)
+		manualClientSecret = strings.TrimSpace(cfg.OAuth.ClientSecret)
 		scopes = cfg.OAuth.Scopes
+	}
+	if manualClientID == "" && isGoogleMCPURL(cfg.URL) {
+		manualClientID = googleOAuthClientID
+		manualClientSecret = googleOAuthClientSecret
 	}
 
 	opts := OAuthFlowOptions{
-		ServerID:       cfg.ID,
-		ServerURL:      NormalizeServerURL(cfg.URL),
-		RedirectURL:    RedirectURL(),
-		ClientName:     "Cometline",
-		ManualClientID: manualClientID,
-		Scopes:         scopes,
-		HTTPClient:     &http.Client{Timeout: 30 * time.Second},
+		ServerID:           cfg.ID,
+		ServerURL:          NormalizeServerURL(cfg.URL),
+		RedirectURL:        RedirectURL(),
+		ClientName:         "Cometline",
+		ManualClientID:     manualClientID,
+		ManualClientSecret: manualClientSecret,
+		Scopes:             scopes,
+		HTTPClient:         &http.Client{Timeout: 30 * time.Second},
 	}
 
 	if err := PerformInteractiveOAuth(ctx, opts, loopbackFetcher); err != nil {

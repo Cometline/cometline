@@ -6,6 +6,7 @@
 	import SettingsAppearancePanel from './SettingsAppearancePanel.svelte';
 	import SettingsGeneralPanel from './SettingsGeneralPanel.svelte';
 	import SettingsCometMindPanel from './SettingsCometMindPanel.svelte';
+	import SettingsConnectorPanel from './SettingsConnectorPanel.svelte';
 	import SettingsModelRolesPanel from './SettingsModelRolesPanel.svelte';
 	import { normalizeModelRoleDraft } from '#lib/features/settings/model-role-draft.js';
 	import SettingsMemoryPanel from './SettingsMemoryPanel.svelte';
@@ -40,6 +41,7 @@
 	let selectedProviderId = $state<string>(settingsStore.settings.providers[0]?.id || '');
 	let modelSearch = $state('');
 	let cometmindPanel = $state<SettingsCometMindPanel | undefined>();
+	let connectorPanel = $state<SettingsConnectorPanel | undefined>();
 	let memoryPanel = $state<SettingsMemoryPanel | undefined>();
 
 	let selectedProvider = $derived(
@@ -66,7 +68,7 @@
 			modelSearch = search;
 		},
 		getSelectedProvider: () => selectedProvider,
-		getCometmindPanel: () => cometmindPanel,
+		getCometmindPanel: () => connectorPanel ?? cometmindPanel,
 		getMemoryPanel: () => memoryPanel,
 		closeSettings,
 		getMode: () => mode,
@@ -138,6 +140,19 @@
 			/>
 
 			<div class="settings-pane scrollbar-none">
+				{#key panelController.memoryPanelKey}
+					<div
+						class="memory-panel-host"
+						hidden={settingsController.activeSection !== 'memory'}
+					>
+						<SettingsMemoryPanel
+							bind:this={memoryPanel}
+							providers={draft.providers}
+							savedEmbedding={draft.cometmind.memory.embedding}
+							onEmbeddingSaved={panelController.persistMemoryEmbedding}
+						/>
+					</div>
+				{/key}
 				{#if settingsController.activeSection === 'models'}
 					<div class="settings-panel-stack">
 						<SettingsTabPersistence section="models" />
@@ -171,18 +186,11 @@
 							bind:defaultModelId={draft.defaultModelId}
 							bind:defaultProviderId={draft.defaultProviderId}
 							providers={draft.providers}
+							memoryPanel={memoryPanel?.controller()}
 						/>
 					</div>
 				{:else if settingsController.activeSection === 'memory'}
 					<SettingsTabPersistence section="memory" />
-					{#key panelController.memoryPanelKey}
-						<SettingsMemoryPanel
-							bind:this={memoryPanel}
-							providers={draft.providers}
-							savedEmbedding={draft.cometmind.memory.embedding}
-							onEmbeddingSaved={panelController.persistMemoryEmbedding}
-						/>
-					{/key}
 				{:else if settingsController.activeSection === 'agent'}
 					<SettingsTabPersistence section="agent" />
 					{#key panelController.cometmindPanelKey}
@@ -191,6 +199,14 @@
 							bind:cometmind={draft.cometmind}
 							providers={draft.providers}
 							onPickWorkspace={panelController.pickGatewayWorkspace}
+						/>
+					{/key}
+				{:else if settingsController.activeSection === 'connector'}
+					<SettingsTabPersistence section="connector" />
+					{#key panelController.cometmindPanelKey}
+						<SettingsConnectorPanel
+							bind:this={connectorPanel}
+							bind:mcp={draft.cometmind.mcp}
 							onPersistBeforeRuntimeAction={panelController.persistDraftForRuntime}
 						/>
 					{/key}
@@ -345,6 +361,10 @@
 		min-width: 0;
 		min-height: 0;
 		overflow-y: auto;
+	}
+
+	.memory-panel-host[hidden] {
+		display: none;
 	}
 
 	@media (max-width: 780px) {

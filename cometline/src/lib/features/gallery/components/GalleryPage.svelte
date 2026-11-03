@@ -141,7 +141,6 @@
 
 <div class="gallery-page settings-ui">
 	<header class="gallery-header">
-		<p>Every generated, presented, and captured still or clip, newest first.</p>
 		{#if status}
 			<p class="gallery-status">{status}</p>
 		{/if}

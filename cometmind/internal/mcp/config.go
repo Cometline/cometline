@@ -16,6 +16,7 @@ const (
 // OAuthConfig holds OAuth client metadata (tokens live outside settings).
 type OAuthConfig struct {
 	ClientID         string
+	ClientSecret     string
 	Scopes           []string
 	AuthorizationURL string
 	TokenURL         string

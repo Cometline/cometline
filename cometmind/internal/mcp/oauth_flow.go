@@ -37,7 +37,8 @@ type OAuthFlowOptions struct {
 	ClientName string
 	// ManualClientID, when set, skips Dynamic Client Registration and uses this
 	// preregistered public client id instead (power-user / fallback path).
-	ManualClientID string
+	ManualClientID     string
+	ManualClientSecret string
 	// Scopes optionally overrides the scopes requested. When empty, scopes are
 	// taken from discovery (PRM scopes_supported).
 	Scopes []string
@@ -179,6 +180,7 @@ type oauthClientIdentity struct {
 func resolveOAuthClient(ctx context.Context, opts OAuthFlowOptions, asm *oauthex.AuthServerMeta, httpClient *http.Client) (oauthClientIdentity, error) {
 	client := oauthClientIdentity{
 		id:        strings.TrimSpace(opts.ManualClientID),
+		secret:    strings.TrimSpace(opts.ManualClientSecret),
 		authStyle: oauth2.AuthStyleInParams,
 	}
 	if client.id == "" {

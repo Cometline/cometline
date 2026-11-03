@@ -5,10 +5,6 @@ import { flushSync } from 'svelte';
 import Harness from './SettingsCometMindPanel.mcp.harness.svelte';
 
 vi.mock('#lib/client/cometmind.js', () => ({
-	listSkills: () => Promise.resolve({ skills: [], errors: [] }),
-	syncSkills: vi.fn(),
-	deleteSkill: vi.fn(),
-	exportSkill: vi.fn(),
 	listMcpServers: () => Promise.resolve([]),
 	listMcpTools: () => Promise.resolve([]),
 	reconnectMcpServer: vi.fn(),
@@ -51,7 +47,7 @@ describe('SettingsCometMindPanel MCP add server', () => {
 		const { container } = render(Harness);
 
 		await waitFor(() => {
-			expect(container.textContent).toContain('MCP servers');
+			expect(container.textContent).toContain('Custom connectors');
 		});
 
 		const addButton = [...container.querySelectorAll('button')].find((button) =>
