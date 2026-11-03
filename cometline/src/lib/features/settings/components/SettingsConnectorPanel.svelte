@@ -65,8 +65,12 @@
 		return configuredIds.has(defaultConnectorServerId(connector.id));
 	}
 
+	function isUnavailable(connector: DefaultConnector): boolean {
+		return connector.available === false || connector.modes.length === 0;
+	}
+
 	function connect(connector: DefaultConnector) {
-		if (isConnected(connector)) return;
+		if (isUnavailable(connector) || isConnected(connector)) return;
 		const server = connectorServerConfig(connector);
 		mcp = {
 			...mcp,
@@ -121,7 +125,7 @@
 					{@const server = (mcp.servers ?? []).find(
 						(item) => item.id === defaultConnectorServerId(connector.id)
 					)}
-					<article class="connector-card">
+					<article class="connector-card" class:is-unavailable={isUnavailable(connector)}>
 						<span class="connector-icon" {@attach icon(connector.iconSvg)}></span>
 						<div class="connector-copy">
 							<h4>
@@ -132,14 +136,27 @@
 							</h4>
 							<p>{connector.description}</p>
 							<p class="connector-meta">
-								{connector.modes[0]?.id === 'local' ? 'Local' : 'Remote'}
-								{#if server}
-									· {modeLabel(server)} server configured
+								{#if isUnavailable(connector)}
+									{connector.unavailableReason || 'Currently unavailable'}
+								{:else}
+									{connector.modes[0]?.id === 'local' ? 'Local' : 'Remote'}
+									{#if server}
+										· {modeLabel(server)} server configured
+									{/if}
 								{/if}
 							</p>
 						</div>
-						{#if connector.modes.length === 0}
-							<span class="connector-unavailable">Unavailable</span>
+						{#if isUnavailable(connector)}
+							{#if isConnected(connector)}
+								<SettingsButton
+									variant="secondary"
+									onclick={() => disconnect(connector)}
+								>
+									Disconnect
+								</SettingsButton>
+							{:else}
+								<span class="connector-unavailable">Currently unavailable</span>
+							{/if}
 						{:else if isConnected(connector)}
 							<SettingsButton
 								variant="secondary"
@@ -176,6 +193,10 @@
 		border: 1px solid var(--border-soft);
 		border-radius: 12px;
 		background: rgba(255, 255, 255, 0.58);
+	}
+
+	.connector-card.is-unavailable {
+		opacity: 0.55;
 	}
 
 	.connector-icon {

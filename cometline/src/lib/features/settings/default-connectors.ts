@@ -21,6 +21,8 @@ export interface DefaultConnector {
 	description: string;
 	iconSvg: string;
 	verifiedAt: string;
+	available?: boolean;
+	unavailableReason?: string;
 	modes: DefaultConnectorMode[];
 }
 
@@ -93,6 +95,9 @@ function parseConnector(value: unknown): DefaultConnector | null {
 		description: typeof value.description === 'string' ? value.description : '',
 		iconSvg: typeof value.iconSvg === 'string' ? value.iconSvg : '',
 		verifiedAt: typeof value.verifiedAt === 'string' ? value.verifiedAt : '',
+		available: value.available === false ? false : undefined,
+		unavailableReason:
+			typeof value.unavailableReason === 'string' ? value.unavailableReason : undefined,
 		modes
 	};
 }
