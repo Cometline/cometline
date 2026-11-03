@@ -95,7 +95,9 @@
 			const result = await startMcpOAuth(server.id);
 			if (result?.connected === false) {
 				connectError =
-					result.error_hint || result.error || `${connector.name} did not finish signing in.`;
+					result.error_hint ||
+					result.error ||
+					`${connector.name} did not finish signing in.`;
 			}
 			serverStatuses = await listMcpServers();
 		} catch (error) {
