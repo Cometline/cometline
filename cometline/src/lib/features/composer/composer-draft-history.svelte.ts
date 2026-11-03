@@ -5,10 +5,7 @@ import { shellStore } from '#lib/stores/shell.svelte.js';
 import { composerHistoryStore } from '#lib/stores/composer-history.svelte.js';
 import type { ImageAttachment } from '#lib/types.js';
 import type { ComposerInputRef } from '#lib/features/composer/composer-input-ref.js';
-import {
-	stepHistoryIndex,
-	type ComposerRecall
-} from '#lib/features/composer/composer-history.js';
+import { stepHistoryIndex, type ComposerRecall } from '#lib/features/composer/composer-history.js';
 
 /** Up/Down history recall plus unsent-draft stashing for the composer. */
 export function createComposerDraftHistoryController(deps: {

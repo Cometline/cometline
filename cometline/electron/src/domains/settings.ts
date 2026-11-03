@@ -336,7 +336,9 @@ export function createSettingsDomain(dependencies: SettingsDomainDependencies) {
 		if (!display.trim()) return null;
 		const text = typeof entry.text === 'string' && entry.text.trim() ? entry.text : undefined;
 		const pastes = Array.isArray(entry.pastes)
-			? entry.pastes.filter((item): item is string => typeof item === 'string' && item.length > 0)
+			? entry.pastes.filter(
+					(item): item is string => typeof item === 'string' && item.length > 0
+				)
 			: undefined;
 		return {
 			display,

@@ -121,12 +121,12 @@ describe('mcp-panel-format', () => {
 	});
 
 	it('filters tools by name or description', () => {
-		expect(toolMatchesQuery({ name: 'vercel_deploy', description: 'Ship a project' }, 'ship')).toBe(
-			true
-		);
-		expect(toolMatchesQuery({ name: 'vercel_deploy', description: 'Ship a project' }, 'LOG')).toBe(
-			false
-		);
+		expect(
+			toolMatchesQuery({ name: 'vercel_deploy', description: 'Ship a project' }, 'ship')
+		).toBe(true);
+		expect(
+			toolMatchesQuery({ name: 'vercel_deploy', description: 'Ship a project' }, 'LOG')
+		).toBe(false);
 		expect(toolMatchesQuery({ name: 'vercel_deploy' }, '  ')).toBe(true);
 	});
 });

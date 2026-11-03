@@ -49,7 +49,9 @@ export function coerceHistoryEntry(value: unknown): ComposerHistoryEntry | null 
 	if (!display.trim()) return null;
 	const text = typeof record.text === 'string' && record.text.trim() ? record.text : undefined;
 	const pastes = Array.isArray(record.pastes)
-		? record.pastes.filter((item): item is string => typeof item === 'string' && item.length > 0)
+		? record.pastes.filter(
+				(item): item is string => typeof item === 'string' && item.length > 0
+			)
 		: undefined;
 	const workspacePath =
 		typeof record.workspacePath === 'string'

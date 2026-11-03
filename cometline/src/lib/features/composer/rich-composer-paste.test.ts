@@ -52,9 +52,7 @@ describe('parsePastedDisplay', () => {
 	});
 
 	it('puts stored paste bodies back onto matching tokens', () => {
-		expect(
-			restorePastedDisplay('[Pasted ~3 lines] hihi', ['alpha\nbeta\ngamma'])
-		).toEqual([
+		expect(restorePastedDisplay('[Pasted ~3 lines] hihi', ['alpha\nbeta\ngamma'])).toEqual([
 			{ kind: 'paste', label: 'Pasted ~3 lines', text: 'alpha\nbeta\ngamma' },
 			{ kind: 'text', text: ' hihi' }
 		]);

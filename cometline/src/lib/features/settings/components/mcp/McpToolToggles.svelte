@@ -50,7 +50,12 @@
 				aria-label={allOpen ? 'Turn all tools off' : 'Turn all tools on'}
 				onclick={() => controller.setAllTools(server.id, !allOpen)}
 			>
-				<input type="checkbox" tabindex="-1" checked={allOpen} onclick={(e) => e.preventDefault()} />
+				<input
+					type="checkbox"
+					tabindex="-1"
+					checked={allOpen}
+					onclick={(e) => e.preventDefault()}
+				/>
 				<span>{allOpen ? 'All on' : 'All off'}</span>
 			</button>
 		</div>
