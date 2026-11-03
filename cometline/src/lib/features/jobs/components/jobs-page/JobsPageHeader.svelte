@@ -26,21 +26,6 @@
 
 <header class="jobs-header">
 	<div class="jobs-header-actions">
-		{#if view === 'active'}
-			<div class="status-filters" role="group" aria-label="Filter by status">
-				{#each STATUS_FILTERS as filter (filter.id)}
-					<button
-						type="button"
-						class="status-filter"
-						class:active={statusFilter === filter.id}
-						aria-pressed={statusFilter === filter.id}
-						onclick={() => (statusFilter = filter.id)}
-					>
-						{filter.label}
-					</button>
-				{/each}
-			</div>
-		{/if}
 		<div class="view-toggle" role="group" aria-label="Switch view">
 			<button
 				type="button"
@@ -70,6 +55,21 @@
 				Scheduled
 			</button>
 		</div>
+		{#if view === 'active'}
+			<div class="status-filters" role="group" aria-label="Filter by status">
+				{#each STATUS_FILTERS as filter (filter.id)}
+					<button
+						type="button"
+						class="status-filter"
+						class:active={statusFilter === filter.id}
+						aria-pressed={statusFilter === filter.id}
+						onclick={() => (statusFilter = filter.id)}
+					>
+						{filter.label}
+					</button>
+				{/each}
+			</div>
+		{/if}
 		<button
 			type="button"
 			class="secondary icon-only"
