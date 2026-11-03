@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -76,8 +75,8 @@ func (m *Manager) StartOAuth(ctx context.Context, serverID string) error {
 		scopes = cfg.OAuth.Scopes
 	}
 	if manualClientID == "" && isGoogleMCPURL(cfg.URL) {
-		manualClientID = strings.TrimSpace(os.Getenv("COMETLINE_GOOGLE_OAUTH_CLIENT_ID"))
-		manualClientSecret = strings.TrimSpace(os.Getenv("COMETLINE_GOOGLE_OAUTH_CLIENT_SECRET"))
+		manualClientID = googleOAuthClientID
+		manualClientSecret = googleOAuthClientSecret
 	}
 
 	opts := OAuthFlowOptions{
