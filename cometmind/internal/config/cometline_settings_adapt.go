@@ -277,6 +277,7 @@ func adaptMCPJSON(raw cometlineMCPJSON) MCPConfig {
 		if srv.OAuth != nil {
 			entry.OAuth = &MCPOAuthConfig{
 				ClientID:         strings.TrimSpace(srv.OAuth.ClientID),
+				ClientSecret:     strings.TrimSpace(srv.OAuth.ClientSecret),
 				Scopes:           append([]string(nil), srv.OAuth.Scopes...),
 				AuthorizationURL: strings.TrimSpace(srv.OAuth.AuthorizationURL),
 				TokenURL:         strings.TrimSpace(srv.OAuth.TokenURL),
