@@ -213,9 +213,14 @@
 
 <style>
 	.connector-list {
+		--connector-row-height: 92px;
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
+		grid-auto-rows: var(--connector-row-height);
 		gap: 8px;
+		max-height: calc(var(--connector-row-height) * 5 + 8px * 4);
+		overflow-y: auto;
+		padding-right: 2px;
 	}
 
 	.connector-card {
@@ -223,10 +228,12 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 16px;
+		min-height: 0;
 		padding: 12px;
 		border: 1px solid var(--border-soft);
 		border-radius: 12px;
 		background: rgba(255, 255, 255, 0.58);
+		overflow: hidden;
 	}
 
 	.connector-card.is-unavailable {
@@ -289,6 +296,10 @@
 		color: color-mix(in srgb, var(--text-main) 72%, transparent);
 		font-size: 12px;
 		line-height: 1.45;
+		overflow: hidden;
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		-webkit-box-orient: vertical;
 	}
 
 	.connector-meta {
@@ -298,6 +309,7 @@
 	@media (max-width: 720px) {
 		.connector-list {
 			grid-template-columns: 1fr;
+			max-height: calc(var(--connector-row-height) * 5 + 8px * 4);
 		}
 
 		.connector-card {
