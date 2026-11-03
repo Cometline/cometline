@@ -2,7 +2,7 @@
 	import SettingsButton from './SettingsButton.svelte';
 	import SettingsMCPPanel from './SettingsMCPPanel.svelte';
 	import type { CometMindMCPSettings, MCPServerConfig } from '#lib/cometmind-settings.js';
-	import { listMcpServers } from '#lib/client/cometmind.js';
+	import { listMcpServers, startMcpOAuth } from '#lib/client/cometmind.js';
 	import type { McpServerStatus } from '#lib/generated/cometmind-api/index.js';
 	import {
 		connectorServerConfig,
@@ -22,6 +22,8 @@
 	let mcpPanel = $state<SettingsMCPPanel | undefined>();
 	let connectors = $state<DefaultConnector[]>([]);
 	let catalogError = $state('');
+	let connectError = $state('');
+	let connectingId = $state('');
 	let serverStatuses = $state<McpServerStatus[]>([]);
 
 	$effect(() => {
@@ -69,14 +71,38 @@
 		return connector.available === false || connector.modes.length === 0;
 	}
 
-	function connect(connector: DefaultConnector) {
-		if (isUnavailable(connector) || isConnected(connector)) return;
+	function needsOAuth(connector: DefaultConnector): boolean {
+		const auth = connector.modes[0]?.auth;
+		return auth === 'oauth-or-token' || auth === 'token';
+	}
+
+	async function connect(connector: DefaultConnector) {
+		if (isUnavailable(connector) || isConnected(connector) || connectingId) return;
 		const server = connectorServerConfig(connector);
+		connectingId = connector.id;
+		connectError = '';
 		mcp = {
 			...mcp,
 			enabled: true,
 			servers: [...(mcp.servers ?? []), server]
 		};
+		if (!needsOAuth(connector)) {
+			connectingId = '';
+			return;
+		}
+		try {
+			await onPersistBeforeRuntimeAction?.({ mcp });
+			const result = await startMcpOAuth(server.id);
+			if (result?.connected === false) {
+				connectError =
+					result.error_hint || result.error || `${connector.name} did not finish signing in.`;
+			}
+			serverStatuses = await listMcpServers();
+		} catch (error) {
+			connectError = error instanceof Error ? error.message : 'OAuth connect failed';
+		} finally {
+			connectingId = '';
+		}
 	}
 
 	function disconnect(connector: DefaultConnector) {
@@ -119,6 +145,9 @@
 
 			{#if catalogError}
 				<p class="catalog-error">{catalogError}</p>
+			{/if}
+			{#if connectError}
+				<p class="catalog-error">{connectError}</p>
 			{/if}
 			<div class="connector-list">
 				{#each connectors as connector (connector.id)}
@@ -165,8 +194,12 @@
 								Disconnect
 							</SettingsButton>
 						{:else}
-							<SettingsButton variant="secondary" onclick={() => connect(connector)}>
-								Connect
+							<SettingsButton
+								variant="secondary"
+								disabled={connectingId !== ''}
+								onclick={() => connect(connector)}
+							>
+								{connectingId === connector.id ? 'Connecting…' : 'Connect'}
 							</SettingsButton>
 						{/if}
 					</article>
@@ -181,6 +214,7 @@
 <style>
 	.connector-list {
 		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 8px;
 	}
 
@@ -262,6 +296,10 @@
 	}
 
 	@media (max-width: 720px) {
+		.connector-list {
+			grid-template-columns: 1fr;
+		}
+
 		.connector-card {
 			align-items: flex-start;
 			flex-direction: column;
