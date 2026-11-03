@@ -166,16 +166,14 @@
 								{/if}
 							</h4>
 							<p>{connector.description}</p>
-							<p class="connector-meta">
-								{#if isUnavailable(connector)}
-									{connector.unavailableReason || 'Currently unavailable'}
-								{:else}
+							{#if !isUnavailable(connector)}
+								<p class="connector-meta">
 									{connector.modes[0]?.id === 'local' ? 'Local' : 'Remote'}
 									{#if server}
 										· {modeLabel(server)} server configured
 									{/if}
-								{/if}
-							</p>
+								</p>
+							{/if}
 						</div>
 						{#if isUnavailable(connector)}
 							{#if isConnected(connector)}
@@ -186,7 +184,9 @@
 									Disconnect
 								</SettingsButton>
 							{:else}
-								<span class="connector-unavailable">Currently unavailable</span>
+								<span class="connector-unavailable">
+									{connector.unavailableReason || 'Currently unavailable'}
+								</span>
 							{/if}
 						{:else if isConnected(connector)}
 							<SettingsButton
