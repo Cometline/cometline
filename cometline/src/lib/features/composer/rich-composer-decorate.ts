@@ -41,6 +41,16 @@ export function serialize(root: HTMLElement, display = false): string {
 	return out;
 }
 
+/** Paste chip bodies in document order. */
+export function pasteBodies(root: HTMLElement): string[] {
+	const bodies: string[] = [];
+	for (const chip of root.querySelectorAll('[data-pasted-text]')) {
+		const text = (chip as HTMLElement).dataset.pastedText;
+		if (text) bodies.push(text);
+	}
+	return bodies;
+}
+
 /** Label form of a composer that contains a paste chip. Null otherwise. */
 export function serializePasteDisplay(root: HTMLElement): string | null {
 	if (!root.querySelector('[data-pasted-text]')) return null;

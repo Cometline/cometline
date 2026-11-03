@@ -31,9 +31,31 @@ export function pastedDisplayToken(text: string): string {
 	return `[${pastedTextLabel(text)}]`;
 }
 
-export type PastedDisplayPart = { kind: 'text'; text: string } | { kind: 'paste'; label: string };
+export type PastedDisplayPart =
+	| { kind: 'text'; text: string }
+	| { kind: 'paste'; label: string; text?: string };
 
 const PASTE_DISPLAY_TOKEN = /\[(Pasted ~\d+ lines|Pasted text)\]/g;
+
+/**
+ * Put each stored paste body back into the matching `[Pasted …]` token.
+ * Bodies are assigned in order. A leftover token stays a label when history
+ * was saved before bodies were stored.
+ */
+export function restorePastedDisplay(
+	display: string,
+	pastes?: readonly string[]
+): PastedDisplayPart[] | null {
+	const parts = parsePastedDisplay(display);
+	if (!parts || !pastes?.length) return parts;
+	let bodyIndex = 0;
+	return parts.map((part) => {
+		if (part.kind !== 'paste') return part;
+		const body = pastes[bodyIndex];
+		bodyIndex += 1;
+		return body ? { ...part, text: body } : part;
+	});
+}
 
 /** Split a display document back into chips and typed text. Null if it is not one. */
 export function parsePastedDisplay(source: string): PastedDisplayPart[] | null {

@@ -3,7 +3,15 @@
 export const COMPOSER_HISTORY_MAX_ENTRIES = 2000;
 
 export type ComposerHistoryEntry = {
+	/** What the composer showed, including `[Pasted ~N lines]` tokens. */
 	display: string;
+	/**
+	 * Full composer text when it differs from `display`. Paste chips keep their
+	 * body here so history recall can rebuild them. Omitted for plain prompts.
+	 */
+	text?: string;
+	/** Paste chip bodies, in the order their `[Pasted …]` tokens appear in `display`. */
+	pastes?: string[];
 	timestamp: number;
 	workspacePath: string;
 	sessionId: string;
@@ -39,6 +47,10 @@ export function coerceHistoryEntry(value: unknown): ComposerHistoryEntry | null 
 	const record = value as Record<string, unknown>;
 	const display = typeof record.display === 'string' ? record.display : '';
 	if (!display.trim()) return null;
+	const text = typeof record.text === 'string' && record.text.trim() ? record.text : undefined;
+	const pastes = Array.isArray(record.pastes)
+		? record.pastes.filter((item): item is string => typeof item === 'string' && item.length > 0)
+		: undefined;
 	const workspacePath =
 		typeof record.workspacePath === 'string'
 			? record.workspacePath
@@ -52,6 +64,8 @@ export function coerceHistoryEntry(value: unknown): ComposerHistoryEntry | null 
 			: Date.now();
 	return {
 		display,
+		text,
+		pastes: pastes?.length ? pastes : undefined,
 		timestamp,
 		workspacePath,
 		sessionId
@@ -61,6 +75,8 @@ export function coerceHistoryEntry(value: unknown): ComposerHistoryEntry | null 
 export function serializeHistoryEntry(entry: ComposerHistoryEntry): string {
 	return JSON.stringify({
 		display: entry.display,
+		...(entry.text && entry.text !== entry.display ? { text: entry.text } : {}),
+		...(entry.pastes?.length ? { pastes: entry.pastes } : {}),
 		timestamp: entry.timestamp,
 		workspacePath: entry.workspacePath,
 		sessionId: entry.sessionId
@@ -80,21 +96,35 @@ export function trimHistoryEntries(
  * Build newest-first recall list for ↑ navigation.
  * Order: pendingUnsent → workspace history file → transcript user texts (fill gaps).
  */
+export type ComposerRecall = {
+	/** Label form restored into the editor, including paste tokens. */
+	display: string;
+	/** Expanded composer text when a paste body was stored. Absent for plain prompts. */
+	text?: string;
+	pastes?: string[];
+};
+
 export function buildRecallList(options: {
 	pendingText?: string | null;
 	historyEntries: ComposerHistoryEntry[];
 	workspacePath: string;
 	transcriptUserTexts?: string[];
-}): string[] {
+}): ComposerRecall[] {
 	const workspace = normalizeWorkspacePath(options.workspacePath);
 	const seen = new Set<string>();
-	const out: string[] = [];
+	const out: ComposerRecall[] = [];
 
-	const push = (text: string) => {
-		const trimmed = text.trim();
+	const push = (display: string, text?: string, pastes?: string[]) => {
+		const trimmed = display.trim();
 		if (!trimmed || seen.has(trimmed)) return;
 		seen.add(trimmed);
-		out.push(text);
+		const body = text?.trim() && text !== display ? text : undefined;
+		const chips = pastes?.filter((item) => item.length > 0);
+		out.push({
+			display,
+			...(body ? { text: body } : {}),
+			...(chips?.length ? { pastes: chips } : {})
+		});
 	};
 
 	const pending = options.pendingText?.trim();
@@ -104,7 +134,7 @@ export function buildRecallList(options: {
 	for (let i = options.historyEntries.length - 1; i >= 0; i--) {
 		const entry = options.historyEntries[i];
 		if (normalizeWorkspacePath(entry.workspacePath) !== workspace) continue;
-		push(entry.display);
+		push(entry.display, entry.text, entry.pastes);
 	}
 
 	const transcript = options.transcriptUserTexts ?? [];

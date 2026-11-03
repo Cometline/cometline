@@ -5,7 +5,10 @@ import { shellStore } from '#lib/stores/shell.svelte.js';
 import { composerHistoryStore } from '#lib/stores/composer-history.svelte.js';
 import type { ImageAttachment } from '#lib/types.js';
 import type { ComposerInputRef } from '#lib/features/composer/composer-input-ref.js';
-import { stepHistoryIndex } from '#lib/features/composer/composer-history.js';
+import {
+	stepHistoryIndex,
+	type ComposerRecall
+} from '#lib/features/composer/composer-history.js';
 
 /** Up/Down history recall plus unsent-draft stashing for the composer. */
 export function createComposerDraftHistoryController(deps: {
@@ -19,7 +22,7 @@ export function createComposerDraftHistoryController(deps: {
 }) {
 	let historyIndex = $state<number | null>(null);
 	let historyLiveDraft = $state('');
-	let historyRecallList = $state.raw<string[]>([]);
+	let historyRecallList = $state.raw<ComposerRecall[]>([]);
 	let historyAppliedText = $state<string | null>(null);
 	let trackedSessionId = $state<string | null>(null);
 	let skippingEmptyStash = $state(false);
@@ -40,12 +43,17 @@ export function createComposerDraftHistoryController(deps: {
 		});
 	}
 
-	function applyComposerText(text: string, nextImages: ImageAttachment[] = []) {
+	function applyComposerText(
+		text: string,
+		nextImages: ImageAttachment[] = [],
+		pastes?: readonly string[],
+		display?: string
+	) {
 		skipEmptyStash(() => {
 			deps.setValue(text);
 			deps.setImages(nextImages);
 			if (text) {
-				deps.getInput()?.setText(text);
+				deps.getInput()?.setText(text, pastes, display);
 			} else {
 				deps.getInput()?.clear();
 			}
@@ -58,9 +66,13 @@ export function createComposerDraftHistoryController(deps: {
 				? payload.trim()
 				: (payload.displayText ?? payload.text).trim();
 		if (!display) return;
+		const text = typeof payload === 'string' ? payload : payload.text;
+		const pastes = deps.getInput()?.getPasteBodies?.();
 		const sessionId = deps.getSessionId();
 		void composerHistoryStore.append({
 			display,
+			text: text.trim() !== display ? text : undefined,
+			pastes: pastes?.length ? pastes : undefined,
 			workspacePath: shellStore.workspacePath,
 			sessionId
 		});
@@ -159,12 +171,13 @@ export function createComposerDraftHistoryController(deps: {
 		}
 
 		historyIndex = next.index;
-		const text = list[next.index] ?? '';
+		const recalled = list[next.index] ?? { display: '' };
+		const text = recalled.text ?? recalled.display;
 		historyAppliedText = text;
 		const pending = composerHistoryStore.getPending(deps.getSessionId());
 		const recallImages =
 			pending?.text.trim() === text.trim() && pending.images?.length ? pending.images : [];
-		applyComposerText(text, recallImages);
+		applyComposerText(text, recallImages, recalled.pastes, recalled.display);
 	}
 
 	return {
