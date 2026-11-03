@@ -13,7 +13,7 @@
 		"predev:electron": "pnpm run build:electron-main && pnpm run generate:api",
 		"dev:electron": "wait-on http://127.0.0.1:5173 && electron .",
 		"prebuild:sidecar": "pnpm run build:electron-main && pnpm run generate:api",
-		"build:sidecar": "mkdir -p ../cometmind/dist && cd ../cometmind && go build -o dist/cometmind .",
+		"build:sidecar": "mkdir -p ../cometmind/dist && cd ../cometmind && go build -ldflags \"-X github.com/Cometline/cometline/cometmind/internal/mcp.googleOAuthClientID=${COMETLINE_GOOGLE_OAUTH_CLIENT_ID} -X github.com/Cometline/cometline/cometmind/internal/mcp.googleOAuthClientSecret=${COMETLINE_GOOGLE_OAUTH_CLIENT_SECRET}\" -o dist/cometmind .",
 		"generate:icons": "swift scripts/generate-project-icons.swift",
 		"generate:icons:app": "swift scripts/generate-project-icons.swift app",
 		"generate:icons:man": "swift scripts/generate-project-icons.swift man",
