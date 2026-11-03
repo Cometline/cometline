@@ -83,6 +83,14 @@
 		};
 	}
 
+	function icon(svg: string) {
+		return (node: HTMLElement) => {
+			const parsed = new DOMParser().parseFromString(svg, 'image/svg+xml');
+			const image = parsed.querySelector('svg');
+			node.replaceChildren(image ?? '');
+		};
+	}
+
 	function modeLabel(server: MCPServerConfig | undefined): string {
 		if (!server) return '';
 		return server.transport === 'http' ? 'Remote' : 'Local';
@@ -113,7 +121,7 @@
 						(item) => item.id === defaultConnectorServerId(connector.id)
 					)}
 					<article class="connector-card">
-						<span class="connector-icon">{@html connector.iconSvg}</span>
+						<span class="connector-icon" {@attach icon(connector.iconSvg)}></span>
 						<div class="connector-copy">
 							<h4>
 								{connector.name}

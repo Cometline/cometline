@@ -5,7 +5,6 @@
 	import { formatIdList, parseIdList, type CometMindSettings } from '#lib/cometmind-settings.js';
 	import type { ProviderConfig } from '#lib/types.js';
 	import { shellStore } from '#lib/stores/shell.svelte.js';
-
 	import { onMount } from 'svelte';
 
 	let {
@@ -68,6 +67,10 @@
 	let allowedChannelsText = $state(formatIdList(cometmind.gateway.discord.allowedChannels));
 	let gatewayRunning = $state(false);
 	let gatewayBusy = $state(false);
+
+	onMount(() => {
+		void refreshGatewayStatus();
+	});
 
 	async function refreshGatewayStatus() {
 		const status = await window.electronAPI?.getDiscordGatewayStatus?.();
