@@ -25,7 +25,6 @@
 </script>
 
 <header class="jobs-header">
-	<p>Global work queue shared across sessions.</p>
 	<div class="jobs-header-actions">
 		{#if view === 'active'}
 			<div class="status-filters" role="group" aria-label="Filter by status">

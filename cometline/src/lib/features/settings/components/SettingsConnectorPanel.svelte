@@ -2,6 +2,8 @@
 	import SettingsButton from './SettingsButton.svelte';
 	import SettingsMCPPanel from './SettingsMCPPanel.svelte';
 	import type { CometMindMCPSettings, MCPServerConfig } from '#lib/cometmind-settings.js';
+	import { listMcpServers } from '#lib/client/cometmind.js';
+	import type { McpServerStatus } from '#lib/generated/cometmind-api/index.js';
 	import {
 		connectorServerConfig,
 		defaultConnectorServerId,
@@ -20,6 +22,7 @@
 	let mcpPanel = $state<SettingsMCPPanel | undefined>();
 	let connectors = $state<DefaultConnector[]>([]);
 	let catalogError = $state('');
+	let serverStatuses = $state<McpServerStatus[]>([]);
 
 	$effect(() => {
 		let active = true;
@@ -35,7 +38,28 @@
 		};
 	});
 
+	$effect(() => {
+		let active = true;
+		listMcpServers()
+			.then((servers) => {
+				if (active) serverStatuses = servers;
+			})
+			.catch(() => {
+				if (active) serverStatuses = [];
+			});
+		return () => {
+			active = false;
+		};
+	});
+
 	const configuredIds = $derived(new Set((mcp.servers ?? []).map((server) => server.id)));
+
+	function isLive(connector: DefaultConnector): boolean {
+		return (
+			serverStatuses.find((server) => server.id === defaultConnectorServerId(connector.id))
+				?.status === 'connected'
+		);
+	}
 
 	function isConnected(connector: DefaultConnector): boolean {
 		return configuredIds.has(defaultConnectorServerId(connector.id));
@@ -91,7 +115,12 @@
 					<article class="connector-card">
 						<span class="connector-icon">{@html connector.iconSvg}</span>
 						<div class="connector-copy">
-							<h4>{connector.name}</h4>
+							<h4>
+								{connector.name}
+								{#if isLive(connector)}
+									<span class="connector-live" aria-label="Connected"></span>
+								{/if}
+							</h4>
 							<p>{connector.description}</p>
 							<p class="connector-meta">
 								{connector.modes[0]?.id === 'local' ? 'Local' : 'Remote'}
@@ -178,7 +207,18 @@
 	}
 
 	.connector-card h4 {
+		display: flex;
+		align-items: center;
+		gap: 7px;
 		font-size: 14px;
+	}
+
+	.connector-live {
+		width: 8px;
+		height: 8px;
+		border-radius: 999px;
+		background: #16a34a;
+		box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.16);
 	}
 
 	.connector-card p {

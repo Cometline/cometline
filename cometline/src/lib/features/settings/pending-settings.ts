@@ -145,7 +145,7 @@ export const SECTION_PERSISTENCE_HINTS: Record<
 	agent: {
 		pending: 'Runtime, skills, and Discord fields',
 		instant: 'Discord gateway Run toggle',
-		action: 'Refresh skills and sync symlinks'
+		action: 'Discord gateway actions'
 	},
 	connector: {
 		pending: 'Default and custom MCP connectors',

@@ -5,6 +5,7 @@ import {
 	listArchivedSkills,
 	listSkillDrafts,
 	listSkills,
+	syncSkills,
 	pinSkill,
 	restoreArchivedSkill,
 	promoteSkillDraft,
@@ -163,6 +164,20 @@ export function createSkillsPageController(deps: {
 			await openSkill(preferred || visible[0]?.name || skills[0].name, { force: true });
 		} catch (err) {
 			status = err instanceof Error ? err.message : 'Failed to load skills';
+		} finally {
+			busy = false;
+		}
+	}
+
+	async function syncSkillLinks() {
+		busy = true;
+		status = '';
+		try {
+			const result = await syncSkills(shellStore.workspacePath);
+			status = `Synced ${result.created.length} skills, skipped ${result.skipped.length}.`;
+			await refreshSkills({ keepSelection: true });
+		} catch (err) {
+			status = err instanceof Error ? err.message : 'Failed to sync skills';
 		} finally {
 			busy = false;
 		}
@@ -417,6 +432,7 @@ export function createSkillsPageController(deps: {
 		},
 		load,
 		refreshCurrent,
+		syncSkillLinks,
 		openDraft,
 		openSkill,
 		selectSkill,
