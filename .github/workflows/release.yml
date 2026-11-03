@@ -172,6 +172,8 @@ jobs:
         if: steps.release_tag.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMETLINE_GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.COMETLINE_GOOGLE_OAUTH_CLIENT_ID }}
+          COMETLINE_GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.COMETLINE_GOOGLE_OAUTH_CLIENT_SECRET }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
