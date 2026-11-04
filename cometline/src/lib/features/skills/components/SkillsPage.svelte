@@ -115,9 +115,11 @@
 		min-width: 0;
 		display: grid;
 		grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+		grid-template-rows: minmax(0, 1fr);
 		gap: 16px;
 		min-height: 0;
 		flex: 1;
+		overflow: hidden;
 	}
 
 	@media (max-width: 980px) {
@@ -126,10 +128,13 @@
 		}
 
 		.page-layout {
-			grid-template-columns: 1fr;
+			grid-template-columns: minmax(0, 1fr);
+			grid-template-rows: minmax(0, 1fr);
 		}
 	}
 
+	/* Workspace panel steals width from this pane. Stack list over preview so
+	   the skill body stays readable instead of a clipped side-by-side strip. */
 	@container main-pane (max-width: 760px) {
 		.skills-page {
 			padding: 16px;
@@ -137,6 +142,7 @@
 
 		.page-layout {
 			grid-template-columns: minmax(0, 1fr);
+			grid-template-rows: minmax(140px, 34%) minmax(0, 1fr);
 		}
 	}
 </style>

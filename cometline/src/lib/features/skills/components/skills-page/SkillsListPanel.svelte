@@ -54,7 +54,9 @@
 	.item-list {
 		display: flex;
 		flex-direction: column;
+		min-width: 0;
 		min-height: 0;
+		overflow: hidden;
 	}
 
 	.item-list-scroll {
