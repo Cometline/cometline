@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"testing"
 
 	"github.com/Cometline/cometline/cometmind/internal/db"
@@ -65,9 +66,14 @@ func TestRegistryIncludesMCPManageToolsWhenMCPConfigured(t *testing.T) {
 	mgr.Start(context.Background())
 
 	r := NewRegistry(t.TempDir(), RegistryOptions{MCP: mgr})
-	for _, name := range []string{"list_mcp_servers", "reconnect_mcp_server"} {
+	for _, name := range []string{"list_mcp_servers", "reconnect_mcp_server", "search_mcp_tools", "use_mcp_tool"} {
 		if !r.Has(name) {
 			t.Fatalf("registry missing %q", name)
+		}
+	}
+	for _, tool := range r.CometSDK() {
+		if strings.HasPrefix(tool.Name, "mcp_") {
+			t.Fatalf("remote MCP schema leaked onto native tool list: %s", tool.Name)
 		}
 	}
 }

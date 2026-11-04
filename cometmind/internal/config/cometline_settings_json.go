@@ -101,6 +101,7 @@ type cometlineMCPOAuthJSON struct {
 type cometlineMCPServerJSON struct {
 	ID           string                 `json:"id"`
 	Name         string                 `json:"name"`
+	Description  string                 `json:"description,omitempty"`
 	Enabled      bool                   `json:"enabled"`
 	Transport    string                 `json:"transport"`
 	Command      string                 `json:"command"`

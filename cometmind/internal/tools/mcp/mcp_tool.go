@@ -3,7 +3,6 @@ package mcp
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"strings"
 	"time"
 
@@ -18,57 +17,22 @@ import (
 const mcpCallToolTimeout = 60 * time.Second
 
 type mcpTool struct {
-	serverID    string
-	toolName    string
-	description string
-	parameters  json.RawMessage
-	mgr         *mcppkg.Manager
+	serverID string
+	toolName string
+	mgr      *mcppkg.Manager
 }
 
-// AddMCPTools registers MCP management tools and the live remote tool list.
+// AddMCPTools registers MCP management tools and the two discovery tools.
+// Remote tool schemas stay off the native list. The model searches for them
+// and calls them through use_mcp_tool.
 func AddMCPTools(add func(Tool), mgr *mcppkg.Manager) {
 	if add == nil || mgr == nil {
 		return
 	}
 	add(listMCPServersTool{mgr: mgr})
 	add(reconnectMCPServerTool{mgr: mgr})
-	for _, tool := range mcpToolsFromManager(mgr) {
-		add(tool)
-	}
-}
-
-func mcpToolsFromManager(mgr *mcppkg.Manager) []Tool {
-	if mgr == nil {
-		return nil
-	}
-	bindings := mgr.ToolBindings()
-	out := make([]Tool, 0, len(bindings))
-	for _, binding := range bindings {
-		out = append(out, mcpTool{
-			serverID:    binding.ServerID,
-			toolName:    binding.Tool.Name,
-			description: binding.Tool.Description,
-			parameters:  binding.Tool.Parameters,
-			mgr:         mgr,
-		})
-	}
-	return out
-}
-
-func (t mcpTool) Spec() ToolSpec {
-	desc := strings.TrimSpace(t.description)
-	if desc == "" {
-		desc = fmt.Sprintf("MCP tool %s from server %s", t.toolName, t.serverID)
-	}
-	params := t.parameters
-	if len(params) == 0 {
-		params = json.RawMessage(`{"type":"object","properties":{}}`)
-	}
-	return ToolSpec{
-		Name:        mcppkg.ToolName(t.serverID, t.toolName),
-		Description: desc,
-		Parameters:  params,
-	}
+	add(searchMCPToolsTool{mgr: mgr})
+	add(useMCPToolTool{mgr: mgr})
 }
 
 func (t mcpTool) Execute(ctx context.Context, input json.RawMessage) (Result, error) {

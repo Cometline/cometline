@@ -84,7 +84,7 @@ func RegisterInboxLeaveTool(r *Registry, deps InboxDeps) {
 	inbox.AddLeaveTool(r.Add, deps)
 }
 
-// AddMCPTools registers MCP management tools and the live remote tool list.
+// AddMCPTools registers MCP management tools and the search/call tools.
 func AddMCPTools(add func(Tool), mgr *mcppkg.Manager) {
 	mcp.AddMCPTools(add, mgr)
 }

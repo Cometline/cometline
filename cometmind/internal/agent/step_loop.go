@@ -32,7 +32,7 @@ func (r *Runner) prepareStep(ctx context.Context, s *turnState) (*stepRequest, e
 	if s.steps > 0 {
 		s.emitStatus(event.PhaseContinuing)
 	}
-	p.baseSystem = r.compactBeforeStep(ctx, s, r.buildSystemPrompt(s.sess.ContextSummary, s.maxTokens), p.tools)
+	p.baseSystem = r.compactBeforeStep(ctx, s, r.buildSystemPrompt(s, s.sess.ContextSummary, s.maxTokens), p.tools)
 
 	msgs, err := r.Sessions.BuildSDKMessages(ctx, s.turn.ID)
 	if err != nil {

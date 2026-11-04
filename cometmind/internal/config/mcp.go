@@ -27,6 +27,7 @@ type MCPOAuthConfig struct {
 type MCPServerConfig struct {
 	ID           string            `mapstructure:"id" json:"id"`
 	Name         string            `mapstructure:"name" json:"name"`
+	Description  string            `mapstructure:"description" json:"description"`
 	Enabled      bool              `mapstructure:"enabled" json:"enabled"`
 	Transport    MCPTransport      `mapstructure:"transport" json:"transport"`
 	Command      string            `mapstructure:"command" json:"command"`
@@ -55,6 +56,7 @@ func (c *Config) MCPSettings() mcppkg.Config {
 		entry := mcppkg.ServerConfig{
 			ID:           strings.TrimSpace(s.ID),
 			Name:         strings.TrimSpace(s.Name),
+			Description:  strings.TrimSpace(s.Description),
 			Enabled:      s.Enabled,
 			Transport:    mcppkg.TransportKind(strings.TrimSpace(string(s.Transport))),
 			Command:      strings.TrimSpace(s.Command),

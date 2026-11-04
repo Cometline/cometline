@@ -34,6 +34,10 @@ type turnState struct {
 	pendingMemories []session.InjectedMemory
 
 	nudges continueNudges
+
+	// mcpCatalogFingerprint is the last MCP server list sent in this turn.
+	// Empty means the next step should send the list if servers are connected.
+	mcpCatalogFingerprint string
 }
 
 // continueNudges are decided while one step finishes and consumed when the
