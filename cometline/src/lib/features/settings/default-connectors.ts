@@ -53,6 +53,10 @@ export function connectorServerConfig(connector: DefaultConnector): MCPServerCon
 	};
 }
 
+export function cachedConnectorCatalog(): DefaultConnector[] {
+	return readCachedCatalog();
+}
+
 export async function loadConnectorCatalog(): Promise<DefaultConnector[]> {
 	try {
 		const response = await fetch(CATALOG_URL);
