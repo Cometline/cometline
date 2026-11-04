@@ -38,6 +38,7 @@ Rebind means the same view connects to a new session. A drawer is a side panel. 
 | `/session/[id]` | `routes/session/[id]/+page.svelte` | Active chat. One kept `ChatView` rebinds between sessions |
 | `/gallery` | `routes/gallery/+page.svelte` | Generated or presented media. Copy, download, and delete. Warn if the session is gone |
 | `/jobs` | `routes/jobs/+page.svelte` | Jobs board and detail drawer |
+| `/skills` | `routes/skills/+page.svelte` | Browse skills, filter by tag, and open a draft from the same page |
 | `/skill-drafts` | `routes/skill-drafts/+page.svelte` | Review a draft skill, or promote it |
 | `/settings` | `routes/settings/+page.svelte` | Direct settings route, outside the normal shell |
 | `/mini`, `/mini/session/[id]` | `routes/mini/` | Compact mini-window chat |
@@ -365,7 +366,8 @@ Chrome means the outer frame, such as the sidebar. A surface is the UI area for 
 | `SettingsPanel.svelte` | Shell for modular settings sections |
 | `settings/SettingsProvidersPanel.svelte` | Providers + model roles |
 | `settings/SettingsMemoryPanel.svelte` | Memory + compaction actions |
-| `settings/SettingsMCPPanel.svelte` | MCP servers, tests, reconnect, OAuth, Cursor import |
+| `settings/SettingsConnectorPanel.svelte` | Connector catalog, MCP servers, tests, reconnect, OAuth, Cursor import |
+| `settings/SettingsModelRolesPanel.svelte` | Generation and embedding model roles |
 | `settings/SettingsCometMindPanel.svelte` | Runtime knobs including coding task delegation |
 | `JobsPage.svelte` / `JobsKanbanBoard.svelte` | Jobs board surface |
 | `SkillDraftsPage.svelte` | Draft skill review and promotion |
@@ -408,13 +410,15 @@ This is why background turns work with the retained route component. Retained me
 
 ## Slash commands and skills
 
-`src/lib/skills/slash-commands.ts` defines the built-in commands:
+`src/lib/features/skills/slash-commands.ts` defines the built-in commands:
 
-- Built-in: `/change`, `/clear`, `/create-skill`, `/model`, `/job`
+- Built-in: `/change`, `/clear`, `/compact`, `/create-skill`, `/model`, `/job`
 - The filter scores relevance. Relevance means how well a command matches the typed text. A name prefix match scores 3. A name substring match scores 2. A description match scores 1.
 - Workspace skills are discovered through the CometMind API.
 
-The commands do not all use one dispatch path. A dispatch path is the code that runs the command. `/change`, `/model`, and `/job` open picker flows. The client handles `/clear` locally. `/create-skill` expands into an agent prompt. A discovered skill is submitted through the normal conversation path.
+The commands do not all use one dispatch path. A dispatch path is the code that runs the command. `/change`, `/model`, and `/job` open picker flows. The client handles `/clear` locally. `/compact` shortens the current session. `/create-skill` expands into an agent prompt. A discovered skill uses the normal conversation path.
+
+The Skills page is `/skills`. Search matches name, description, path, and tag. Tag chips filter the list. A skill written by the hidden review can show a recent badge until you open the page. Self-improvement skills can also show an expiry label, such as "archives in N days". A pinned skill does not expire.
 
 ## Settings UI
 
@@ -424,7 +428,9 @@ There are three persistence modes. See [../SETTINGS_AND_PERSISTENCE.md](../SETTI
 
 1. **Pending-save.** The UI keeps a draft until you choose "Save changes".
 2. **Instant-save.** These save at once: shortcuts, `openAtLogin`, and the Discord toggle.
-3. **Action-based.** These run an action: fetch models, Codex or xAI sign-in, and memory compaction. They also include job operations, and MCP tests, reconnect, OAuth, or import.
+3. **Action-based.** These run an action: fetch models, Codex or xAI sign-in, and memory compaction. They also include job operations, and connector tests, reconnect, OAuth, or import.
+
+The Connector section is not a second settings file. It edits `cometmind.mcp`. On open, it shows the last connector catalog from local storage. It then fetches the remote catalog and replaces that cache. Generation and embedding model choices live in the Models section. They are not in a separate provider form.
 
 Electron merges `cometline-settings.json` and `cometline-desktop.json` for the UI. On write, it splits them again.
 

@@ -306,16 +306,22 @@ Memories are **workspace-scoped**. That means each workspace has its own memorie
 ## Flow 9: MCP tool integration
 
 ```text
-Settings → CometMind → MCP (saved to cometline-settings.json)
+Settings → Connector (saved to cometmind.mcp in cometline-settings.json)
   → sidecar start or Runtime.Reload → mcp.Manager connects/refreshes enabled servers
   → stdio / streamable HTTP transports via go-sdk (saved `sse` is read as `http`)
-  → tools merged into registry as mcp_{serverId}_{toolName}
-  → agent loop executes via same tool_call / tool_result path
+  → remote tools stay off the native tool list
+  → agent calls search_mcp_tools, then use_mcp_tool
+  → that call still uses the tool_call / tool_result path
+
+Catalog connectors:
+  Settings → Connector shows the last saved catalog, then refreshes it
+  → connect writes a normal MCP server with id connector-{catalogId}
 
 OAuth remote servers:
   POST /api/v1/mcp/servers/{id}/oauth-flows
     → metadata discovery (RFC 9728, 8414)
-    → dynamic client registration (RFC 7591)
+    → dynamic client registration (RFC 7591), or a configured client id
+    → Google hosts can use the stamped client, or COMETLINE_GOOGLE_OAUTH_CLIENT_ID
     → Authorization Code + PKCE
     → tokens at ~/.cometmind/mcp-oauth/{serverId}.json
     → headless refresh at connect time

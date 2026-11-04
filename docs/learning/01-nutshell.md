@@ -48,9 +48,10 @@ A dependency is a module that another module needs. Calls go only in the arrow d
 | **Semantic memory**     | Semantic means by meaning, not only by exact words. The app loads related facts before a turn. It saves new facts after a turn. The companion can remember them. |
 | **Agent Skills**        | Reusable prompt templates. You start one with `/skill-name`. |
 | **ACP coding harness**  | A harness is an external coding program. CometMind sends coding tasks to OpenCode, Claude Code, or Codex. Each one uses a fixed CLI profile. CLI means command-line interface. |
-| **MCP client**          | You can connect external MCP servers. Their tools are added to the main agent's tool list. |
+| **MCP client**          | You can connect external MCP servers. The main agent searches their tools, then calls one. Remote schemas stay off the native tool list. |
 | **Jobs and scheduling** | Jobs are stored in a queue, so they survive a restart. A lease is a short lock: only one worker may hold a job. There are also scheduled jobs. Optional workers can start work on their own. |
 | **Skill drafts**        | The app can generate a skill as a draft. You can review it and promote it before it becomes active. Promote means you accept the draft. |
+| **Skill review and wiki** | After enough chat turns, a hidden review can write a self-improvement skill. A personal wiki at `~/.cometmind/wiki/` stores longer notes. It is not the same store as semantic memory. |
 | **Discord gateway**     | A gateway connects this runtime to another chat service. The same runtime can run as a Discord bot. Each thread has its own session. |
 | **Multi-provider**      | You can switch the model or provider for one session from Settings. |
 | **Context and media**   | The app saves file, web, and terminal context references. It shows assistant images in a safe way. |
@@ -111,6 +112,7 @@ GitNexus confirms the main call path. `Runner.Run` is in `cometmind/internal/age
 | `~/.cometmind/logs/cometline.log`       | Main sidecar log. A sidecar is the helper process the desktop app starts. |
 | `~/.cometmind/skills/`                  | Global Agent Skills (`SKILL.md` files) |
 | `~/.cometmind/skill-drafts/`            | Draft Agent Skills waiting for review or promotion |
+| `~/.cometmind/wiki/`                    | Personal wiki pages. This is not the SQLite memory store. |
 | `~/.cometmind/mcp-oauth/`               | MCP OAuth tokens. OAuth is a sign-in flow for a remote server. These tokens are not in the settings JSON. |
 | `~/.cometmind/tool-output/`             | Large tool output saved outside the chat message |
 | `{workspace}/.agents/skills/`           | Skills stored in one workspace |

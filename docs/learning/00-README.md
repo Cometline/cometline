@@ -4,6 +4,8 @@ This is a reading path for the Cometline monorepo. A **monorepo** is one git rep
 
 These guides are built from the **GitNexus knowledge graph** for `cometline`. They also use the main architecture doc (`ARCHITECTURE_GUIDE.md`). A knowledge graph is a stored map of code names and the links between them. Use GitNexus status when you need current index counts. Do not copy counts that change over time into these docs.
 
+The series was last checked against `v1.8.1` (`main` at that release). Later commits can change a path or a setting name. When a detail matters, check the code named in that section.
+
 The tables below use a few technical words.
 
 - **SSE** means Server-Sent Events. The server sends events to the app on one open connection.
@@ -53,6 +55,8 @@ The tables below use a few technical words.
 | Fix streaming UI bugs | [08-cometline-frontend.md](./08-cometline-frontend.md) |
 | Change the API or SSE contract | [09-contracts-codegen.md](./09-contracts-codegen.md) |
 | Understand MCP OAuth | [06-cometmind-features.md](./06-cometmind-features.md) → MCP section |
+| Connect a catalog connector, or see why MCP tools are searched | [06-cometmind-features.md](./06-cometmind-features.md) → MCP section, and [08-cometline-frontend.md](./08-cometline-frontend.md) → Settings UI |
+| Understand skill review, the wiki, or skill expiry | [06-cometmind-features.md](./06-cometmind-features.md) → Agent Skills |
 | Understand coding-harness delegation | [06-cometmind-features.md](./06-cometmind-features.md) → Coding task delegation |
 | Understand jobs and scheduled jobs | [06-cometmind-features.md](./06-cometmind-features.md) → Jobs section |
 | Understand settings persistence | [07-cometline-desktop.md](./07-cometline-desktop.md) → Settings persistence + [../SETTINGS_AND_PERSISTENCE.md](../SETTINGS_AND_PERSISTENCE.md) |

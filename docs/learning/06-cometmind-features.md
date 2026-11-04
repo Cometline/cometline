@@ -99,9 +99,10 @@ Skills are reusable prompt templates. Each skill is a `SKILL.md` file. The file 
 **Invocation** means how a skill is started.
 
 - In chat, type `/{skill-name}` in the composer. The **composer** is the box where you type.
-- Built-in slash commands live in `cometline/src/lib/skills/slash-commands.ts`:
+- Built-in slash commands live in `cometline/src/lib/features/skills/slash-commands.ts`:
   - `/change` forks this session into another workspace. A **fork** is a new session started from this one.
   - `/clear` clears the transcript and starts fresh. The session title stays. A **transcript** is the saved chat text.
+  - `/compact` shortens the current session context. It does not compact semantic memory.
   - `/create-skill` drafts a skill for review.
   - `/model` switches the model for the current session.
   - `/job` claims a ready job.
@@ -124,6 +125,14 @@ Agent tools and `cometmind skills show` load skill content. HTTP routes manage l
 
 Generated skills can be written as drafts under `~/.cometmind/skill-drafts/`. Review them in Cometline at `/skill-drafts`. Then promote a draft into `~/.cometmind/skills/{name}/SKILL.md`. **Promote** means move the draft into the real skills folder.
 
+### Skill review and the personal wiki
+
+After a user chat reaches 10 model iterations, and a model is available, CometMind can start a hidden skill review. The review kind is `skill_review`. It looks for a reusable lesson. It may write a skill whose origin is `self-improvement`. That review is not a normal chat turn. It does not appear as one.
+
+A separate personal wiki lives at `~/.cometmind/wiki/`. In tools, that path is `@runtime/wiki`. The built-in `llm-wiki` skill ingests sources and compiles pages. `query-wiki` only reads `index.md` and a few pages. It does not write. The wiki stores longer notes. Semantic memory stores short facts. They are not the same store.
+
+The Skills page can filter by tag. It also marks skills that the review just wrote. Self-improvement skills have a lifecycle in `internal/skillcurator`. An unused skill can be archived after 30 days. An archived skill can be deleted 10 days later. A pinned skill does not expire. Loading the skill again restarts the archive clock. The page shows an expiry label. The user does not have to archive the skill first. The clock starts on its own.
+
 ---
 
 ## MCP client
@@ -136,7 +145,9 @@ A **subagent** is a smaller agent started by the main agent. A **harness** is an
 
 ### Configuration
 
-Open Settings, then CometMind, then MCP. The data is stored in `cometmind.mcp` inside `cometline-settings.json`. You can import a Cursor-style `mcp.json`.
+Open Settings, then Connector. The data is still stored in `cometmind.mcp` inside `cometline-settings.json`. You can import a Cursor-style `mcp.json`.
+
+The Connector page also loads a remote catalog of verified connectors from `cometline-connector`. The page shows the last saved catalog at once. It then refreshes that catalog in the background. If the fetch fails, the saved catalog stays on screen. Connecting a catalog card writes a normal MCP server. The server id is `connector-{catalogId}`. A card marked unavailable stays visible, but you cannot connect it.
 
 ### Transports
 
@@ -153,7 +164,9 @@ A **subprocess** is a program started by CometMind.
 
 ### Tool naming
 
-Tools are registered as `mcp_{serverId}_{toolName}`. Characters that are not allowed become `_`.
+Connected tools still have names like `mcp_{serverId}_{toolName}`. Characters that are not allowed become `_`.
+
+Those remote tools are **not** added to the native tool list. The parent agent gets two local tools instead: `search_mcp_tools` and `use_mcp_tool`. Search returns a small set of matching schemas. The default limit is 5, and the maximum is 8. An exact tool-name match ranks above a keyword match. `use_mcp_tool` then calls the chosen tool. A short reminder in the prompt says that MCP schemas stay unloaded until search.
 
 ### OAuth (remote servers)
 
@@ -175,6 +188,8 @@ Protected Resource Metadata (RFC 9728)
 | Client identity and token endpoint | `~/.cometmind/mcp-oauth/{serverId}.client.json` |
 
 At connect time, CometMind refreshes the token with no browser. This refresh is **headless**. The browser opens again only if refresh fails.
+
+Some servers do not support dynamic client registration. Google MCP hosts are one example. For those hosts, the release build can stamp a shared Google OAuth client id and secret. A local build can set `COMETLINE_GOOGLE_OAUTH_CLIENT_ID` and `COMETLINE_GOOGLE_OAUTH_CLIENT_SECRET` instead. A server can also store its own client id, secret, and scopes. Dynamic registration is still used when the server supports it and no manual client id is set.
 
 ### Code map
 
@@ -267,7 +282,7 @@ The same agent runtime can run as a Discord bot. Each thread has its own session
 - Mention check, controlled by `require_mention`
 - An allowlist of users and channels
 - A saved session for each thread
-- Slash commands and skill invocation
+- Slash commands and skill invocation, including `/compact`
 - The same memory and tool sandbox as the desktop app
 
 An **allowlist** is the list of users or channels that may talk to the bot. A **sandbox** limits where tools may act.
@@ -343,6 +358,8 @@ The app first reserves space for the reply. The reserve is the larger of the ste
 | Session helpers | `internal/session/compaction.go` |
 
 This runs during the agent turn when context passes the configured budget thresholds. The `turn_status` phase is `compacting_context`. A **threshold** is a limit. Crossing it starts the action.
+
+You can also compact on purpose. In the desktop composer, `/compact` shortens the current session. Discord has the same slash command. Manual compact uses the recent token window. It is not a second copy of memory compaction.
 
 ---
 

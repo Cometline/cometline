@@ -202,7 +202,7 @@ A lease is a time-limited claim on a job. Retention means how long finished data
 1. Edit `cometmind/internal/mcp/`.
 2. If tool exposure changes, update `cometmind/internal/tools/registry.go`. Families must not import the parent `tools` package.
 3. For management API changes, update `cometmind/openapi.yaml` and the generated clients.
-4. Update `cometline/src/lib/features/settings/components/SettingsMCPPanel.svelte`.
+4. Update `cometline/src/lib/features/settings/components/SettingsConnectorPanel.svelte`. `SettingsMCPPanel.svelte` is the older panel and is not the Connector page.
 5. For OAuth or import IPC, update `cometline/electron/src/domains/provider-auth.ts`, `runtime-ipc.ts`, `preload.ts`, and `shared/api.ts`.
 
 MCP is a protocol for external tools. OAuth is a standard login flow. IPC means messages between Electron processes.
@@ -297,7 +297,8 @@ A subscription session is stored on this machine. It is not one of these API key
 | A Go test fails         | Are you in the correct module directory?                                    |
 | Generated files no longer match | Run `make generate`, then `make check`                               |
 | The GitNexus index is old | `node .gitnexus/run.cjs analyze`                                          |
-| MCP OAuth is broken     | Check `~/.cometmind/mcp-oauth/` and Settings → CometMind → MCP status       |
+| MCP OAuth is broken     | Check `~/.cometmind/mcp-oauth/` and Settings → Connector. Google hosts also need the stamped client or `COMETLINE_GOOGLE_OAUTH_CLIENT_ID`. |
+| Connector page is empty | Check the saved catalog in local storage, then the remote `cometline-connector` catalog URL |
 | A job stays ongoing     | Check job lease expiry, `job_events`, and autonomous worker settings        |
 
 Immutability means the reducer must not edit the old array in place. Ongoing means the job is still marked as running. Autonomous means the worker can continue without a new user message.
