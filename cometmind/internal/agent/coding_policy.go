@@ -9,7 +9,9 @@ func CodingPolicyPrompt() string {
 - Prefer glob and grep for finding files and searching contents instead of run_command with find or grep.
 - Read files with read_file before editing. Line prefixes look like "N: content"; the "N: " prefix is not part of the file.
 - ` + tools.MountDocs() + `
-- @runtime paths are aliases understood only by file-tool path parameters; never use them in run_command. Shell commands run in the workspace root.
+- @runtime paths are aliases understood only by file-tool path parameters. run_command rejects any command that contains @runtime, because the shell would create a literal @runtime directory in the workspace. Shell commands run in the workspace root.
+- To read large command output, do not redirect. run_command saves the full text under @runtime/tool-output and the result includes that alias; read_file it.
+- When an external program must open a file, pass a real path: $HOME/.cometmind/agent-tmp (same place as @runtime/tmp), $HOME/.cometmind/tool-output, or $HOME/.cometmind/wiki. Never put @runtime in a shell string.
 - Use capture_screenshot for live screens or app windows, and present_image_url for public web images. Do not use run_command or write_file to create screenshot or downloaded-image files in the workspace.
 - Prefer edit_file (search/replace) over write_file for existing files. Use write_file only to create new files or intentionally replace an entire file.
 - For long documents, write one short complete chunk per step, then append later sections with write_file append=true. Do not put an entire long markdown/report/job-description into one write_file call.
