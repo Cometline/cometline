@@ -34,11 +34,14 @@ func (RunCommand) Spec() ToolSpec {
 		Description: "Run a shell command in the workspace root. " +
 			"Best-effort guardrails reject a few obviously dangerous patterns. " +
 			"Default timeout is 300s; pass timeout_sec to override (max 1800). " +
-			"Very large output is truncated in the tool result with the full text saved under @runtime/tool-output/.",
+			"Very large output is truncated in the tool result; the full text is saved under @runtime/tool-output/ and the result includes that alias. " +
+			"Read it with read_file. Do not redirect to @runtime. " +
+			"The shell does not expand @runtime; a command containing @runtime is rejected. " +
+			"To pass a file to an external program, use $HOME/.cometmind/agent-tmp, $HOME/.cometmind/tool-output, or $HOME/.cometmind/wiki.",
 		Parameters: json.RawMessage(`{
 			"type":"object",
 			"properties":{
-				"command":{"type":"string","description":"Command with arguments (shell interpretation)"},
+				"command":{"type":"string","description":"Command with arguments (shell interpretation). Do not include @runtime; the shell does not expand that alias."},
 				"timeout_sec":{"type":"integer","description":"Optional timeout in seconds (default 300, max 1800)"}
 			},
 			"required":["command"]
@@ -59,6 +62,9 @@ func (r RunCommand) Execute(ctx context.Context, input json.RawMessage) (Result,
 		return bad, nil
 	}
 	if err := denylistCheck(command); err != nil {
+		return Result{OK: false, Output: err.Error()}, nil
+	}
+	if err := rejectRuntimeAliasInShell(command); err != nil {
 		return Result{OK: false, Output: err.Error()}, nil
 	}
 	if paths.CommandMentionsTerminalEnv(command) {
@@ -131,6 +137,18 @@ var deniedCommandPatterns = []struct {
 }
 
 var devRedirectPattern = regexp.MustCompile(`(?:^|[^[:alnum:]_./-])\d*>\s*(/dev/[[:alnum:]_.-]+)`)
+
+// rejectRuntimeAliasInShell stops the shell from creating a literal @runtime
+// directory in the workspace. File tools resolve that alias; sh does not.
+func rejectRuntimeAliasInShell(cmd string) error {
+	if strings.Contains(cmd, "@runtime") {
+		return fmt.Errorf("command rejected: @runtime is a file-tool alias and is not expanded by the shell. " +
+			"Do not mkdir or redirect to @runtime; that creates a literal folder in the workspace. " +
+			"To read large command output, run the command with no redirect and read_file the @runtime/tool-output path from the tool result. " +
+			"To pass a file to an external program, use $HOME/.cometmind/agent-tmp, $HOME/.cometmind/tool-output, or $HOME/.cometmind/wiki")
+	}
+	return nil
+}
 
 func denylistCheck(cmd string) error {
 	c := strings.ToLower(cmd)

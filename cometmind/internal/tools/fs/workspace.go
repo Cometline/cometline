@@ -136,7 +136,9 @@ func MountDocs() string {
 	return "The managed runtime mounts are available without exposing secrets: " +
 		"@runtime/tool-output is read-only, @runtime/tmp is shared read/write across sessions, " +
 		"and @runtime/wiki is the persistent LLM Wiki (read/write, not age-purged). " +
-		"Use these aliases instead of guessing ~/.cometmind paths."
+		"Use these aliases only in file-tool path parameters. " +
+		"The shell does not expand them: @runtime/tmp is $HOME/.cometmind/agent-tmp, " +
+		"@runtime/tool-output is $HOME/.cometmind/tool-output, and @runtime/wiki is $HOME/.cometmind/wiki."
 }
 
 // IsRuntimePath reports whether rel uses the explicit runtime alias.

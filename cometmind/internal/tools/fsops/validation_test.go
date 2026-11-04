@@ -151,6 +151,37 @@ func TestRunCommandAllowsRedirectToDevNull(t *testing.T) {
 	}
 }
 
+func TestRunCommandRejectsRuntimeAlias(t *testing.T) {
+	tool := RunCommand{Workspace: Workspace{Root: t.TempDir()}}
+	for _, command := range []string{
+		"mkdir -p @runtime/tmp/hb-note-translate",
+		"heptabase note read abc > @runtime/tmp/note.json",
+		"echo @runtime",
+	} {
+		res, err := tool.Execute(context.Background(), json.RawMessage(`{"command":"`+command+`"}`))
+		if err != nil {
+			t.Fatalf("Execute(%q) error: %v", command, err)
+		}
+		if res.OK || !strings.Contains(res.Output, "@runtime is a file-tool alias") {
+			t.Fatalf("command %q result = %+v, want runtime-alias rejection", command, res)
+		}
+	}
+}
+
+func TestRunCommandAllowsHomeCometmindPath(t *testing.T) {
+	tool := RunCommand{Workspace: Workspace{Root: t.TempDir()}}
+	res, err := tool.Execute(context.Background(), json.RawMessage(`{"command":"printf $HOME/.cometmind/agent-tmp"}`))
+	if err != nil {
+		t.Fatalf("Execute error: %v", err)
+	}
+	if !res.OK || !strings.Contains(res.Output, ".cometmind/agent-tmp") {
+		t.Fatalf("result = %+v, want printed home path", res)
+	}
+	if strings.Contains(res.Output, "@runtime") {
+		t.Fatalf("result = %+v, shell should not invent @runtime", res)
+	}
+}
+
 func TestRunCommandRejectsRedirectToOtherDevPaths(t *testing.T) {
 	tool := RunCommand{Workspace: Workspace{Root: t.TempDir()}}
 	res, err := tool.Execute(context.Background(), json.RawMessage(`{"command":"printf ok >/dev/random"}`))

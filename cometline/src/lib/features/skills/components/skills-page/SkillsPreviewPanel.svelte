@@ -78,7 +78,9 @@
 	.item-preview {
 		display: flex;
 		flex-direction: column;
+		min-width: 0;
 		min-height: 0;
+		overflow: hidden;
 	}
 
 	.skill-path {
@@ -104,8 +106,10 @@
 		line-height: 1.5;
 		color: var(--text-main);
 		overflow: auto;
-		flex: 1;
+		flex: 1 1 auto;
+		min-height: 0;
 		width: 100%;
+		box-sizing: border-box;
 		resize: none;
 		font-family: var(--font-mono, 'SFMono-Regular', ui-monospace, monospace);
 	}

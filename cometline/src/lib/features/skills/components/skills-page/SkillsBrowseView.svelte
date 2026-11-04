@@ -170,7 +170,10 @@
 <style>
 	.archived-skills {
 		grid-column: 1 / -1;
+		min-height: 0;
+		max-height: 28%;
 		margin-top: 12px;
+		overflow: auto;
 	}
 
 	.expiry {
