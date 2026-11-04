@@ -37,7 +37,8 @@
 		<input
 			type="text"
 			value={server.description ?? ''}
-			oninput={(e) => controller.updateServer(server.id, { description: e.currentTarget.value })}
+			oninput={(e) =>
+				controller.updateServer(server.id, { description: e.currentTarget.value })}
 			placeholder="Svelte and SvelteKit documentation"
 		/>
 	</SettingsField>
