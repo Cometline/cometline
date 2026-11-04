@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 )
 
@@ -106,6 +107,43 @@ func (m *Manager) ListServers() []ServerRuntimeStatus {
 			ErrorHint:      entry.errorHint,
 			OAuthConnected: OAuthConnected(entry.cfg.ID),
 		})
+	}
+	return out
+}
+
+// CatalogEntry is one exposed MCP tool, including the schema the model needs
+// after search. Hidden tools never appear here.
+type CatalogEntry struct {
+	ServerID     string
+	ServerName   string
+	ServerDesc   string
+	ToolName     string
+	RegistryName string
+	Description  string
+	Parameters   json.RawMessage
+}
+
+// Catalog returns the live exposed tool list. Callers search this instead of
+// putting every schema on the native tool list.
+func (m *Manager) Catalog() []CatalogEntry {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	var out []CatalogEntry
+	for _, entry := range m.servers {
+		if entry.conn == nil || entry.status != StatusConnected {
+			continue
+		}
+		for _, tool := range entry.conn.tools {
+			out = append(out, CatalogEntry{
+				ServerID:     entry.cfg.ID,
+				ServerName:   entry.cfg.Name,
+				ServerDesc:   entry.cfg.Description,
+				ToolName:     tool.Name,
+				RegistryName: ToolName(entry.cfg.ID, tool.Name),
+				Description:  tool.Description,
+				Parameters:   tool.Parameters,
+			})
+		}
 	}
 	return out
 }

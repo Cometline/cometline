@@ -26,6 +26,7 @@ type OAuthConfig struct {
 type ServerConfig struct {
 	ID           string
 	Name         string
+	Description  string
 	Enabled      bool
 	Transport    TransportKind
 	Command      string

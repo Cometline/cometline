@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 
 	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	mcppkg "github.com/Cometline/cometline/cometmind/internal/mcp"
 	"github.com/Cometline/cometline/cometmind/internal/skills"
 	"github.com/Cometline/cometline/cometmind/internal/tools/toolkit"
 )
@@ -14,6 +15,7 @@ type Registry struct {
 	workspace Workspace
 	byName    map[string]Tool
 	order     []Tool
+	mcp       *mcppkg.Manager
 }
 
 // NewRegistry returns tools for the parent agent using ParentSurface policy.
@@ -99,13 +101,22 @@ func newRegistryWithSurface(workspaceRoot string, surface ToolSurface, opt Regis
 		surface = PlanSurface()
 	}
 	ws := Workspace{Root: workspaceRoot}
-	r := &Registry{workspace: ws, byName: make(map[string]Tool)}
+	r := &Registry{workspace: ws, byName: make(map[string]Tool), mcp: opt.MCP}
 	r.addFileTools(ws, surface)
 	r.addNetworkTools(ws, surface, opt)
 	r.addSkillTools(surface, opt)
 	r.addChildTools(ws, surface, opt)
 	r.addServiceTools(workspaceRoot, surface, opt)
 	return r
+}
+
+// MCP returns the manager used to search and call remote tools. Nil when MCP
+// is not configured for this registry.
+func (r *Registry) MCP() *mcppkg.Manager {
+	if r == nil {
+		return nil
+	}
+	return r.mcp
 }
 
 // CometSDK returns tool schemas for the LLM request.

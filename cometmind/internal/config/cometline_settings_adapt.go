@@ -265,6 +265,7 @@ func adaptMCPJSON(raw cometlineMCPJSON) MCPConfig {
 		entry := MCPServerConfig{
 			ID:           strings.TrimSpace(srv.ID),
 			Name:         strings.TrimSpace(srv.Name),
+			Description:  strings.TrimSpace(srv.Description),
 			Enabled:      srv.Enabled,
 			Transport:    normalizeMCPTransport(srv.Transport),
 			Command:      strings.TrimSpace(srv.Command),

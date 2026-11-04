@@ -148,6 +148,7 @@ export interface MCPOAuthSettings {
 export interface MCPServerConfig {
 	id: string;
 	name: string;
+	description?: string;
 	enabled: boolean;
 	transport: MCPTransport;
 	command?: string;
@@ -430,6 +431,7 @@ function normalizeMCPServer(
 	return {
 		id,
 		name: name || id,
+		description: String(input.description ?? '').trim(),
 		enabled: typeof input.enabled === 'boolean' ? input.enabled : true,
 		transport,
 		command: String(input.command ?? '').trim(),
@@ -1443,6 +1445,7 @@ const providerSettingsSchema = z.object({
 				z.object({
 					id: z.string().min(1),
 					name: z.string(),
+					description: z.string().optional(),
 					enabled: z.boolean(),
 					transport: z.enum(['stdio', 'http']),
 					command: z.string().optional(),

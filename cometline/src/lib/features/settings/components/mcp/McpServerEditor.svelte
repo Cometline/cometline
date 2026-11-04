@@ -33,6 +33,16 @@
 		/>
 	</SettingsField>
 
+	<SettingsField label="Description" note="One line so the agent knows what this server is for.">
+		<input
+			type="text"
+			value={server.description ?? ''}
+			oninput={(e) =>
+				controller.updateServer(server.id, { description: e.currentTarget.value })}
+			placeholder="Svelte and SvelteKit documentation"
+		/>
+	</SettingsField>
+
 	<SettingsField label="Connection type" note={transportHint(server.transport)}>
 		<select
 			value={server.transport}

@@ -159,7 +159,7 @@ func TestFormatAgentModePrompt(t *testing.T) {
 func TestBuildSystemPrompt_AppendsAgentModeLast(t *testing.T) {
 	t.Parallel()
 	r := &Runner{SystemPrompt: "base", AgentMode: session.AgentModePlan}
-	got := r.buildSystemPrompt("summary", 4096)
+	got := r.buildSystemPrompt(&turnState{}, "summary", 4096)
 	mode := FormatAgentModePrompt(session.AgentModePlan)
 	if !strings.HasSuffix(got, mode) {
 		t.Fatalf("mode prompt is not last:\n%s", got)

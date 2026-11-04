@@ -33,8 +33,10 @@ func (r *Runner) compactBeforeStep(ctx context.Context, s *turnState, baseSystem
 		return baseSystem
 	}
 	s.sess = updated
-	baseSystem = r.buildSystemPrompt(s.sess.ContextSummary, s.maxTokens)
 	if compactionChanged(before, s.sess) {
+		// The old reminder was folded into the summary. Send it again.
+		s.mcpCatalogFingerprint = ""
+		baseSystem = r.buildSystemPrompt(s, s.sess.ContextSummary, s.maxTokens)
 		r.emitContextBudget(ctx, s, baseSystem, tools, true)
 	}
 	return baseSystem
@@ -72,7 +74,8 @@ func (r *Runner) recoverFromOverflow(ctx context.Context, s *turnState, p *stepR
 		return false
 	}
 	s.sess = updated
-	p.baseSystem = r.buildSystemPrompt(s.sess.ContextSummary, s.maxTokens)
+	s.mcpCatalogFingerprint = ""
+	p.baseSystem = r.buildSystemPrompt(s, s.sess.ContextSummary, s.maxTokens)
 	rebuildMsgs, rebuildErr := r.Sessions.BuildSDKMessages(ctx, s.turn.ID)
 	if rebuildErr != nil {
 		logging.L().Warn("agent.step.overflow_rebuild_failed", zap.String("session", s.turn.ID), zap.Error(rebuildErr))
