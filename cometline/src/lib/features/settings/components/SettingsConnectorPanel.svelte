@@ -5,6 +5,7 @@
 	import { listMcpServers, startMcpOAuth } from '#lib/client/cometmind.js';
 	import type { McpServerStatus } from '#lib/generated/cometmind-api/index.js';
 	import {
+		cachedConnectorCatalog,
 		connectorServerConfig,
 		defaultConnectorServerId,
 		loadConnectorCatalog,
@@ -20,7 +21,7 @@
 	} = $props();
 
 	let mcpPanel = $state<SettingsMCPPanel | undefined>();
-	let connectors = $state<DefaultConnector[]>([]);
+	let connectors = $state<DefaultConnector[]>(cachedConnectorCatalog());
 	let catalogError = $state('');
 	let connectError = $state('');
 	let connectingId = $state('');
@@ -30,10 +31,15 @@
 		let active = true;
 		loadConnectorCatalog()
 			.then((loaded) => {
-				if (active) connectors = loaded;
+				if (active) {
+					connectors = loaded;
+					catalogError = '';
+				}
 			})
 			.catch(() => {
-				if (active) catalogError = 'The connector catalog could not be loaded.';
+				if (active && connectors.length === 0) {
+					catalogError = 'The connector catalog could not be loaded.';
+				}
 			});
 		return () => {
 			active = false;
