@@ -128,6 +128,9 @@
 
 	.diff-line {
 		display: block;
+		width: max-content;
+		min-width: 100%;
+		box-sizing: border-box;
 		padding: 0 8px;
 		white-space: pre;
 	}
