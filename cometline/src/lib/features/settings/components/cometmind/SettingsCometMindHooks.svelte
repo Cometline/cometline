@@ -51,9 +51,9 @@
 	function trustCurrentWorkspace() {
 		const path = shellStore.workspacePath?.trim();
 		if (!path) return;
-		const paths = new Set(parseIdList(trustedPathsText));
-		paths.add(path);
-		trustedPathsText = formatIdList([...paths]);
+		const paths = parseIdList(trustedPathsText);
+		if (paths.includes(path)) return;
+		trustedPathsText = formatIdList([...paths, path]);
 		syncTrustedPaths();
 	}
 </script>
