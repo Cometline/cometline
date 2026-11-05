@@ -140,19 +140,6 @@
 			/>
 
 			<div class="settings-pane scrollbar-none">
-				{#key panelController.memoryPanelKey}
-					<div
-						class="memory-panel-host"
-						hidden={settingsController.activeSection !== 'memory'}
-					>
-						<SettingsMemoryPanel
-							bind:this={memoryPanel}
-							providers={draft.providers}
-							savedEmbedding={draft.cometmind.memory.embedding}
-							onEmbeddingSaved={panelController.persistMemoryEmbedding}
-						/>
-					</div>
-				{/key}
 				{#if settingsController.activeSection === 'models'}
 					<div class="settings-panel-stack">
 						<SettingsTabPersistence section="models" />
@@ -189,27 +176,53 @@
 							memoryPanel={memoryPanel?.controller()}
 						/>
 					</div>
+					{#key panelController.memoryPanelKey}
+						<div class="memory-panel-host" hidden>
+							<SettingsMemoryPanel
+								bind:this={memoryPanel}
+								providers={draft.providers}
+								savedEmbedding={draft.cometmind.memory.embedding}
+								onEmbeddingSaved={panelController.persistMemoryEmbedding}
+							/>
+						</div>
+					{/key}
 				{:else if settingsController.activeSection === 'memory'}
-					<SettingsTabPersistence section="memory" />
+					<div class="settings-panel-stack">
+						<SettingsTabPersistence section="memory" />
+						{#key panelController.memoryPanelKey}
+							<div class="memory-panel-host">
+								<SettingsMemoryPanel
+									bind:this={memoryPanel}
+									providers={draft.providers}
+									savedEmbedding={draft.cometmind.memory.embedding}
+									onEmbeddingSaved={panelController.persistMemoryEmbedding}
+								/>
+							</div>
+						{/key}
+					</div>
 				{:else if settingsController.activeSection === 'agent'}
-					<SettingsTabPersistence section="agent" />
-					{#key panelController.cometmindPanelKey}
-						<SettingsCometMindPanel
-							bind:this={cometmindPanel}
-							bind:cometmind={draft.cometmind}
-							providers={draft.providers}
-							onPickWorkspace={panelController.pickGatewayWorkspace}
-						/>
-					{/key}
+					<div class="settings-panel-stack">
+						<SettingsTabPersistence section="agent" />
+						{#key panelController.cometmindPanelKey}
+							<SettingsCometMindPanel
+								bind:this={cometmindPanel}
+								bind:cometmind={draft.cometmind}
+								providers={draft.providers}
+								onPickWorkspace={panelController.pickGatewayWorkspace}
+							/>
+						{/key}
+					</div>
 				{:else if settingsController.activeSection === 'connector'}
-					<SettingsTabPersistence section="connector" />
-					{#key panelController.cometmindPanelKey}
-						<SettingsConnectorPanel
-							bind:this={connectorPanel}
-							bind:mcp={draft.cometmind.mcp}
-							onPersistBeforeRuntimeAction={panelController.persistDraftForRuntime}
-						/>
-					{/key}
+					<div class="settings-panel-stack">
+						<SettingsTabPersistence section="connector" />
+						{#key panelController.cometmindPanelKey}
+							<SettingsConnectorPanel
+								bind:this={connectorPanel}
+								bind:mcp={draft.cometmind.mcp}
+								onPersistBeforeRuntimeAction={panelController.persistDraftForRuntime}
+							/>
+						{/key}
+					</div>
 				{:else if settingsController.activeSection === 'appearance'}
 					<div class="settings-panel-stack">
 						<SettingsTabPersistence section="appearance" />
@@ -228,14 +241,16 @@
 
 					<SettingsPanelPersonaDialogs editor={personaEditor} />
 				{:else if settingsController.activeSection === 'shortcuts'}
-					<SettingsTabPersistence section="shortcuts" />
-					<SettingsShortcutsPanel
-						shortcuts={draft.shortcuts}
-						onChange={panelController.updateShortcut}
-					/>
-				{:else}
-					<SettingsTabPersistence section="app" />
 					<div class="settings-panel-stack">
+						<SettingsTabPersistence section="shortcuts" />
+						<SettingsShortcutsPanel
+							shortcuts={draft.shortcuts}
+							onChange={panelController.updateShortcut}
+						/>
+					</div>
+				{:else}
+					<div class="settings-panel-stack">
+						<SettingsTabPersistence section="app" />
 						<SettingsGeneralPanel
 							bind:openAtLogin={draft.app.openAtLogin}
 							bind:screenCapturePreferred={draft.app.screenCapturePreferred}
