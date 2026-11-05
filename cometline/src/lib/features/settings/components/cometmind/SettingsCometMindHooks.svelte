@@ -61,9 +61,10 @@
 <div class="settings-subsection">
 	<h3>Tool hooks</h3>
 	<p class="settings-hint">
-		Subprocess PreToolUse / PostToolUse hooks around built-in tools. Disabled by default. Config:
-		<code>~/.cometmind/hooks.json</code>, project <code>.cometmind/hooks.json</code> (requires trust
-		below), and <code>plugins/*/plugin.json</code>.
+		Subprocess PreToolUse / PostToolUse hooks around built-in tools. Disabled by default.
+		Config:
+		<code>~/.cometmind/hooks.json</code>, project <code>.cometmind/hooks.json</code> (requires
+		trust below), and <code>plugins/*/plugin.json</code>.
 	</p>
 	<label class="settings-checkbox">
 		<input type="checkbox" bind:checked={cometmind.hooks.enabled} />

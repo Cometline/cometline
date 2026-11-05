@@ -807,7 +807,9 @@ export function normalizeCometMindSettings(
 		mcp,
 		hooks: {
 			enabled:
-				typeof hooksInput.enabled === 'boolean' ? hooksInput.enabled : hooksDefaults.enabled,
+				typeof hooksInput.enabled === 'boolean'
+					? hooksInput.enabled
+					: hooksDefaults.enabled,
 			trustedWorkspacePaths: cleanStringList(
 				hooksInput.trustedWorkspacePaths ?? hooksDefaults.trustedWorkspacePaths
 			)
