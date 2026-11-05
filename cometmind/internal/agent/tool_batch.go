@@ -129,52 +129,27 @@ func (r *Runner) runToolCall(
 		logging.L().Warn("tool.call.schema_circuit_open", zap.String("session", turn.ID), zap.String("tool", tc.Name), zap.String("tool_call_id", tc.ID), zap.Int("streak", s.invalidToolInputStreak))
 	} else {
 		toolInput := tc.Input
-		if r.Hooks != nil && r.Hooks.Enabled() {
-			pre := r.Hooks.RunPreToolUse(ctx, hooks.ToolEnv{
-				SessionID:     turn.ID,
-				WorkspacePath: r.HooksWorkspace(),
-				TurnID:        turn.ID,
-				ToolName:      tc.Name,
-				ToolInput:     toolInput,
-				ModelID:       turn.ModelID,
-				ProviderID:    turn.ProviderID,
-				JobID:         s.jobTracker.JobID,
-			})
-			for _, block := range pre.AppendSystem {
-				s.hookSystemBlocks = append(s.hookSystemBlocks, block)
+		pre := hooks.PreResult{Input: toolInput}
+		if r.Hooks != nil {
+			pre = r.Hooks.RunPreToolUse(ctx, r.hookToolEnv(s, turn, tc.Name, toolInput, "", false))
+			s.hookSystemBlocks = append(s.hookSystemBlocks, pre.AppendSystem...)
+			toolInput = pre.Input
+		}
+		if pre.Blocked {
+			reason := pre.BlockReason
+			if strings.TrimSpace(reason) == "" {
+				reason = "hook blocked tool"
 			}
-			if pre.Blocked {
-				reason := pre.BlockReason
-				if strings.TrimSpace(reason) == "" {
-					reason = "hook blocked tool"
-				}
-				res = tools.Result{OK: false, Output: reason}
-				logging.L().Info("hooks.blocked", zap.String("session", turn.ID), zap.String("tool", tc.Name))
-			} else {
-				toolInput = pre.Input
-				toolCtx := tools.WithToolSession(ctx, turn.ID)
-				toolCtx = tools.WithProgress(toolCtx, backgroundProgressEmitter(s.ch))
-				res, execErr = r.Registry.Execute(toolCtx, tc.Name, toolInput)
-				if r.Hooks != nil {
-					post := r.Hooks.RunPostToolUse(ctx, hooks.ToolEnv{
-						SessionID:     turn.ID,
-						WorkspacePath: r.HooksWorkspace(),
-						TurnID:        turn.ID,
-						ToolName:      tc.Name,
-						ToolInput:     toolInput,
-						ModelID:       turn.ModelID,
-						ProviderID:    turn.ProviderID,
-						JobID:         s.jobTracker.JobID,
-						ToolOutput:    res.Output,
-						ToolOK:        res.OK && execErr == nil,
-					})
-					s.hookSystemBlocks = append(s.hookSystemBlocks, post.AppendSystem...)
-				}
-			}
+			res = tools.Result{OK: false, Output: reason}
+			logging.L().Info("hooks.blocked", zap.String("session", turn.ID), zap.String("tool", tc.Name))
 		} else {
 			toolCtx := tools.WithToolSession(ctx, turn.ID)
 			toolCtx = tools.WithProgress(toolCtx, backgroundProgressEmitter(s.ch))
-			res, execErr = r.Registry.Execute(toolCtx, tc.Name, tc.Input)
+			res, execErr = r.Registry.Execute(toolCtx, tc.Name, toolInput)
+			if r.Hooks != nil {
+				post := r.Hooks.RunPostToolUse(ctx, r.hookToolEnv(s, turn, tc.Name, toolInput, res.Output, res.OK && execErr == nil))
+				s.hookSystemBlocks = append(s.hookSystemBlocks, post.AppendSystem...)
+			}
 		}
 	}
 	dur := time.Since(start).Milliseconds()

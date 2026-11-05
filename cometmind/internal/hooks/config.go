@@ -2,12 +2,15 @@ package hooks
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/Cometline/cometline/cometmind/internal/paths"
+	"go.uber.org/zap"
 )
 
 type handlerBinding struct {
@@ -43,11 +46,11 @@ type resolvedHandler struct {
 func loadFileConfig(path string) (fileConfig, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return fileConfig{}, err
+		return fileConfig{}, fmt.Errorf("read hooks config %s: %w", path, err)
 	}
 	var cfg fileConfig
 	if err := json.Unmarshal(raw, &cfg); err != nil {
-		return fileConfig{}, fmt.Errorf("parse %s: %w", path, err)
+		return fileConfig{}, fmt.Errorf("parse hooks config %s: %w", path, err)
 	}
 	if cfg.Hooks == nil {
 		cfg.Hooks = map[string][]eventRule{}
@@ -58,11 +61,11 @@ func loadFileConfig(path string) (fileConfig, error) {
 func loadPluginManifest(path string) (pluginManifest, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return pluginManifest{}, err
+		return pluginManifest{}, fmt.Errorf("read plugin manifest %s: %w", path, err)
 	}
 	var m pluginManifest
 	if err := json.Unmarshal(raw, &m); err != nil {
-		return pluginManifest{}, fmt.Errorf("parse %s: %w", path, err)
+		return pluginManifest{}, fmt.Errorf("parse plugin manifest %s: %w", path, err)
 	}
 	if m.Hooks == nil {
 		m.Hooks = map[string][]eventRule{}
@@ -94,6 +97,9 @@ func appendRules(out *[]resolvedHandler, rules []eventRule, event, source, plugi
 func appendFileHooks(handlers *[]resolvedHandler, path string, workDir string) {
 	cfg, err := loadFileConfig(path)
 	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			logging.L().Warn("hooks.config_load_failed", zap.String("path", path), zap.Error(err))
+		}
 		return
 	}
 	for event, rules := range cfg.Hooks {
@@ -114,6 +120,9 @@ func appendPluginDir(handlers *[]resolvedHandler, pluginsRoot string) {
 		manifestPath := filepath.Join(pluginDir, "plugin.json")
 		m, err := loadPluginManifest(manifestPath)
 		if err != nil {
+			if !errors.Is(err, os.ErrNotExist) {
+				logging.L().Warn("hooks.plugin_manifest_load_failed", zap.String("path", manifestPath), zap.Error(err))
+			}
 			continue
 		}
 		source := manifestPath

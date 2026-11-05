@@ -72,12 +72,6 @@ func TestPreToolUseBlock(t *testing.T) {
 	}
 }
 
-func TestBadJSONFailOpen(t *testing.T) {
-	runner := &stubRunner{fn: func(_ ToolEnv) Outcome { return Outcome{} }}
-	// stub always succeeds; test executor path via invalid JSON in separate test
-	_ = runner
-}
-
 func TestDisabledNoOp(t *testing.T) {
 	runner := &stubRunner{}
 	eng := NewEngine(config.HooksConfig{Enabled: false}, t.TempDir()).WithRunner(runner)
@@ -106,6 +100,19 @@ func TestProjectHooksRequireTrust(t *testing.T) {
 	trusted := NewEngine(config.HooksConfig{Enabled: true, TrustedWorkspacePaths: []string{abs}}, abs)
 	if len(trusted.handlers) == 0 {
 		t.Fatal("trusted workspace should load project hooks")
+	}
+}
+
+func TestBrokenHooksJSONLogsAndSkips(t *testing.T) {
+	dataDir := t.TempDir()
+	t.Setenv("COMETMIND_DATA_DIR", dataDir)
+	hooksPath := filepath.Join(dataDir, "hooks.json")
+	if err := os.WriteFile(hooksPath, []byte(`{not json`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	eng := NewEngine(config.HooksConfig{Enabled: true}, t.TempDir())
+	if len(eng.handlers) != 0 {
+		t.Fatalf("expected no handlers from broken config, got %d", len(eng.handlers))
 	}
 }
 

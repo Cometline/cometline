@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
+	"fmt"
 	"os/exec"
 	"strings"
 	"time"
@@ -41,7 +41,7 @@ func (execRunner) Run(ctx context.Context, handler resolvedHandler, env ToolEnv,
 
 	var stdin bytes.Buffer
 	if err := json.NewEncoder(&stdin).Encode(env); err != nil {
-		return Outcome{}, err
+		return Outcome{}, fmt.Errorf("encode hook stdin: %w", err)
 	}
 	cmd.Stdin = &stdin
 
@@ -61,15 +61,12 @@ func (execRunner) Run(ctx context.Context, handler resolvedHandler, env ToolEnv,
 
 	if err != nil {
 		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
-			switch exitErr.ExitCode() {
-			case 2:
-				reason := strings.TrimSpace(stderr.String())
-				if reason == "" {
-					reason = "hook blocked (exit 2)"
-				}
-				return Outcome{Block: true, BlockReason: reason}, nil
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == 2 {
+			reason := strings.TrimSpace(stderr.String())
+			if reason == "" {
+				reason = "hook blocked (exit 2)"
 			}
+			return Outcome{Block: true, BlockReason: reason}, nil
 		}
 		if errors.Is(runCtx.Err(), context.DeadlineExceeded) {
 			logging.L().Warn("hooks.timeout",
@@ -84,7 +81,7 @@ func (execRunner) Run(ctx context.Context, handler resolvedHandler, env ToolEnv,
 				zap.Error(err),
 			)
 		}
-		return Outcome{}, err
+		return Outcome{}, fmt.Errorf("run hook %q: %w", cmdLine, err)
 	}
 
 	out := strings.TrimSpace(stdout.String())
@@ -98,7 +95,7 @@ func (execRunner) Run(ctx context.Context, handler resolvedHandler, env ToolEnv,
 			zap.String("source", handler.Source),
 			zap.Error(err),
 		)
-		return Outcome{}, err
+		return Outcome{}, fmt.Errorf("parse hook stdout from %q: %w", handler.Source, err)
 	}
 	return parsed, nil
 }
@@ -191,11 +188,4 @@ func runPostChain(ctx context.Context, runner commandRunner, handlers []resolved
 		}
 	}
 	return appendSystem
-}
-
-// noopRunner for tests.
-type noopReader struct{}
-
-func (noopReader) Run(_ context.Context, _ resolvedHandler, _ ToolEnv, _ string) (Outcome, error) {
-	return Outcome{}, io.EOF
 }

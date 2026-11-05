@@ -16,7 +16,7 @@ type ToolEnv struct {
 	HookEvent     string          `json:"hook_event"`
 	SessionID     string          `json:"session_id"`
 	WorkspacePath string          `json:"workspace_path"`
-	TurnID        string          `json:"turn_id"`
+	TurnID        string          `json:"turn_id"` // Same as SessionID today; see hookToolEnv in internal/agent.
 	ToolName      string          `json:"tool_name"`
 	ToolInput     json.RawMessage `json:"tool_input"`
 	ModelID       string          `json:"model_id"`
@@ -33,7 +33,6 @@ type Outcome struct {
 	BlockReason     string          `json:"block_reason"`
 	AppendSystem    string          `json:"append_system"`
 	ModifyToolInput json.RawMessage `json:"modify_tool_input"`
-	StatusMessage   string          `json:"status_message"`
 }
 
 // PreResult aggregates PreToolUse hook effects.

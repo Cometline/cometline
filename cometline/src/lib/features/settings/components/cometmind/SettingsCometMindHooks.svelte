@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { formatIdList, parseIdList, type CometMindSettings } from '#lib/cometmind-settings.js';
 	import { shellStore } from '#lib/stores/shell.svelte.js';
-	import { listHooksCatalog } from '#lib/generated/cometmind-api/sdk.gen';
+	import { listHooksCatalog } from '#lib/generated/cometmind-api/index.js';
 
 	let { cometmind = $bindable() }: { cometmind: CometMindSettings } = $props();
 
