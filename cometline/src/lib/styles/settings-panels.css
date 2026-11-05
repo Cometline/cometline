@@ -98,7 +98,6 @@
 .settings-tab-persistence {
 	display: grid;
 	gap: 6px;
-	margin-bottom: 14px;
 	padding: 10px 12px;
 	border: 1px solid var(--border-soft);
 	border-radius: 12px;
