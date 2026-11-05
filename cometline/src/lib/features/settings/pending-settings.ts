@@ -74,6 +74,7 @@ function agentSectionSnapshot(settings: ProviderSettings): string {
 		logLevel: cometmind.logLevel,
 		acp: cometmind.acp,
 		skills: cometmind.skills,
+		hooks: cometmind.hooks,
 		gateway: { discord: discordPending }
 	});
 }

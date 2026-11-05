@@ -43,6 +43,7 @@ func Catalog() []FieldMeta {
 		{Path: "cometmind.memory.embedding.apiKey", Secret: true, ApplyClass: ApplyReload, Description: "Embedding API key override"},
 		{Path: "cometmind.storage", Secret: false, ApplyClass: ApplyReload, Description: "Storage retention and cleanup"},
 		{Path: "cometmind.mcp", Secret: false, ApplyClass: ApplyReload, Description: "MCP servers"},
+		{Path: "cometmind.hooks", Secret: false, ApplyClass: ApplyReload, Description: "Subprocess tool hooks"},
 		{Path: "cometmind.jobs", Secret: false, ApplyClass: ApplyReload, Description: "Jobs queue settings"},
 		{Path: "cometmind.autonomy", Secret: false, ApplyClass: ApplyReload, Description: "Autonomous job worker"},
 		{Path: "cometmind.scheduler", Secret: false, ApplyClass: ApplyReload, Description: "Scheduled jobs"},

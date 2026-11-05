@@ -31,6 +31,11 @@ func (s *strictServer) ListMcpTools(ctx context.Context, _ apigen.ListMcpToolsRe
 	return nil, nil
 }
 
+func (s *strictServer) ListHooksCatalog(ctx context.Context, _ apigen.ListHooksCatalogRequestObject) (apigen.ListHooksCatalogResponseObject, error) {
+	delegateGin(ctx, s.app.handleListHooksCatalog)
+	return nil, nil
+}
+
 func (s *strictServer) ListMedia(ctx context.Context, _ apigen.ListMediaRequestObject) (apigen.ListMediaResponseObject, error) {
 	delegateGin(ctx, s.app.handleListMedia)
 	return nil, nil

@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"strings"
 
 	cometsdk "github.com/Cometline/cometline/comet-sdk"
 	"github.com/Cometline/cometline/cometmind/internal/event"
@@ -33,6 +34,10 @@ func (r *Runner) prepareStep(ctx context.Context, s *turnState) (*stepRequest, e
 		s.emitStatus(event.PhaseContinuing)
 	}
 	p.baseSystem = r.compactBeforeStep(ctx, s, r.buildSystemPrompt(s, s.sess.ContextSummary, s.maxTokens), p.tools)
+	if len(s.hookSystemBlocks) > 0 {
+		p.baseSystem += "\n\n" + strings.Join(s.hookSystemBlocks, "\n\n")
+		s.hookSystemBlocks = nil
+	}
 
 	msgs, err := r.Sessions.BuildSDKMessages(ctx, s.turn.ID)
 	if err != nil {

@@ -71,6 +71,7 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 		Generation: adaptGenerationJSON(cm.Generation),
 		Gateway:    GatewayConfig{Discord: adaptDiscordJSON(cm.Gateway.Discord)},
 		MCP:        adaptMCPJSON(cm.MCP),
+		Hooks:      adaptHooksJSON(cm.Hooks),
 	}
 
 	if cfg.DefaultProviderID == "" && !noProviders {
@@ -335,6 +336,19 @@ func adaptStorageConfig(cm cometlineStorageJSON) StorageConfig {
 		s.Backup.MaxBackups = def.Backup.MaxBackups
 	}
 	return s
+}
+
+func adaptHooksJSON(raw cometlineHooksJSON) HooksConfig {
+	paths := make([]string, 0, len(raw.TrustedWorkspacePaths))
+	for _, p := range raw.TrustedWorkspacePaths {
+		if t := strings.TrimSpace(p); t != "" {
+			paths = append(paths, t)
+		}
+	}
+	return HooksConfig{
+		Enabled:               raw.Enabled,
+		TrustedWorkspacePaths: paths,
+	}
 }
 
 func copyStringMapGo(in map[string]string) map[string]string {

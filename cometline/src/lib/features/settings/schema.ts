@@ -165,6 +165,13 @@ export interface CometMindMCPSettings {
 	servers: MCPServerConfig[];
 }
 
+export interface CometMindHooksSettings {
+	/** When false, PreToolUse/PostToolUse hooks are not executed (config files remain on disk). */
+	enabled: boolean;
+	/** Workspace roots allowed to load `{workspace}/.cometmind/hooks.json` and project plugins. */
+	trustedWorkspacePaths: string[];
+}
+
 export interface CometMindJobsNotificationSettings {
 	enabled: boolean;
 	onClaimed: boolean;
@@ -238,6 +245,7 @@ export interface CometMindSettings {
 		discord: CometMindDiscordGatewaySettings;
 	};
 	mcp: CometMindMCPSettings;
+	hooks: CometMindHooksSettings;
 	jobs: CometMindJobsSettings;
 	autonomy: CometMindAutonomousJobsSettings;
 	scheduler: CometMindSchedulerSettings;
@@ -418,6 +426,10 @@ export function defaultCometMindMCPSettings(): CometMindMCPSettings {
 	return { enabled: false, servers: [] };
 }
 
+export function defaultCometMindHooksSettings(): CometMindHooksSettings {
+	return { enabled: false, trustedWorkspacePaths: [] };
+}
+
 function normalizeMCPServer(
 	input: Partial<MCPServerConfig> | undefined,
 	existingIds: Set<string>
@@ -579,6 +591,7 @@ export function defaultCometMindSettings(workspacePath = ''): CometMindSettings 
 			}
 		},
 		mcp: defaultCometMindMCPSettings(),
+		hooks: defaultCometMindHooksSettings(),
 		jobs: defaultCometMindJobsSettings(),
 		autonomy: defaultCometMindAutonomousJobsSettings(),
 		scheduler: defaultCometMindSchedulerSettings(),
@@ -602,6 +615,8 @@ export function normalizeCometMindSettings(
 	const storage: Partial<CometMindStorageSettings> = input?.storage ?? {};
 	const discord: Partial<CometMindDiscordGatewaySettings> = input?.gateway?.discord ?? {};
 	const mcp = normalizeCometMindMCPSettings(input?.mcp);
+	const hooksInput: Partial<CometMindHooksSettings> = input?.hooks ?? {};
+	const hooksDefaults = defaultCometMindHooksSettings();
 	const jobsInput: Partial<CometMindJobsSettings> = input?.jobs ?? {};
 	const jobsDefaults = defaults.jobs;
 	const jobsNotifications: Partial<CometMindJobsNotificationSettings> =
@@ -790,6 +805,13 @@ export function normalizeCometMindSettings(
 			}
 		},
 		mcp,
+		hooks: {
+			enabled:
+				typeof hooksInput.enabled === 'boolean' ? hooksInput.enabled : hooksDefaults.enabled,
+			trustedWorkspacePaths: cleanStringList(
+				hooksInput.trustedWorkspacePaths ?? hooksDefaults.trustedWorkspacePaths
+			)
+		},
 		jobs: {
 			notifications: {
 				enabled:
@@ -945,6 +967,10 @@ export function cloneCometMindSettings(settings: CometMindSettings): CometMindSe
 					: undefined,
 				allowedTools: [...(server.allowedTools ?? [])]
 			}))
+		},
+		hooks: {
+			enabled: settings.hooks.enabled,
+			trustedWorkspacePaths: [...settings.hooks.trustedWorkspacePaths]
 		},
 		jobs: {
 			...settings.jobs,
@@ -1464,6 +1490,10 @@ const providerSettingsSchema = z.object({
 					allowedTools: z.array(z.string()).optional()
 				})
 			)
+		}),
+		hooks: z.object({
+			enabled: z.boolean(),
+			trustedWorkspacePaths: z.array(z.string())
 		}),
 		jobs: z.object({
 			notifications: z.object({

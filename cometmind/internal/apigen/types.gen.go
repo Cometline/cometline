@@ -1311,6 +1311,14 @@ type HealthResponse struct {
 	Status string `json:"status"`
 }
 
+// HookCatalogEntry defines model for HookCatalogEntry.
+type HookCatalogEntry struct {
+	Command string `json:"command"`
+	Event   string `json:"event"`
+	Matcher string `json:"matcher"`
+	Source  string `json:"source"`
+}
+
 // ImageAttachment A user-uploaded still image. Videos are not accepted on this schema.
 type ImageAttachment struct {
 	// Alt Optional accessible caption.
@@ -1466,6 +1474,13 @@ type JobSettings struct {
 	ReconcileIntervalSeconds *int                     `json:"reconcile_interval_seconds,omitempty"`
 	RetryCooldownMinutes     *int                     `json:"retry_cooldown_minutes,omitempty"`
 	StaleReviewMinutes       *int                     `json:"stale_review_minutes,omitempty"`
+}
+
+// ListHooksCatalogResponse defines model for ListHooksCatalogResponse.
+type ListHooksCatalogResponse struct {
+	Enabled             bool               `json:"enabled"`
+	Entries             []HookCatalogEntry `json:"entries"`
+	ProjectHooksAllowed bool               `json:"project_hooks_allowed"`
 }
 
 // ListInboxMessagesResponse defines model for ListInboxMessagesResponse.
@@ -2649,6 +2664,12 @@ type InternalError = ErrorResponse
 
 // NotFound defines model for NotFound.
 type NotFound = ErrorResponse
+
+// ListHooksCatalogParams defines parameters for ListHooksCatalog.
+type ListHooksCatalogParams struct {
+	// WorkspacePath Workspace root used to include project-scoped hooks when trusted
+	WorkspacePath *string `form:"workspace_path,omitempty" json:"workspace_path,omitempty"`
+}
 
 // ListInboxMessagesParams defines parameters for ListInboxMessages.
 type ListInboxMessagesParams struct {

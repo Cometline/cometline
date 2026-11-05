@@ -19,6 +19,9 @@ type ServerInterface interface {
 	// Check server liveness
 	// (GET /api/v1/health)
 	GetHealth(c *gin.Context)
+	// List discovered PreToolUse and PostToolUse hook handlers
+	// (GET /api/v1/hooks/catalog)
+	ListHooksCatalog(c *gin.Context, params ListHooksCatalogParams)
 	// List inbox messages
 	// (GET /api/v1/inbox/messages)
 	ListInboxMessages(c *gin.Context, params ListInboxMessagesParams)
@@ -317,6 +320,33 @@ func (siw *ServerInterfaceWrapper) GetHealth(c *gin.Context) {
 	}
 
 	siw.Handler.GetHealth(c)
+}
+
+// ListHooksCatalog operation middleware
+func (siw *ServerInterfaceWrapper) ListHooksCatalog(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListHooksCatalogParams
+
+	// ------------- Optional query parameter "workspace_path" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "workspace_path", c.Request.URL.Query(), &params.WorkspacePath, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter workspace_path: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListHooksCatalog(c, params)
 }
 
 // ListInboxMessages operation middleware
@@ -2593,6 +2623,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	}
 
 	router.GET(options.BaseURL+"/api/v1/health", wrapper.GetHealth)
+	router.GET(options.BaseURL+"/api/v1/hooks/catalog", wrapper.ListHooksCatalog)
 	router.GET(options.BaseURL+"/api/v1/inbox/messages", wrapper.ListInboxMessages)
 	router.POST(options.BaseURL+"/api/v1/inbox/messages/:id/dismissals", wrapper.DismissInboxMessage)
 	router.POST(options.BaseURL+"/api/v1/inbox/messages/:id/replies", wrapper.ReplyInboxMessage)
@@ -2714,6 +2745,42 @@ func (response GetHealth200JSONResponse) VisitGetHealthResponse(w http.ResponseW
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListHooksCatalogRequestObject struct {
+	Params ListHooksCatalogParams
+}
+
+type ListHooksCatalogResponseObject interface {
+	VisitListHooksCatalogResponse(w http.ResponseWriter) error
+}
+
+type ListHooksCatalog200JSONResponse ListHooksCatalogResponse
+
+func (response ListHooksCatalog200JSONResponse) VisitListHooksCatalogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListHooksCatalog500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ListHooksCatalog500JSONResponse) VisitListHooksCatalogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -7658,6 +7725,9 @@ type StrictServerInterface interface {
 	// Check server liveness
 	// (GET /api/v1/health)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
+	// List discovered PreToolUse and PostToolUse hook handlers
+	// (GET /api/v1/hooks/catalog)
+	ListHooksCatalog(ctx context.Context, request ListHooksCatalogRequestObject) (ListHooksCatalogResponseObject, error)
 	// List inbox messages
 	// (GET /api/v1/inbox/messages)
 	ListInboxMessages(ctx context.Context, request ListInboxMessagesRequestObject) (ListInboxMessagesResponseObject, error)
@@ -8010,6 +8080,32 @@ func (sh *strictHandler) GetHealth(ctx *gin.Context) {
 		sh.options.HandlerErrorFunc(ctx, err)
 	} else if validResponse, ok := response.(GetHealthResponseObject); ok {
 		if err := validResponse.VisitGetHealthResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListHooksCatalog operation middleware
+func (sh *strictHandler) ListHooksCatalog(ctx *gin.Context, params ListHooksCatalogParams) {
+	var request ListHooksCatalogRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListHooksCatalog(ctx, request.(ListHooksCatalogRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListHooksCatalog")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(ListHooksCatalogResponseObject); ok {
+		if err := validResponse.VisitListHooksCatalogResponse(ctx.Writer); err != nil {
 			sh.options.ResponseErrorHandlerFunc(ctx, err)
 		}
 	} else if response != nil {

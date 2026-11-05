@@ -35,6 +35,8 @@ type turnState struct {
 
 	nudges continueNudges
 
+	hookSystemBlocks []string
+
 	// mcpCatalogFingerprint is the last MCP server list sent in this turn.
 	// Empty means the next step should send the list if servers are connected.
 	mcpCatalogFingerprint string

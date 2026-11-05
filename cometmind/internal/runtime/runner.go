@@ -8,6 +8,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/agent"
 	"github.com/Cometline/cometline/cometmind/internal/event"
 	"github.com/Cometline/cometline/cometmind/internal/generation"
+	"github.com/Cometline/cometline/cometmind/internal/hooks"
 	"github.com/Cometline/cometline/cometmind/internal/jobs"
 	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/Cometline/cometline/cometmind/internal/provider"
@@ -130,6 +131,7 @@ func (r *Runtime) runnerFor(sess session.Session, workspacePath string, opts Run
 		runner.JobIndex = tools.JobPromptIndex(workspacePath, platform)
 		runner.Compactor = &agent.ContextCompactor{Sessions: r.Sessions, Config: r.Config}
 	}
+	runner.Hooks = hooks.NewEngine(r.Config.HooksSettings(), workspacePath)
 	return runner, nil
 }
 

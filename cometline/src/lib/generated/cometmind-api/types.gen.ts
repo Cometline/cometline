@@ -670,6 +670,19 @@ export type ListMcpToolsResponse = {
     tools: Array<McpToolInfo>;
 };
 
+export type HookCatalogEntry = {
+    event: string;
+    matcher: string;
+    command: string;
+    source: string;
+};
+
+export type ListHooksCatalogResponse = {
+    enabled: boolean;
+    project_hooks_allowed: boolean;
+    entries: Array<HookCatalogEntry>;
+};
+
 export type McpTestResult = {
     ok: boolean;
     tool_count: number;
@@ -3330,6 +3343,36 @@ export type ListMcpToolsResponses = {
 };
 
 export type ListMcpToolsResponse2 = ListMcpToolsResponses[keyof ListMcpToolsResponses];
+
+export type ListHooksCatalogData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Workspace root used to include project-scoped hooks when trusted
+         */
+        workspace_path?: string;
+    };
+    url: '/api/v1/hooks/catalog';
+};
+
+export type ListHooksCatalogErrors = {
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type ListHooksCatalogError = ListHooksCatalogErrors[keyof ListHooksCatalogErrors];
+
+export type ListHooksCatalogResponses = {
+    /**
+     * Hook catalog
+     */
+    200: ListHooksCatalogResponse;
+};
+
+export type ListHooksCatalogResponse2 = ListHooksCatalogResponses[keyof ListHooksCatalogResponses];
 
 export type TestMcpServerData = {
     body?: never;

@@ -163,6 +163,11 @@ type cometlineGenerationJSON struct {
 	Video cometlineGenerationModelJSON `json:"video"`
 }
 
+type cometlineHooksJSON struct {
+	Enabled               bool     `json:"enabled"`
+	TrustedWorkspacePaths []string `json:"trustedWorkspacePaths"`
+}
+
 type cometlineCometmindJSON struct {
 	SystemPromptPath string               `json:"systemPromptPath"`
 	TitleProviderID  string               `json:"titleProviderId"`
@@ -175,6 +180,7 @@ type cometlineCometmindJSON struct {
 		Discord cometlineDiscordJSON `json:"discord"`
 	} `json:"gateway"`
 	MCP        cometlineMCPJSON        `json:"mcp"`
+	Hooks      cometlineHooksJSON      `json:"hooks"`
 	Jobs       cometlineJobsJSON       `json:"jobs"`
 	Autonomy   cometlineAutonomyJSON   `json:"autonomy"`
 	Scheduler  cometlineSchedulerJSON  `json:"scheduler"`

@@ -1674,6 +1674,28 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/hooks/catalog:
+    get:
+      tags: [Hooks]
+      summary: List discovered PreToolUse and PostToolUse hook handlers
+      operationId: listHooksCatalog
+      parameters:
+        - name: workspace_path
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Workspace root used to include project-scoped hooks when trusted
+      responses:
+        '200':
+          description: Hook catalog
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListHooksCatalogResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/mcp/servers/{id}/connection-tests:
     post:
       tags: [MCP]
@@ -3810,6 +3832,34 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/McpToolInfo'
+
+    HookCatalogEntry:
+      type: object
+      additionalProperties: false
+      required: [event, matcher, command, source]
+      properties:
+        event:
+          type: string
+        matcher:
+          type: string
+        command:
+          type: string
+        source:
+          type: string
+
+    ListHooksCatalogResponse:
+      type: object
+      additionalProperties: false
+      required: [enabled, project_hooks_allowed, entries]
+      properties:
+        enabled:
+          type: boolean
+        project_hooks_allowed:
+          type: boolean
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/HookCatalogEntry'
 
     McpTestResult:
       type: object

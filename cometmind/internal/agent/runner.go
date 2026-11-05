@@ -8,6 +8,7 @@ import (
 	cometsdk "github.com/Cometline/cometline/comet-sdk"
 	"github.com/Cometline/cometline/cometmind/internal/config"
 	"github.com/Cometline/cometline/cometmind/internal/event"
+	"github.com/Cometline/cometline/cometmind/internal/hooks"
 	"github.com/Cometline/cometline/cometmind/internal/session"
 	"github.com/Cometline/cometline/cometmind/internal/subagent"
 	"github.com/Cometline/cometline/cometmind/internal/tools"
@@ -44,6 +45,9 @@ type Runner struct {
 
 	// Compactor performs rolling context compaction on long sessions. Nil disables it.
 	Compactor *ContextCompactor
+
+	// Hooks runs PreToolUse/PostToolUse subprocess hooks when enabled. Nil disables.
+	Hooks *hooks.Engine
 
 	// Events publishes background results after the turn SSE channel has closed.
 	Events interface{ Publish(event.Event) }

@@ -1,0 +1,20 @@
+{
+  "id": "hello-hooks",
+  "name": "Hello Hooks",
+  "version": "0.0.1",
+  "description": "Example PreToolUse hook that rewrites run_command via RTK-shaped JSON",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "run_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./hook.sh",
+            "timeout_sec": 5
+          }
+        ]
+      }
+    ]
+  }
+}

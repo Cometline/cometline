@@ -84,6 +84,7 @@ type Config struct {
 	Subagent          SubagentSettings     `mapstructure:"subagent"`
 	Gateway           GatewayConfig        `mapstructure:"gateway"`
 	MCP               MCPConfig            `mapstructure:"mcp"`
+	Hooks             HooksConfig          `mapstructure:"hooks"`
 	Jobs              JobsConfig           `mapstructure:"jobs"`
 	Autonomy          AutonomousJobsConfig `mapstructure:"autonomy"`
 	Scheduler         SchedulerConfig      `mapstructure:"scheduler"`

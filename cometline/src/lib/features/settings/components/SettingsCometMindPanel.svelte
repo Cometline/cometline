@@ -1,6 +1,7 @@
 <script lang="ts">
 	import SettingsCometMindQueue from './cometmind/SettingsCometMindQueue.svelte';
 	import SettingsCometMindRuntime from './cometmind/SettingsCometMindRuntime.svelte';
+	import SettingsCometMindHooks from './cometmind/SettingsCometMindHooks.svelte';
 	import SettingsCometMindSkills from './cometmind/SettingsCometMindSkills.svelte';
 	import { formatIdList, parseIdList, type CometMindSettings } from '#lib/cometmind-settings.js';
 	import type { ProviderConfig } from '#lib/types.js';
@@ -147,6 +148,7 @@
 <section class="cometmind-panel settings-panel-frame">
 	<div class="settings-panel-body">
 		<SettingsCometMindRuntime bind:cometmind />
+		<SettingsCometMindHooks bind:cometmind />
 		<SettingsCometMindSkills bind:cometmind />
 		<SettingsCometMindQueue
 			bind:cometmind
