@@ -23,6 +23,22 @@ func (b *closeTrackingBody) Close() error {
 	return nil
 }
 
+func TestParseLoop_EmptyBodyDoesNotSynthesizeStop(t *testing.T) {
+	t.Parallel()
+
+	body := io.NopCloser(strings.NewReader(""))
+	ch := make(chan cometsdk.Event, 4)
+	ParseLoop(context.Background(), "codex", "gpt-5", true, body, ch, zap.NewNop(), 0)
+
+	var events []cometsdk.Event
+	for ev := range ch {
+		events = append(events, ev)
+	}
+	if len(events) != 0 {
+		t.Fatalf("events = %+v, want none", events)
+	}
+}
+
 func TestParseLoop_AbandonedConsumerReturnsOnCancel(t *testing.T) {
 	t.Parallel()
 

@@ -9,7 +9,13 @@ import (
 	"syscall"
 
 	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/comet-sdk/llm"
 )
+
+// errDroppedProviderStream is a provider-agnostic stand-in for a stream that
+// opened and closed without a finish reason. HTTP 200 plus an empty body is
+// not a finished turn. A real finish reason, including an empty stop, is.
+var errDroppedProviderStream = errors.New("provider stream ended without a completion")
 
 type streamFailureCategory string
 
@@ -28,6 +34,9 @@ const (
 func classifyStreamFailure(err error) streamFailureCategory {
 	if err == nil {
 		return streamFailureOther
+	}
+	if errors.Is(err, errDroppedProviderStream) {
+		return streamFailureRecoverable
 	}
 	if errors.Is(err, context.Canceled) {
 		return streamFailureCancelled
@@ -72,4 +81,21 @@ func classifyStreamFailure(err error) streamFailureCategory {
 
 func recoverableStreamFailure(err error) bool {
 	return classifyStreamFailure(err) == streamFailureRecoverable
+}
+
+// droppedProviderStream reports a stream that ended without a finish reason.
+// It is independent of provider: any adapter can return HTTP 200 and then close
+// the body before a completion event. A finish reason is a real completion,
+// even when the model sent no text and reported no usage.
+func droppedProviderStream(result *llm.GenerateMessageResult, a *streamAttempt) bool {
+	if a != nil && (a.completeToolCall || len(a.toolCalls) > 0) {
+		return false
+	}
+	if result == nil {
+		return true
+	}
+	if len(result.ToolCalls) > 0 {
+		return false
+	}
+	return result.FinishReason == ""
 }

@@ -31,6 +31,7 @@ func (r *Runner) waitToRetryStream(ctx context.Context, s *turnState, a *streamA
 		delay = ra
 	}
 	logging.L().Warn("agent.step.recover", zap.String("session", s.turn.ID), zap.String("provider", r.Provider.ID()), zap.String("model", s.turn.ModelID), zap.Int("step", s.steps+1), zap.String("failure_category", string(a.failureCategory)), zap.Int("recovery_attempt", attempt), zap.Int64("delay_ms", delay.Milliseconds()), zap.Int("text_chars", textChars), zap.Int("reasoning_chars", reasoningChars))
+	s.ch <- event.TurnStatus(event.PhaseContactingModel, "Retrying the model stream…")
 	s.ch <- event.TurnRecover(textChars, reasoningChars)
 	waitErr := waitForRecovery(ctx, delay)
 	if waitErr == nil {
@@ -86,6 +87,9 @@ func partialRenderLengths(result *llm.GenerateMessageResult) (textChars, reasoni
 func userFacingAgentError(err error) string {
 	if err == nil {
 		return "The request failed."
+	}
+	if errors.Is(err, errDroppedProviderStream) {
+		return "The model stream ended before a response. Send another message to continue."
 	}
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		if errors.Is(err, context.DeadlineExceeded) {
