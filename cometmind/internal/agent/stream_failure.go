@@ -9,7 +9,14 @@ import (
 	"syscall"
 
 	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/comet-sdk/llm"
 )
+
+// errDroppedProviderStream is a provider-agnostic stand-in for a stream that
+// opened and closed without a model completion. HTTP 200 plus an empty body,
+// or a synthesized stop with no tokens and no assistant payload, is not a
+// finished turn.
+var errDroppedProviderStream = errors.New("provider stream ended without a completion")
 
 type streamFailureCategory string
 
@@ -28,6 +35,9 @@ const (
 func classifyStreamFailure(err error) streamFailureCategory {
 	if err == nil {
 		return streamFailureOther
+	}
+	if errors.Is(err, errDroppedProviderStream) {
+		return streamFailureRecoverable
 	}
 	if errors.Is(err, context.Canceled) {
 		return streamFailureCancelled
@@ -72,4 +82,38 @@ func classifyStreamFailure(err error) streamFailureCategory {
 
 func recoverableStreamFailure(err error) bool {
 	return classifyStreamFailure(err) == streamFailureRecoverable
+}
+
+// droppedProviderStream reports a stream that ended without a model completion.
+// It is independent of provider: any adapter can return HTTP 200 and then close
+// the body, and some synthesize a stop when the scanner ends cleanly. A real
+// completion has a finish reason plus either token usage or an assistant payload.
+func droppedProviderStream(result *llm.GenerateMessageResult, a *streamAttempt) bool {
+	if a != nil && (a.completeToolCall || len(a.toolCalls) > 0) {
+		return false
+	}
+	if result == nil {
+		return true
+	}
+	if len(result.ToolCalls) > 0 {
+		return false
+	}
+	if result.FinishReason != "" && (usageReported(result.Usage) || assistantPayload(result)) {
+		return false
+	}
+	return true
+}
+
+func usageReported(usage cometsdk.TokenUsage) bool {
+	return usage.InputTokens > 0 || usage.OutputTokens > 0 || usage.CacheRead > 0 || usage.CacheWrite > 0
+}
+
+func assistantPayload(result *llm.GenerateMessageResult) bool {
+	if result == nil {
+		return false
+	}
+	if strings.TrimSpace(assistantPlainText(result.Message)) != "" {
+		return true
+	}
+	return len(result.Message.ReasoningContent) > 0 || len(result.Message.ProviderState) > 0
 }

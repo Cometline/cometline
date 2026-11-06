@@ -83,6 +83,9 @@ func (r *Runner) consumeStream(ctx context.Context, s *turnState, p *stepRequest
 		a.forward(s, ev, p.finalizing)
 	}
 	result, err := stream.Result()
+	if err == nil && droppedProviderStream(result, a) {
+		err = errDroppedProviderStream
+	}
 	a.failureCategory = classifyStreamFailure(err)
 	logging.L().Info("llm.stream.events_closed", zap.String("session", turn.ID), zap.String("provider", r.Provider.ID()), zap.String("model", turn.ModelID), zap.Int("step", s.steps+1), zap.Int("events", a.events), zap.Bool("first_event", a.firstEvent), zap.Bool("first_output", a.firstOutput), zap.Bool("complete_tool_call", a.completeToolCall), zap.String("failure_category", string(a.failureCategory)), zap.Int("recovery_attempt", recoveryAttempt), zap.Int64("duration_ms", time.Since(a.started).Milliseconds()))
 	return result, a, err

@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -1578,6 +1579,9 @@ func TestUserFacingAgentError(t *testing.T) {
 	if got := userFacingAgentError(fmt.Errorf("provider exploded")); got != "provider exploded" {
 		t.Fatalf("passthrough = %q", got)
 	}
+	if got := userFacingAgentError(errDroppedProviderStream); !strings.Contains(got, "before a response") {
+		t.Fatalf("dropped stream = %q", got)
+	}
 }
 
 func TestRunner_RecoversPartialStreamOnceWithoutPersistingFirstAttempt(t *testing.T) {
@@ -1775,6 +1779,129 @@ func TestRunner_DoesNotRecoverAfterCompleteToolCall(t *testing.T) {
 	}
 	if provider.calls != 1 {
 		t.Fatalf("Stream called %d times, want 1 after complete tool call", provider.calls)
+	}
+}
+
+func TestRunner_RetriesEmptyStreamThenCompletes(t *testing.T) {
+	provider := &sequentialFakeProvider{sequences: [][]cometsdk.Event{
+		{},
+		{
+			cometsdk.TextDeltaEvent{Text: "continued"},
+			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop, Usage: cometsdk.TokenUsage{InputTokens: 8, OutputTokens: 2}},
+			cometsdk.DoneEvent{},
+		},
+	}}
+	store := &fakeStore{}
+	r := &Runner{Provider: provider, Sessions: store, Registry: tools.NewRegistry(t.TempDir()), StreamRecoveryBackoff: time.Millisecond}
+
+	events, err := runAndDrain(t, r, session.AgentTurn{ID: "s-empty-stream", ModelID: "m"})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if provider.calls != 2 {
+		t.Fatalf("Stream called %d times, want 2", provider.calls)
+	}
+	if store.appendCalls != 1 || len(store.appendTexts) != 1 || store.appendTexts[0] != "continued" {
+		t.Fatalf("assistant persistence = calls=%d texts=%q, want the recovered answer", store.appendCalls, store.appendTexts)
+	}
+	assertRetryThenNoError(t, events)
+}
+
+func TestRunner_RetriesSyntheticEmptyStop(t *testing.T) {
+	provider := &sequentialFakeProvider{sequences: [][]cometsdk.Event{
+		{cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop}},
+		{
+			cometsdk.TextDeltaEvent{Text: "after synthetic stop"},
+			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop},
+			cometsdk.DoneEvent{},
+		},
+	}}
+	store := &fakeStore{}
+	r := &Runner{Provider: provider, Sessions: store, Registry: tools.NewRegistry(t.TempDir()), StreamRecoveryBackoff: time.Millisecond}
+
+	events, err := runAndDrain(t, r, session.AgentTurn{ID: "s-synthetic-stop", ModelID: "m"})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if provider.calls != 2 {
+		t.Fatalf("Stream called %d times, want 2", provider.calls)
+	}
+	if store.appendTexts[0] != "after synthetic stop" {
+		t.Fatalf("texts = %q, want recovered answer", store.appendTexts)
+	}
+	assertRetryThenNoError(t, events)
+}
+
+func TestRunner_DoesNotRetryEmptyStopWithUsage(t *testing.T) {
+	provider := &sequentialFakeProvider{sequences: [][]cometsdk.Event{
+		{cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop, Usage: cometsdk.TokenUsage{InputTokens: 12}}},
+		{cometsdk.TextDeltaEvent{Text: "should not run"}, cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop}},
+	}}
+	r := &Runner{Provider: provider, Sessions: &fakeStore{}, Registry: tools.NewRegistry(t.TempDir()), StreamRecoveryBackoff: time.Millisecond}
+
+	events, err := runAndDrain(t, r, session.AgentTurn{ID: "s-empty-used", ModelID: "m"})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if provider.calls != 1 {
+		t.Fatalf("Stream called %d times, want 1 for a real empty answer", provider.calls)
+	}
+	for _, ev := range events {
+		if ev.Kind == event.KindTurnRecover || ev.Kind == event.KindError {
+			t.Fatalf("unexpected %s event: %+v", ev.Kind, ev)
+		}
+	}
+}
+
+func TestRunner_StopsAfterRepeatedEmptyStreams(t *testing.T) {
+	provider := &sequentialFakeProvider{sequences: [][]cometsdk.Event{{}, {}, {}, {}}}
+	r := &Runner{Provider: provider, Sessions: &fakeStore{}, Registry: tools.NewRegistry(t.TempDir()), StreamRecoveryBackoff: time.Millisecond}
+
+	events, err := runAndDrain(t, r, session.AgentTurn{ID: "s-empty-give-up", ModelID: "m"})
+	if err == nil {
+		t.Fatal("Run returned nil error")
+	}
+	if !errors.Is(err, errDroppedProviderStream) {
+		t.Fatalf("Run error = %v, want dropped provider stream", err)
+	}
+	wantCalls := maxStreamRecoveryAttempts + 1
+	if provider.calls != wantCalls {
+		t.Fatalf("Stream called %d times, want %d", provider.calls, wantCalls)
+	}
+	var sawError bool
+	for _, ev := range events {
+		if ev.Kind == event.KindError {
+			sawError = true
+			if !strings.Contains(ev.Message, "before a response") {
+				t.Fatalf("error message = %q", ev.Message)
+			}
+		}
+	}
+	if !sawError {
+		t.Fatal("expected an error event instead of a silent completion")
+	}
+}
+
+func assertRetryThenNoError(t *testing.T, events []event.Event) {
+	t.Helper()
+	var recoverCount, errorCount int
+	var sawRetryStatus bool
+	for _, ev := range events {
+		if ev.Kind == event.KindTurnRecover {
+			recoverCount++
+		}
+		if ev.Kind == event.KindError {
+			errorCount++
+		}
+		if ev.Kind == event.KindTurnStatus && strings.Contains(ev.StatusMessage, "Retrying") {
+			sawRetryStatus = true
+		}
+	}
+	if recoverCount != 1 || !sawRetryStatus {
+		t.Fatalf("retry signal = recover:%d status:%v, want 1 recover and a retry status", recoverCount, sawRetryStatus)
+	}
+	if errorCount != 0 {
+		t.Fatalf("error events = %d, want 0 while recovery succeeds", errorCount)
 	}
 }
 
