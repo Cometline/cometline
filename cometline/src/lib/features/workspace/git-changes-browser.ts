@@ -4,6 +4,23 @@ export type GitFile = WorkspaceGitStatus['files'][number];
 export type GitChangesSectionKind = 'staged' | 'changes';
 export type DiscardConfirm = { kind: 'one'; path: string } | { kind: 'all' };
 
+/** One row in the multi-file review, in list order. */
+export type GitReviewFile = {
+	path: string;
+	section: GitChangesSectionKind;
+};
+
+/**
+ * Files the review pane should open: current filter, staged block then changes.
+ * A path that is both staged and unstaged appears twice, once per section.
+ */
+export function reviewFilesFor(stagedFiles: GitFile[], changeFiles: GitFile[]): GitReviewFile[] {
+	return [
+		...stagedFiles.map((file) => ({ path: file.path, section: 'staged' as const })),
+		...changeFiles.map((file) => ({ path: file.path, section: 'changes' as const }))
+	];
+}
+
 export function gitStatusBadge(file: GitFile): string {
 	if (file.untracked) return 'U';
 	switch (file.status) {

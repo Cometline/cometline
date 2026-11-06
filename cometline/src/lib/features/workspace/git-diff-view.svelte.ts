@@ -6,7 +6,6 @@ import {
 	unstageWorkspaceGitPaths,
 	type GitScope
 } from '#lib/client/cometmind.js';
-import { shellStore } from '#lib/stores/shell.svelte.js';
 import {
 	highlightGitDiffLines,
 	type HighlightedDiffLine
@@ -18,11 +17,11 @@ import {
 	type GitFileStageState
 } from '#lib/features/workspace/git-file-state.js';
 import { languageFromPath } from '#lib/features/workspace/file-preview.js';
-import { buildFileSnippetContext } from '#lib/features/workspace/selection-snippet.js';
 import {
-	firstSelectionClientRect,
-	selectionPopupPosition
-} from '#lib/features/workspace/selection-popup.js';
+	addDiffSelectionToChat,
+	addGitDiffToChat,
+	diffSelectionPopup
+} from '#lib/features/workspace/diff-chat.js';
 
 export function createGitDiffViewController(deps: {
 	getWorkspacePath: () => string;
@@ -39,7 +38,6 @@ export function createGitDiffViewController(deps: {
 	let truncated = $state(false);
 	let message = $state('');
 	let loadSeq = 0;
-	let copyFlash = $state(false);
 	let mutating = $state(false);
 	let actionError = $state<string | null>(null);
 	let discardConfirmOpen = $state(false);
@@ -51,9 +49,6 @@ export function createGitDiffViewController(deps: {
 		text: string;
 	} | null>(null);
 
-	const fileName = $derived(
-		deps.getFilePath().split(/[/\\]/).filter(Boolean).pop() || deps.getFilePath()
-	);
 	const language = $derived(languageFromPath(deps.getFilePath()));
 	const canStage = $derived(canStageGitFile(fileState));
 	const canUnstage = $derived(canUnstageGitFile(fileState));
@@ -101,38 +96,8 @@ export function createGitDiffViewController(deps: {
 		}
 	}
 
-	async function copyPath() {
-		try {
-			await navigator.clipboard.writeText(deps.getFilePath());
-			copyFlash = true;
-			setTimeout(() => {
-				copyFlash = false;
-			}, 1200);
-		} catch {
-			// ignore clipboard failures
-		}
-	}
-
-	function addPathToChat() {
-		shellStore.addWebContextForActive({
-			kind: 'file',
-			title: fileName,
-			source: `workspace-file:${deps.getFilePath()}`,
-			content: ''
-		});
-		shellStore.requestComposerFocus();
-	}
-
 	function addFullDiffToChat() {
-		const content = diffText.trim().slice(0, 50000);
-		if (!content) return;
-		shellStore.addWebContextForActive({
-			kind: 'file',
-			title: `${fileName} (diff)`,
-			source: `workspace-file:${deps.getFilePath()}`,
-			content
-		});
-		shellStore.requestComposerFocus();
+		addGitDiffToChat(deps.getFilePath(), diffText);
 	}
 
 	async function runMutation(action: () => Promise<unknown>) {
@@ -188,46 +153,13 @@ export function createGitDiffViewController(deps: {
 	function onDiffMouseUp(event: MouseEvent) {
 		const root = event.currentTarget;
 		if (!(root instanceof HTMLElement)) return;
-		const sel = window.getSelection();
-		if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
-			clearSelectionPopup();
-			return;
-		}
-		if (!root.contains(sel.anchorNode) || !root.contains(sel.focusNode)) {
-			clearSelectionPopup();
-			return;
-		}
-		const text = sel.toString().trim();
-		if (!text) {
-			clearSelectionPopup();
-			return;
-		}
-		const rect = firstSelectionClientRect(sel.getRangeAt(0));
-		selectionPopup = {
-			...selectionPopupPosition(rect, window.innerWidth),
-			text
-		};
+		selectionPopup = diffSelectionPopup(root);
 	}
 
 	function addSelectionToChat() {
 		if (!selectionPopup) return;
-		const ctx = buildFileSnippetContext({
-			filePath: deps.getFilePath(),
-			selectedText: selectionPopup.text
-		});
-		if (ctx) {
-			// Prefer a diff-flavored title when the selection looks like a hunk.
-			const title = selectionPopup.text.includes('\n')
-				? `${fileName} (diff selection)`
-				: ctx.title;
-			shellStore.addWebContextForActive({
-				...ctx,
-				title
-			});
-			shellStore.requestComposerFocus();
-		}
+		addDiffSelectionToChat(deps.getFilePath(), selectionPopup.text);
 		clearSelectionPopup();
-		window.getSelection()?.removeAllRanges();
 	}
 
 	return {
@@ -251,9 +183,6 @@ export function createGitDiffViewController(deps: {
 		},
 		get message() {
 			return message;
-		},
-		get copyFlash() {
-			return copyFlash;
 		},
 		get mutating() {
 			return mutating;
@@ -283,8 +212,6 @@ export function createGitDiffViewController(deps: {
 			return canDiscard;
 		},
 		load,
-		copyPath,
-		addPathToChat,
 		addFullDiffToChat,
 		stageFile,
 		unstageFile,

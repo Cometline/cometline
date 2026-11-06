@@ -14,8 +14,10 @@
 		commitFlash,
 		filter = $bindable(),
 		actionError,
+		reviewCount = 0,
 		onRefresh,
-		onCommit
+		onCommit,
+		onReview
 	}: {
 		status: WorkspaceGitStatus | null;
 		loading: boolean;
@@ -28,8 +30,10 @@
 		commitFlash: string;
 		filter: string;
 		actionError: string | null;
+		reviewCount?: number;
 		onRefresh: () => unknown;
 		onCommit: () => unknown;
+		onReview?: () => void;
 	} = $props();
 </script>
 
@@ -95,13 +99,28 @@
 		{/if}
 	{/if}
 
-	<input
-		class="git-filter"
-		type="text"
-		placeholder="Filter changed files…"
-		bind:value={filter}
-		aria-label="Filter changed files"
-	/>
+	<div class="git-filter-row">
+		<input
+			class="git-filter"
+			type="text"
+			placeholder="Filter changed files…"
+			bind:value={filter}
+			aria-label="Filter changed files"
+		/>
+		{#if onReview}
+			<button
+				type="button"
+				class="git-review-btn"
+				disabled={mutating || reviewCount === 0}
+				onclick={onReview}
+				title={reviewCount
+					? `Open diffs for ${reviewCount} file${reviewCount === 1 ? '' : 's'}`
+					: 'No files to review'}
+			>
+				Review{reviewCount ? ` ${reviewCount}` : ''}
+			</button>
+		{/if}
+	</div>
 
 	{#if actionError}
 		<p class="git-action-error" role="alert">{actionError}</p>
@@ -218,10 +237,8 @@
 		font-size: 13px;
 		font-weight: 650;
 		cursor: pointer;
-		box-shadow: 0 6px 18px var(--hero-composer-glow-soft, transparent);
 		transition:
 			background var(--duration-fast, 150ms) var(--ease-smooth, ease),
-			box-shadow var(--duration-fast, 150ms) var(--ease-smooth, ease),
 			opacity var(--duration-fast, 150ms) var(--ease-smooth, ease);
 	}
 
@@ -231,17 +248,23 @@
 			var(--hero-composer-glow-color, var(--accent)) 82%,
 			var(--text-main)
 		);
-		box-shadow: 0 8px 22px var(--hero-composer-glow-strong, transparent);
 	}
 
 	.git-commit-btn:disabled {
 		opacity: 0.4;
 		cursor: not-allowed;
-		box-shadow: none;
+	}
+
+	.git-filter-row {
+		display: flex;
+		align-items: center;
+		gap: 6px;
 	}
 
 	.git-filter {
-		width: 100%;
+		flex: 1;
+		min-width: 0;
+		width: auto;
 		box-sizing: border-box;
 		border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.1));
 		border-radius: 8px;
@@ -254,6 +277,36 @@
 	.git-filter:focus {
 		outline: none;
 		border-color: var(--accent, var(--color-3b82f6));
+	}
+
+	.git-review-btn {
+		flex: 0 0 auto;
+		height: 34px;
+		border: none;
+		border-radius: 8px;
+		padding: 0 14px;
+		background: color-mix(
+			in srgb,
+			var(--hero-composer-glow-color, var(--accent)) 72%,
+			var(--text-main)
+		);
+		color: var(--panel-bg);
+		font-size: 13px;
+		font-weight: 650;
+		cursor: pointer;
+	}
+
+	.git-review-btn:hover:not(:disabled) {
+		background: color-mix(
+			in srgb,
+			var(--hero-composer-glow-color, var(--accent)) 82%,
+			var(--text-main)
+		);
+	}
+
+	.git-review-btn:disabled {
+		opacity: 0.4;
+		cursor: not-allowed;
 	}
 
 	.git-flash {

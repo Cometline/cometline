@@ -4,6 +4,7 @@ import {
 	gitFileDir,
 	gitFileName,
 	gitStatusBadge,
+	reviewFilesFor,
 	type GitFile
 } from './git-changes-browser';
 
@@ -50,5 +51,16 @@ describe('git-changes-browser', () => {
 		expect(discardConfirmDescription(null, 0)).toBe(
 			'Tracked files restore to HEAD. Untracked files are deleted. This cannot be undone.'
 		);
+	});
+
+	it('stacks the filtered staged block before changes for review', () => {
+		const staged = [file({ path: 'src/a.ts', staged: true, xy: 'M ' })];
+		const changes = [file({ path: 'src/a.ts' }), file({ path: 'src/b.ts', untracked: true })];
+		expect(reviewFilesFor(staged, changes)).toEqual([
+			{ path: 'src/a.ts', section: 'staged' },
+			{ path: 'src/a.ts', section: 'changes' },
+			{ path: 'src/b.ts', section: 'changes' }
+		]);
+		expect(reviewFilesFor([], [])).toEqual([]);
 	});
 });

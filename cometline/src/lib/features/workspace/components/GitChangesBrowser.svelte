@@ -4,6 +4,7 @@
 	import GitChangesHeader from '#lib/features/workspace/components/git-changes/GitChangesHeader.svelte';
 	import GitChangesSection from '#lib/features/workspace/components/git-changes/GitChangesSection.svelte';
 	import GitFileRow from '#lib/features/workspace/components/git-changes/GitFileRow.svelte';
+	import GitReviewView from '#lib/features/workspace/components/GitReviewView.svelte';
 	import { createGitChangesBrowserController } from '#lib/features/workspace/git-changes-browser.svelte.js';
 	import type {
 		GitChangesSectionKind,
@@ -39,7 +40,6 @@
 		onUnstage={changes.unstagePath}
 		onDiscard={changes.requestDiscard}
 		onCopy={changes.copyPath}
-		onAddToChat={changes.addPathToChat}
 	/>
 {/snippet}
 
@@ -56,8 +56,10 @@
 		commitFlash={changes.commitFlash}
 		bind:filter={changes.filter}
 		actionError={changes.actionError}
+		reviewCount={changes.reviewCount}
 		onRefresh={changes.load}
 		onCommit={changes.commit}
+		onReview={changes.openReview}
 	/>
 
 	{#if !changes.workspaceAvailable}
@@ -77,6 +79,13 @@
 		<div class="git-state">Working tree clean.</div>
 	{:else if changes.stagedFiles.length === 0 && changes.changeFiles.length === 0}
 		<div class="git-state">No matching changed files.</div>
+	{:else if changes.reviewOpen}
+		<GitReviewView
+			{workspacePath}
+			files={changes.reviewFiles}
+			onBack={changes.closeReview}
+			onMutated={changes.refreshReview}
+		/>
 	{:else}
 		<div class="git-list-scroll scrollbar-none">
 			{#if changes.stagedFiles.length > 0 || changes.stagedCount > 0}

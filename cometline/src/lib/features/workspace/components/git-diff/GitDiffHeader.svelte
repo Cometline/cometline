@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Copy, MessageSquarePlus, Minus, Plus, RotateCcw } from '@lucide/svelte';
+	import { Minus, Plus, RotateCcw } from '@lucide/svelte';
 
 	let {
 		filePath,
@@ -7,15 +7,12 @@
 		canStage,
 		canUnstage,
 		canDiscard,
-		copyFlash,
 		hasDiff,
 		actionError,
 		onBack,
 		onStage,
 		onUnstage,
 		onDiscard,
-		onCopyPath,
-		onAddPath,
 		onAddDiff
 	}: {
 		filePath: string;
@@ -23,15 +20,12 @@
 		canStage: boolean;
 		canUnstage: boolean;
 		canDiscard: boolean;
-		copyFlash: boolean;
 		hasDiff: boolean;
 		actionError: string | null;
 		onBack?: () => void;
 		onStage: () => unknown;
 		onUnstage: () => unknown;
 		onDiscard: () => void;
-		onCopyPath: () => unknown;
-		onAddPath: () => void;
 		onAddDiff: () => void;
 	} = $props();
 </script>
@@ -44,49 +38,42 @@
 		<span class="git-diff-path" title={filePath}>{filePath}</span>
 	</div>
 	<div class="git-diff-actions">
-		<button
-			type="button"
-			class="git-diff-action"
-			disabled={mutating || !canStage}
-			onclick={() => void onStage()}
-			title={canStage ? 'Stage' : 'Already staged'}
-		>
-			<Plus size={14} />
-			<span>Stage</span>
-		</button>
-		<button
-			type="button"
-			class="git-diff-action"
-			disabled={mutating || !canUnstage}
-			onclick={() => void onUnstage()}
-			title={canUnstage ? 'Unstage' : 'Nothing staged'}
-		>
-			<Minus size={14} />
-			<span>Unstage</span>
-		</button>
-		<button
-			type="button"
-			class="git-diff-action danger"
-			disabled={mutating || !canDiscard}
-			onclick={onDiscard}
-			title={canDiscard ? 'Discard' : 'No working-tree changes to discard'}
-		>
-			<RotateCcw size={14} />
-			<span>Discard</span>
-		</button>
-		<button
-			type="button"
-			class="git-diff-action"
-			onclick={() => void onCopyPath()}
-			title="Copy path"
-		>
-			<Copy size={14} />
-			<span>{copyFlash ? 'Copied' : 'Copy path'}</span>
-		</button>
-		<button type="button" class="git-diff-action" onclick={onAddPath} title="Add path to chat">
-			<MessageSquarePlus size={14} />
-			<span>Add path</span>
-		</button>
+		{#if canStage}
+			<button
+				type="button"
+				class="git-diff-action"
+				disabled={mutating}
+				onclick={() => void onStage()}
+				title="Stage"
+			>
+				<Plus size={14} />
+				<span>Stage</span>
+			</button>
+		{/if}
+		{#if canUnstage}
+			<button
+				type="button"
+				class="git-diff-action"
+				disabled={mutating}
+				onclick={() => void onUnstage()}
+				title="Unstage"
+			>
+				<Minus size={14} />
+				<span>Unstage</span>
+			</button>
+		{/if}
+		{#if canDiscard}
+			<button
+				type="button"
+				class="git-diff-action danger"
+				disabled={mutating}
+				onclick={onDiscard}
+				title="Discard"
+			>
+				<RotateCcw size={14} />
+				<span>Discard</span>
+			</button>
+		{/if}
 		{#if hasDiff}
 			<button
 				type="button"

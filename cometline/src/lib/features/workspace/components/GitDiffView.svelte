@@ -43,15 +43,12 @@
 		canStage={diff.canStage}
 		canUnstage={diff.canUnstage}
 		canDiscard={diff.canDiscard}
-		copyFlash={diff.copyFlash}
 		hasDiff={Boolean(diff.diffText.trim())}
 		actionError={diff.actionError}
 		{onBack}
 		onStage={diff.stageFile}
 		onUnstage={diff.unstageFile}
 		onDiscard={diff.requestDiscard}
-		onCopyPath={diff.copyPath}
-		onAddPath={diff.addPathToChat}
 		onAddDiff={diff.addFullDiffToChat}
 	/>
 
