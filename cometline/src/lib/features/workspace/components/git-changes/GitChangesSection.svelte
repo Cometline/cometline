@@ -175,7 +175,8 @@
 		color: var(--text-muted);
 	}
 
-	.git-section-staged .git-section-toggle {
+	.git-section-staged .git-section-toggle,
+	.git-section-staged:hover .git-section-toggle {
 		color: var(--text-main);
 	}
 
