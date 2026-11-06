@@ -11,9 +11,10 @@ import { normalizeWorkspacePath } from '#lib/features/workspace/file-index.js';
 import { hasUnstagedSide } from '#lib/features/workspace/git-file-state.js';
 import {
 	discardConfirmDescription,
-	gitFileName,
+	reviewFilesFor,
 	type DiscardConfirm,
-	type GitFile
+	type GitFile,
+	type GitReviewFile
 } from '#lib/features/workspace/git-changes-browser.js';
 
 export function createGitChangesBrowserController(deps: { getWorkspacePath: () => string }) {
@@ -28,6 +29,9 @@ export function createGitChangesBrowserController(deps: { getWorkspacePath: () =
 	let commitMessage = $state('');
 	let commitFlash = $state('');
 	let discardConfirm = $state<DiscardConfirm | null>(null);
+	let reviewOpen = $state(false);
+	let reviewFiles = $state<GitReviewFile[]>([]);
+	let reviewFilter = $state('');
 
 	const normalizedWorkspace = $derived(normalizeWorkspacePath(deps.getWorkspacePath()));
 	const workspaceAvailable = $derived(
@@ -85,6 +89,28 @@ export function createGitChangesBrowserController(deps: { getWorkspacePath: () =
 		shellStore.openGitDiffForActive(path);
 	}
 
+	function openReview() {
+		const files = reviewFilesFor(stagedFiles, changeFiles);
+		if (files.length === 0) return;
+		reviewFiles = files;
+		reviewFilter = query;
+		reviewOpen = true;
+	}
+
+	/** Reload status, then move cards that were staged or discarded. */
+	async function refreshReview() {
+		await load();
+		if (reviewOpen) reviewFiles = reviewFilesFor(stagedFiles, changeFiles);
+	}
+
+	$effect(() => {
+		if (reviewOpen && query !== reviewFilter) reviewOpen = false;
+	});
+
+	function closeReview() {
+		reviewOpen = false;
+	}
+
 	async function copyPath(path: string) {
 		try {
 			await navigator.clipboard.writeText(path);
@@ -95,16 +121,6 @@ export function createGitChangesBrowserController(deps: { getWorkspacePath: () =
 		} catch {
 			// ignore
 		}
-	}
-
-	function addPathToChat(path: string) {
-		shellStore.addWebContextForActive({
-			kind: 'file',
-			title: gitFileName(path),
-			source: `workspace-file:${path}`,
-			content: ''
-		});
-		shellStore.requestComposerFocus();
 	}
 
 	async function runMutation(action: () => Promise<unknown>) {
@@ -244,8 +260,19 @@ export function createGitChangesBrowserController(deps: { getWorkspacePath: () =
 		},
 		load,
 		openDiff,
+		get reviewOpen() {
+			return reviewOpen;
+		},
+		get reviewFiles() {
+			return reviewFiles;
+		},
+		get reviewCount() {
+			return stagedFiles.length + changeFiles.length;
+		},
+		openReview,
+		closeReview,
+		refreshReview,
 		copyPath,
-		addPathToChat,
 		stagePath,
 		unstagePath,
 		requestDiscard,

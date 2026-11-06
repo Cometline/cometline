@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Copy, MessageSquarePlus, Minus, Plus, RotateCcw } from '@lucide/svelte';
+	import { Copy, Minus, Plus, RotateCcw } from '@lucide/svelte';
 	import FileTypeIcon from '#lib/features/workspace/components/FileTypeIcon.svelte';
 	import {
 		gitFileDir,
@@ -18,8 +18,7 @@
 		onStage,
 		onUnstage,
 		onDiscard,
-		onCopy,
-		onAddToChat
+		onCopy
 	}: {
 		file: GitFile;
 		section: GitChangesSectionKind;
@@ -30,7 +29,6 @@
 		onUnstage: (path: string) => unknown;
 		onDiscard: (path: string) => void;
 		onCopy: (path: string) => unknown;
-		onAddToChat: (path: string) => void;
 	} = $props();
 </script>
 
@@ -88,15 +86,6 @@
 			onclick={() => void onCopy(file.path)}
 		>
 			<Copy size={13} />
-		</button>
-		<button
-			type="button"
-			class="git-icon-btn"
-			title="Add path to chat"
-			aria-label="Add path to chat"
-			onclick={() => onAddToChat(file.path)}
-		>
-			<MessageSquarePlus size={13} />
 		</button>
 	</span>
 	<span
