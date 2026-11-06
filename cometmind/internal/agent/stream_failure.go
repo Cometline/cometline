@@ -13,9 +13,8 @@ import (
 )
 
 // errDroppedProviderStream is a provider-agnostic stand-in for a stream that
-// opened and closed without a model completion. HTTP 200 plus an empty body,
-// or a synthesized stop with no tokens and no assistant payload, is not a
-// finished turn.
+// opened and closed without a finish reason. HTTP 200 plus an empty body is
+// not a finished turn. A real finish reason, including an empty stop, is.
 var errDroppedProviderStream = errors.New("provider stream ended without a completion")
 
 type streamFailureCategory string
@@ -84,10 +83,10 @@ func recoverableStreamFailure(err error) bool {
 	return classifyStreamFailure(err) == streamFailureRecoverable
 }
 
-// droppedProviderStream reports a stream that ended without a model completion.
+// droppedProviderStream reports a stream that ended without a finish reason.
 // It is independent of provider: any adapter can return HTTP 200 and then close
-// the body, and some synthesize a stop when the scanner ends cleanly. A real
-// completion has a finish reason plus either token usage or an assistant payload.
+// the body before a completion event. A finish reason is a real completion,
+// even when the model sent no text and reported no usage.
 func droppedProviderStream(result *llm.GenerateMessageResult, a *streamAttempt) bool {
 	if a != nil && (a.completeToolCall || len(a.toolCalls) > 0) {
 		return false
@@ -98,22 +97,5 @@ func droppedProviderStream(result *llm.GenerateMessageResult, a *streamAttempt) 
 	if len(result.ToolCalls) > 0 {
 		return false
 	}
-	if result.FinishReason != "" && (usageReported(result.Usage) || assistantPayload(result)) {
-		return false
-	}
-	return true
-}
-
-func usageReported(usage cometsdk.TokenUsage) bool {
-	return usage.InputTokens > 0 || usage.OutputTokens > 0 || usage.CacheRead > 0 || usage.CacheWrite > 0
-}
-
-func assistantPayload(result *llm.GenerateMessageResult) bool {
-	if result == nil {
-		return false
-	}
-	if strings.TrimSpace(assistantPlainText(result.Message)) != "" {
-		return true
-	}
-	return len(result.Message.ReasoningContent) > 0 || len(result.Message.ProviderState) > 0
+	return result.FinishReason == ""
 }

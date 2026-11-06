@@ -1807,29 +1807,25 @@ func TestRunner_RetriesEmptyStreamThenCompletes(t *testing.T) {
 	assertRetryThenNoError(t, events)
 }
 
-func TestRunner_RetriesSyntheticEmptyStop(t *testing.T) {
+func TestRunner_DoesNotRetryBareFinishStop(t *testing.T) {
 	provider := &sequentialFakeProvider{sequences: [][]cometsdk.Event{
 		{cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop}},
-		{
-			cometsdk.TextDeltaEvent{Text: "after synthetic stop"},
-			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop},
-			cometsdk.DoneEvent{},
-		},
+		{cometsdk.TextDeltaEvent{Text: "should not run"}, cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop}},
 	}}
-	store := &fakeStore{}
-	r := &Runner{Provider: provider, Sessions: store, Registry: tools.NewRegistry(t.TempDir()), StreamRecoveryBackoff: time.Millisecond}
+	r := &Runner{Provider: provider, Sessions: &fakeStore{}, Registry: tools.NewRegistry(t.TempDir()), StreamRecoveryBackoff: time.Millisecond}
 
-	events, err := runAndDrain(t, r, session.AgentTurn{ID: "s-synthetic-stop", ModelID: "m"})
+	events, err := runAndDrain(t, r, session.AgentTurn{ID: "s-bare-stop", ModelID: "m"})
 	if err != nil {
 		t.Fatalf("Run returned error: %v", err)
 	}
-	if provider.calls != 2 {
-		t.Fatalf("Stream called %d times, want 2", provider.calls)
+	if provider.calls != 1 {
+		t.Fatalf("Stream called %d times, want 1 for a real stop", provider.calls)
 	}
-	if store.appendTexts[0] != "after synthetic stop" {
-		t.Fatalf("texts = %q, want recovered answer", store.appendTexts)
+	for _, ev := range events {
+		if ev.Kind == event.KindTurnRecover || ev.Kind == event.KindError {
+			t.Fatalf("unexpected %s event: %+v", ev.Kind, ev)
+		}
 	}
-	assertRetryThenNoError(t, events)
 }
 
 func TestRunner_DoesNotRetryEmptyStopWithUsage(t *testing.T) {

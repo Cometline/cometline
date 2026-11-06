@@ -103,6 +103,7 @@ func ParseLoop(ctx context.Context, providerID, modelID string, emitToolStart bo
 	scanner := sse.NewIdleScanner(body, idleTimeout)
 	defer scanner.Close()
 	state := &StreamState{suppressToolStart: !emitToolStart}
+	emitted := false
 	for scanner.Next() {
 		select {
 		case <-ctx.Done():
@@ -127,6 +128,7 @@ func ParseLoop(ctx context.Context, providerID, modelID string, emitToolStart bo
 			if !providerbase.SendEvent(ctx, ch, e) {
 				return
 			}
+			emitted = true
 			if _, ok := e.(cometsdk.DoneEvent); ok {
 				return
 			}
@@ -134,6 +136,12 @@ func ParseLoop(ctx context.Context, providerID, modelID string, emitToolStart bo
 	}
 	if err := scanner.Err(); err != nil {
 		providerbase.SendEvent(ctx, ch, cometsdk.ErrorEvent{Err: &cometsdk.StreamError{ProviderID: providerID, Cause: err}})
+		return
+	}
+	// An empty body is not a model stop. Leave the finish reason unset so the
+	// agent retries it. A stream that already produced output still ends here
+	// when the provider omits response.completed.
+	if !emitted {
 		return
 	}
 	if providerbase.SendEvent(ctx, ch, cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop}) {

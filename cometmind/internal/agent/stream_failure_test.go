@@ -71,7 +71,7 @@ func TestDroppedProviderStream(t *testing.T) {
 	}{
 		{"nil result", nil, &streamAttempt{}, true},
 		{"no events and no finish", empty, &streamAttempt{}, true},
-		{"synthesized stop without usage", syntheticStop, &streamAttempt{events: 1}, true},
+		{"bare stop without usage", syntheticStop, &streamAttempt{events: 1}, false},
 		{"real empty answer with usage", usedEmpty, &streamAttempt{events: 1}, false},
 		{"text completion", text, &streamAttempt{events: 2, firstOutput: true}, false},
 		{"completed tool call", empty, &streamAttempt{completeToolCall: true, toolCalls: []cometsdk.ToolCallBlock{{ID: "tc"}}}, false},
