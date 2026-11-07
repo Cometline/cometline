@@ -8,7 +8,7 @@ require (
 	github.com/Cometline/cometline/comet-sdk v0.0.0
 	github.com/bmatcuk/doublestar/v4 v4.10.0
 	github.com/bwmarrin/discordgo v0.29.0
-	github.com/getkin/kin-openapi v0.148.0
+	github.com/getkin/kin-openapi v0.149.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/gofrs/flock v0.13.0
 	github.com/modelcontextprotocol/go-sdk v1.6.1
