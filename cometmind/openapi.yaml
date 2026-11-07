@@ -231,6 +231,13 @@ paths:
             type: string
             enum: [working, staged, all]
             default: working
+          description: Ignored when sha is set.
+        - name: sha
+          in: query
+          required: false
+          schema:
+            type: string
+          description: When set, return this path's diff in that commit instead of the worktree.
       responses:
         '200':
           description: Unified diff for the path
@@ -310,6 +317,262 @@ paths:
       responses:
         '200':
           description: Paths discarded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceGitMutationResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/workspaces/git/graph:
+    get:
+      tags: [Files]
+      summary: List a page of the workspace commit graph
+      description: |
+        Returns a date-ordered page of commits across all refs, with lane cells
+        and branch, tag, and remote-tracking decorations. Read-only.
+      operationId: getWorkspaceGitGraph
+      parameters:
+        - name: workspace_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: workspace_path
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 80
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Commit graph page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceGitGraph'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/workspaces/git/commit-detail:
+    get:
+      tags: [Files]
+      summary: Read one commit's message and file stats
+      description: Returns author, parents, message, and numstat for a single commit. Read-only.
+      operationId: getWorkspaceGitCommitDetail
+      parameters:
+        - name: workspace_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: workspace_path
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: sha
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Commit detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceGitCommitDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/workspaces/git/checkout:
+    post:
+      tags: [Files]
+      summary: Check out a local branch or commit
+      description: |
+        Runs `git checkout` for a local branch or commit. Refuses a dirty
+        worktree. Does not fetch or update remotes.
+      operationId: checkoutWorkspaceGit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceGitCheckoutRequest'
+      responses:
+        '200':
+          description: Checked out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceGitMutationResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/workspaces/git/branches:
+    post:
+      tags: [Files]
+      summary: Create a local branch
+      description: Creates a local branch. Does not check it out and does not push.
+      operationId: createWorkspaceGitBranch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceGitBranchCreateRequest'
+      responses:
+        '200':
+          description: Branch created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceGitMutationResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/workspaces/git/branches/rename:
+    post:
+      tags: [Files]
+      summary: Rename a local branch
+      description: Renames a local branch, including the current branch. Remote-tracking names are rejected.
+      operationId: renameWorkspaceGitBranch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceGitRefRenameRequest'
+      responses:
+        '200':
+          description: Branch renamed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceGitMutationResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/workspaces/git/branches/delete:
+    post:
+      tags: [Files]
+      summary: Delete a merged local branch
+      description: |
+        Deletes a local branch with `git branch -d`. Refuses the current branch
+        and does not force-delete unmerged work.
+      operationId: deleteWorkspaceGitBranch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceGitRefDeleteRequest'
+      responses:
+        '200':
+          description: Branch deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceGitMutationResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/workspaces/git/tags:
+    post:
+      tags: [Files]
+      summary: Create a lightweight tag
+      description: Creates a local lightweight tag. Does not push.
+      operationId: createWorkspaceGitTag
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceGitTagCreateRequest'
+      responses:
+        '200':
+          description: Tag created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceGitMutationResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/workspaces/git/tags/rename:
+    post:
+      tags: [Files]
+      summary: Rename a local tag
+      description: Creates the new tag name and deletes the old one. Does not push.
+      operationId: renameWorkspaceGitTag
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceGitRefRenameRequest'
+      responses:
+        '200':
+          description: Tag renamed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceGitMutationResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/workspaces/git/tags/delete:
+    post:
+      tags: [Files]
+      summary: Delete a local tag
+      description: Deletes a local tag. Does not delete remote tags.
+      operationId: deleteWorkspaceGitTag
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceGitRefDeleteRequest'
+      responses:
+        '200':
+          description: Tag deleted
           content:
             application/json:
               schema:
@@ -3037,6 +3300,216 @@ components:
           items:
             type: string
           description: Workspace-relative file paths.
+      description: Provide either workspace_id or workspace_path.
+
+    WorkspaceGitGraphLane:
+      type: object
+      additionalProperties: false
+      required: [lane, kind]
+      properties:
+        lane:
+          type: integer
+          minimum: 0
+        kind:
+          type: string
+          enum: [commit, pass, merge]
+          description: commit is the row's own node, pass continues another lane, merge marks a multi-parent node.
+        to:
+          type: integer
+          minimum: 0
+          description: Column a merge edge joins. Omitted for vertical cells.
+
+    WorkspaceGitGraphRef:
+      type: object
+      additionalProperties: false
+      required: [name, kind]
+      properties:
+        name:
+          type: string
+          description: Branch name, tag name, or remote-tracking name such as origin/main.
+        kind:
+          type: string
+          enum: [branch, remote, tag, head]
+        current:
+          type: boolean
+          description: True for the branch currently checked out.
+
+    WorkspaceGitGraphCommit:
+      type: object
+      additionalProperties: false
+      required: [sha, short_sha, parents, subject, lane, lanes, refs]
+      properties:
+        sha:
+          type: string
+        short_sha:
+          type: string
+        parents:
+          type: array
+          items:
+            type: string
+        subject:
+          type: string
+        author:
+          type: string
+        authored_at:
+          type: integer
+          description: Unix seconds.
+        lane:
+          type: integer
+          minimum: 0
+        lanes:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkspaceGitGraphLane'
+        refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkspaceGitGraphRef'
+
+    WorkspaceGitGraph:
+      type: object
+      additionalProperties: false
+      required: [is_repo, commits]
+      properties:
+        is_repo:
+          type: boolean
+        head_sha:
+          type: string
+        head_branch:
+          type: string
+          description: Empty when HEAD is detached.
+        commits:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkspaceGitGraphCommit'
+        truncated:
+          type: boolean
+          description: True when another page exists after this one.
+        message:
+          type: string
+
+    WorkspaceGitCommitFile:
+      type: object
+      additionalProperties: false
+      required: [path, status, additions, deletions]
+      properties:
+        path:
+          type: string
+        status:
+          type: string
+          enum: [modified, renamed, binary]
+        additions:
+          type: integer
+        deletions:
+          type: integer
+
+    WorkspaceGitCommitDetail:
+      type: object
+      additionalProperties: false
+      required: [sha, short_sha, parents, subject, files]
+      properties:
+        sha:
+          type: string
+        short_sha:
+          type: string
+        parents:
+          type: array
+          items:
+            type: string
+        subject:
+          type: string
+        body:
+          type: string
+        author:
+          type: string
+        author_email:
+          type: string
+        authored_at:
+          type: integer
+          description: Unix seconds.
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkspaceGitCommitFile'
+
+    WorkspaceGitCheckoutRequest:
+      type: object
+      additionalProperties: false
+      required: [ref]
+      properties:
+        workspace_id:
+          type: string
+        workspace_path:
+          type: string
+        ref:
+          type: string
+          minLength: 1
+          description: Local branch name or commit SHA.
+      description: Provide either workspace_id or workspace_path.
+
+    WorkspaceGitBranchCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        workspace_id:
+          type: string
+        workspace_path:
+          type: string
+        name:
+          type: string
+          minLength: 1
+        start_point:
+          type: string
+          description: Commit or ref to start from. Defaults to HEAD.
+      description: Provide either workspace_id or workspace_path.
+
+    WorkspaceGitTagCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        workspace_id:
+          type: string
+        workspace_path:
+          type: string
+        name:
+          type: string
+          minLength: 1
+        sha:
+          type: string
+          description: Commit to tag. Defaults to HEAD.
+      description: Provide either workspace_id or workspace_path.
+
+    WorkspaceGitRefRenameRequest:
+      type: object
+      additionalProperties: false
+      required: [name, new_name]
+      properties:
+        workspace_id:
+          type: string
+        workspace_path:
+          type: string
+        name:
+          type: string
+          minLength: 1
+        new_name:
+          type: string
+          minLength: 1
+      description: Provide either workspace_id or workspace_path.
+
+    WorkspaceGitRefDeleteRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        workspace_id:
+          type: string
+        workspace_path:
+          type: string
+        name:
+          type: string
+          minLength: 1
       description: Provide either workspace_id or workspace_path.
 
     WorkspaceGitCommitRequest:
