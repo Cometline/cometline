@@ -164,10 +164,12 @@ export function graphStrokes(
 	const strokes: GraphStroke[] = [];
 	const columns = laneColumnCount(commits);
 	const headLane = commits[0]?.lane ?? 0;
-	if (includeWorking) {
+	if (includeWorking && commits.length > 0) {
+		// Meet the next commit's circle. A rail that stops at this row's bottom
+		// leaves a gap, because the next stroke starts at its own center.
 		strokes.push({
-			d: `M${graphX(headLane)},${graphRow / 2} L${graphX(headLane)},${graphRow}`,
-			color: 'var(--accent)'
+			d: `M${graphX(headLane)},${graphRow / 2} L${graphX(headLane)},${graphY(1)}`,
+			color: laneColor(headLane)
 		});
 	}
 	const offset = includeWorking ? 1 : 0;

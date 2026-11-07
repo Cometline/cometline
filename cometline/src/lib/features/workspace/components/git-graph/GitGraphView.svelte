@@ -9,6 +9,7 @@
 		commitMenuItems,
 		dialogInputValue,
 		graphStrokes,
+		laneColor,
 		laneColumnCount,
 		refMenuItems
 	} from '#lib/features/workspace/git-graph.js';
@@ -133,7 +134,7 @@
 						cx={(graph.commits[0]?.lane ?? 0) * 16 + 8}
 						cy="14"
 						r="3.5"
-						fill="var(--accent)"
+						fill={laneColor(graph.commits[0]?.lane ?? 0)}
 					/>
 				{/if}
 			</svg>

@@ -79,6 +79,16 @@ describe('git graph strokes', () => {
 		expect(strokes).toHaveLength(1);
 		expect(strokes[0].d).toContain('L');
 	});
+
+	it('joins uncommitted changes to the next commit circle', () => {
+		const rows = [
+			commit({ sha: 'head', lane: 0, lanes: [{ lane: 0, kind: 'commit' }] }),
+			commit({ sha: 'parent', lane: 0, lanes: [{ lane: 0, kind: 'commit' }] })
+		];
+		const strokes = graphStrokes(rows, true);
+		expect(strokes[0].d).toBe('M8,14 L8,42');
+		expect(strokes[0].color).toBe(strokes[1].color);
+	});
 });
 
 describe('git graph lanes', () => {
