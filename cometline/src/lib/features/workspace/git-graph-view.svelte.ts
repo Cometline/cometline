@@ -53,9 +53,13 @@ export function createGitGraphViewController(deps: { getWorkspacePath: () => str
 	let detailSeq = 0;
 
 	const normalizedWorkspace = $derived(normalizeWorkspacePath(deps.getWorkspacePath()));
-	const workspaceAvailable = $derived(Boolean(normalizedWorkspace && normalizedWorkspace !== '/'));
+	const workspaceAvailable = $derived(
+		Boolean(normalizedWorkspace && normalizedWorkspace !== '/')
+	);
 	const commits = $derived(graph?.commits ?? []);
-	const headLabel = $derived(graph?.head_branch || (graph?.head_sha ? graph.head_sha.slice(0, 7) : ''));
+	const headLabel = $derived(
+		graph?.head_branch || (graph?.head_sha ? graph.head_sha.slice(0, 7) : '')
+	);
 
 	async function load() {
 		const seq = ++loadSeq;
@@ -161,27 +165,35 @@ export function createGitGraphViewController(deps: { getWorkspacePath: () => str
 		menu = null;
 		if (!current) return;
 		if (current.kind === 'commit') {
-			if (action === 'checkout') void run(() => checkoutWorkspaceGit(normalizedWorkspace, current.sha));
-			if (action === 'create-branch') dialog = { kind: 'create-branch', sha: current.sha, name: '' };
-			if (action === 'create-tag') dialog = { kind: 'create-tag', sha: current.sha, name: '' };
+			if (action === 'checkout')
+				void run(() => checkoutWorkspaceGit(normalizedWorkspace, current.sha));
+			if (action === 'create-branch')
+				dialog = { kind: 'create-branch', sha: current.sha, name: '' };
+			if (action === 'create-tag')
+				dialog = { kind: 'create-tag', sha: current.sha, name: '' };
 			return;
 		}
 		const ref = current.ref;
-		if (action === 'checkout') void run(() => checkoutWorkspaceGit(normalizedWorkspace, ref.name));
+		if (action === 'checkout')
+			void run(() => checkoutWorkspaceGit(normalizedWorkspace, ref.name));
 		if (action === 'rename' && ref.kind === 'branch') {
 			dialog = { kind: 'rename-branch', name: ref.name, next: ref.name };
 		}
 		if (action === 'rename' && ref.kind === 'tag') {
 			dialog = { kind: 'rename-tag', name: ref.name, next: ref.name };
 		}
-		if (action === 'delete' && ref.kind === 'branch') dialog = { kind: 'delete-branch', name: ref.name };
-		if (action === 'delete' && ref.kind === 'tag') dialog = { kind: 'delete-tag', name: ref.name };
+		if (action === 'delete' && ref.kind === 'branch')
+			dialog = { kind: 'delete-branch', name: ref.name };
+		if (action === 'delete' && ref.kind === 'tag')
+			dialog = { kind: 'delete-tag', name: ref.name };
 	}
 
 	function setDialogName(value: string) {
 		if (!dialog) return;
-		if (dialog.kind === 'create-branch' || dialog.kind === 'create-tag') dialog = { ...dialog, name: value };
-		if (dialog.kind === 'rename-branch' || dialog.kind === 'rename-tag') dialog = { ...dialog, next: value };
+		if (dialog.kind === 'create-branch' || dialog.kind === 'create-tag')
+			dialog = { ...dialog, name: value };
+		if (dialog.kind === 'rename-branch' || dialog.kind === 'rename-tag')
+			dialog = { ...dialog, next: value };
 	}
 
 	async function confirmDialog() {
@@ -203,13 +215,21 @@ export function createGitGraphViewController(deps: { getWorkspacePath: () => str
 		}
 		dialog = null;
 		if (current.kind === 'create-branch') {
-			await run(() => createWorkspaceGitBranch(normalizedWorkspace, current.name.trim(), current.sha));
+			await run(() =>
+				createWorkspaceGitBranch(normalizedWorkspace, current.name.trim(), current.sha)
+			);
 		} else if (current.kind === 'create-tag') {
-			await run(() => createWorkspaceGitTag(normalizedWorkspace, current.name.trim(), current.sha));
+			await run(() =>
+				createWorkspaceGitTag(normalizedWorkspace, current.name.trim(), current.sha)
+			);
 		} else if (current.kind === 'rename-branch') {
-			await run(() => renameWorkspaceGitBranch(normalizedWorkspace, current.name, current.next.trim()));
+			await run(() =>
+				renameWorkspaceGitBranch(normalizedWorkspace, current.name, current.next.trim())
+			);
 		} else if (current.kind === 'rename-tag') {
-			await run(() => renameWorkspaceGitTag(normalizedWorkspace, current.name, current.next.trim()));
+			await run(() =>
+				renameWorkspaceGitTag(normalizedWorkspace, current.name, current.next.trim())
+			);
 		} else if (current.kind === 'delete-branch') {
 			await run(() => deleteWorkspaceGitBranch(normalizedWorkspace, current.name));
 		} else if (current.kind === 'delete-tag') {

@@ -79,78 +79,78 @@
 			}}
 		/>
 	{:else}
-	<GitChangesHeader
-		status={changes.status}
-		loading={changes.loading}
-		mutating={changes.mutating}
-		workspaceAvailable={changes.workspaceAvailable}
-		isClean={changes.isClean}
-		stagedCount={changes.stagedCount}
-		changesCount={changes.changesCount}
-		bind:commitMessage={changes.commitMessage}
-		commitFlash={changes.commitFlash}
-		bind:filter={changes.filter}
-		actionError={changes.actionError}
-		reviewCount={changes.reviewCount}
-		onRefresh={changes.load}
-		onCommit={changes.commit}
-		onReview={changes.openReview}
-	/>
-
-	{#if !changes.workspaceAvailable}
-		<div class="git-state">Select a workspace to see git changes.</div>
-	{:else if changes.loading && !changes.status}
-		<div class="git-state">
-			<Loader size={16} stroke-width={2} class="git-spinner" />
-			<span>Loading changes…</span>
-		</div>
-	{:else if changes.error}
-		<div class="git-state git-error">{changes.error}</div>
-	{:else if changes.status && !changes.status.is_repo}
-		<div class="git-state">
-			{changes.status.message || 'This workspace is not a git repository.'}
-		</div>
-	{:else if changes.isClean && !changes.query}
-		<div class="git-state">Working tree clean.</div>
-	{:else if changes.stagedFiles.length === 0 && changes.changeFiles.length === 0}
-		<div class="git-state">No matching changed files.</div>
-	{:else if changes.reviewOpen}
-		<GitReviewView
-			{workspacePath}
-			files={changes.reviewFiles}
-			onBack={changes.closeReview}
-			onMutated={changes.refreshReview}
+		<GitChangesHeader
+			status={changes.status}
+			loading={changes.loading}
+			mutating={changes.mutating}
+			workspaceAvailable={changes.workspaceAvailable}
+			isClean={changes.isClean}
+			stagedCount={changes.stagedCount}
+			changesCount={changes.changesCount}
+			bind:commitMessage={changes.commitMessage}
+			commitFlash={changes.commitFlash}
+			bind:filter={changes.filter}
+			actionError={changes.actionError}
+			reviewCount={changes.reviewCount}
+			onRefresh={changes.load}
+			onCommit={changes.commit}
+			onReview={changes.openReview}
 		/>
-	{:else}
-		<div class="git-list-scroll scrollbar-none">
-			{#if changes.stagedFiles.length > 0 || changes.stagedCount > 0}
-				<GitChangesSection
-					section="staged"
-					files={changes.stagedFiles}
-					bind:open={stagedOpen}
-					mutating={changes.mutating}
-					onUnstageAll={changes.unstageAll}
-					row={fileRow}
-				/>
-			{/if}
 
-			{#if changes.changeFiles.length > 0 || changes.changesCount > 0}
-				<GitChangesSection
-					section="changes"
-					files={changes.changeFiles}
-					bind:open={changesOpen}
-					mutating={changes.mutating}
-					onDiscardAll={changes.requestDiscardAll}
-					onStageAll={changes.stageAllChanges}
-					row={fileRow}
-				/>
-			{/if}
+		{#if !changes.workspaceAvailable}
+			<div class="git-state">Select a workspace to see git changes.</div>
+		{:else if changes.loading && !changes.status}
+			<div class="git-state">
+				<Loader size={16} stroke-width={2} class="git-spinner" />
+				<span>Loading changes…</span>
+			</div>
+		{:else if changes.error}
+			<div class="git-state git-error">{changes.error}</div>
+		{:else if changes.status && !changes.status.is_repo}
+			<div class="git-state">
+				{changes.status.message || 'This workspace is not a git repository.'}
+			</div>
+		{:else if changes.isClean && !changes.query}
+			<div class="git-state">Working tree clean.</div>
+		{:else if changes.stagedFiles.length === 0 && changes.changeFiles.length === 0}
+			<div class="git-state">No matching changed files.</div>
+		{:else if changes.reviewOpen}
+			<GitReviewView
+				{workspacePath}
+				files={changes.reviewFiles}
+				onBack={changes.closeReview}
+				onMutated={changes.refreshReview}
+			/>
+		{:else}
+			<div class="git-list-scroll scrollbar-none">
+				{#if changes.stagedFiles.length > 0 || changes.stagedCount > 0}
+					<GitChangesSection
+						section="staged"
+						files={changes.stagedFiles}
+						bind:open={stagedOpen}
+						mutating={changes.mutating}
+						onUnstageAll={changes.unstageAll}
+						row={fileRow}
+					/>
+				{/if}
 
-			{#if changes.status?.truncated}
-				<p class="git-truncated">Showing first {changes.status.files.length} files.</p>
-			{/if}
-		</div>
-	{/if}
+				{#if changes.changeFiles.length > 0 || changes.changesCount > 0}
+					<GitChangesSection
+						section="changes"
+						files={changes.changeFiles}
+						bind:open={changesOpen}
+						mutating={changes.mutating}
+						onDiscardAll={changes.requestDiscardAll}
+						onStageAll={changes.stageAllChanges}
+						row={fileRow}
+					/>
+				{/if}
+
+				{#if changes.status?.truncated}
+					<p class="git-truncated">Showing first {changes.status.files.length} files.</p>
+				{/if}
+			</div>
+		{/if}
 	{/if}
 </div>
 

@@ -28,6 +28,8 @@
 	const graph = createGitGraphViewController({ getWorkspacePath: () => workspacePath });
 
 	let detailHeight = $state(0);
+	let rowsEl = $state<HTMLDivElement | null>(null);
+	let moreSentinel = $state<HTMLDivElement | null>(null);
 
 	const columns = $derived(laneColumnCount(graph.commits));
 	const expansion = $derived.by(() => {
@@ -79,6 +81,20 @@
 		void [workspacePath, workspaceChangeVersion(workspacePath)];
 		void graph.load();
 	});
+
+	$effect(() => {
+		const root = rowsEl;
+		const target = moreSentinel;
+		if (!root || !target || !graph.graph?.truncated) return;
+		const observer = new IntersectionObserver(
+			(entries) => {
+				if (entries.some((entry) => entry.isIntersecting)) void graph.loadMore();
+			},
+			{ root, rootMargin: '120px' }
+		);
+		observer.observe(target);
+		return () => observer.disconnect();
+	});
 </script>
 
 <div class="git-graph">
@@ -117,7 +133,7 @@
 	{:else if graph.graph && !graph.graph.is_repo}
 		<div class="state">{graph.graph.message || 'This workspace is not a git repository.'}</div>
 	{:else}
-		<div class="rows scrollbar-none">
+		<div class="rows scrollbar-none" bind:this={rowsEl}>
 			<svg class="graph-rails" width={graphWidth} height={graphHeight} aria-hidden="true">
 				{#each strokes as stroke, index (index)}
 					<path d={stroke.d} fill="none" stroke={stroke.color} stroke-width="1.5" />
@@ -160,14 +176,7 @@
 				{/if}
 			{/each}
 			{#if graph.graph?.truncated}
-				<button
-					type="button"
-					class="more"
-					disabled={graph.loading}
-					onclick={() => void graph.loadMore()}
-				>
-					{graph.loading ? 'Loading…' : 'Load more'}
-				</button>
+				<div class="more-sentinel" bind:this={moreSentinel} aria-hidden="true"></div>
 			{/if}
 		</div>
 	{/if}
@@ -318,15 +327,8 @@
 		height: 1px;
 	}
 
-	.more {
-		margin: 8px 12px;
-		border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.1));
-		border-radius: 8px;
-		background: var(--surface-elevated, var(--panel-bg));
-		color: var(--text-main);
-		font-size: 13px;
-		padding: 6px 10px;
-		cursor: pointer;
+	.more-sentinel {
+		height: 1px;
 	}
 
 	:global(.spin) {

@@ -69,7 +69,12 @@ export function createGitDiffViewController(deps: {
 		selectionPopup = null;
 		try {
 			const [result, status] = await Promise.all([
-				getWorkspaceGitDiff(deps.getWorkspacePath(), deps.getFilePath(), deps.getScope(), deps.getSha?.()),
+				getWorkspaceGitDiff(
+					deps.getWorkspacePath(),
+					deps.getFilePath(),
+					deps.getScope(),
+					deps.getSha?.()
+				),
 				getWorkspaceGitStatus(deps.getWorkspacePath(), 'all').catch(() => null)
 			]);
 			if (seq !== loadSeq) return;
