@@ -1,14 +1,9 @@
 <script lang="ts">
 	import { GitBranch, Tag } from '@lucide/svelte';
-	import {
-		laneColor,
-		type GitGraphCommit,
-		type GitGraphRef
-	} from '#lib/features/workspace/git-graph.js';
+	import { type GitGraphCommit, type GitGraphRef } from '#lib/features/workspace/git-graph.js';
 
 	let {
 		commit,
-		columns,
 		selected = false,
 		headSha = '',
 		onOpen,
@@ -16,21 +11,12 @@
 		onRefMenu
 	}: {
 		commit: GitGraphCommit;
-		columns: number;
 		selected?: boolean;
 		headSha?: string;
 		onOpen: () => void;
 		onCommitMenu: (sha: string, event: MouseEvent) => void;
 		onRefMenu: (ref: GitGraphRef, sha: string, event: MouseEvent) => void;
 	} = $props();
-
-	const cell = 16;
-	const rowHeight = 28;
-	const width = $derived(Math.max(columns, 1) * cell + 8);
-
-	function nodeAt(lane: number) {
-		return commit.lanes.find((item) => item.lane === lane && item.to == null);
-	}
 </script>
 
 <div
@@ -45,20 +31,6 @@
 	}}
 	oncontextmenu={(event) => onCommitMenu(commit.sha, event)}
 >
-	<svg class="lanes" {width} height={rowHeight} aria-hidden="true">
-		{#each Array.from({ length: columns }, (_, lane) => lane) as lane (lane)}
-			{@const node = nodeAt(lane)}
-			{#if node && (node.kind === 'commit' || node.kind === 'merge')}
-				<circle
-					cx={lane * cell + cell / 2}
-					cy={rowHeight / 2}
-					r="3.5"
-					fill={laneColor(lane)}
-				/>
-			{/if}
-		{/each}
-	</svg>
-
 	<div class="summary">
 		{#if commit.refs.length > 0}
 			<div class="refs">
@@ -101,13 +73,13 @@
 <style>
 	.git-graph-row {
 		display: grid;
-		grid-template-columns: auto minmax(0, 1fr) 64px;
+		grid-template-columns: max-content minmax(8em, 1fr) 64px;
 		align-items: center;
 		gap: 10px;
 		height: 28px;
 		width: max-content;
 		min-width: 100%;
-		padding: 0 10px 0 4px;
+		padding: 0 10px 0 8px;
 	}
 
 	.git-graph-row:hover,
@@ -117,11 +89,6 @@
 
 	.git-graph-row.here {
 		box-shadow: inset 2px 0 0 var(--accent);
-	}
-
-	.lanes {
-		display: block;
-		overflow: visible;
 	}
 
 	.summary {
@@ -184,7 +151,6 @@
 	}
 
 	.subject {
-		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;

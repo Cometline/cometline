@@ -4,6 +4,7 @@ import {
 	dialogInputValue,
 	formatGraphDate,
 	isUnsafeRefName,
+	graphNodes,
 	graphStrokes,
 	laneColumnCount,
 	refMenuItems,
@@ -87,6 +88,7 @@ describe('git graph strokes', () => {
 		const strokes = graphStrokes(rows, true);
 		expect(strokes[0].d).toBe('M8,14 L8,42');
 		expect(strokes[0].color).toBe(strokes[1].color);
+		expect(graphNodes(rows, true).map((node) => node.y)).toEqual([14, 42, 70]);
 	});
 });
 

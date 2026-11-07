@@ -8,8 +8,8 @@
 	import {
 		commitMenuItems,
 		dialogInputValue,
+		graphNodes,
 		graphStrokes,
-		laneColor,
 		laneColumnCount,
 		refMenuItems
 	} from '#lib/features/workspace/git-graph.js';
@@ -29,6 +29,7 @@
 
 	let detailHeight = $state(0);
 	let rowsEl = $state<HTMLDivElement | null>(null);
+	let graphPane = $state<HTMLDivElement | null>(null);
 	let moreSentinel = $state<HTMLDivElement | null>(null);
 
 	const columns = $derived(laneColumnCount(graph.commits));
@@ -39,6 +40,7 @@
 		return { index, height: detailHeight };
 	});
 	const strokes = $derived(graphStrokes(graph.commits, graph.uncommittedCount > 0, expansion));
+	const nodes = $derived(graphNodes(graph.commits, graph.uncommittedCount > 0, expansion));
 	const graphWidth = $derived(columns * 16 + 8);
 	const graphHeight = $derived(
 		(graph.commits.length + (graph.uncommittedCount > 0 ? 1 : 0)) * 28 + detailHeight
@@ -95,6 +97,11 @@
 		observer.observe(target);
 		return () => observer.disconnect();
 	});
+
+	function syncPaneScroll(source: HTMLElement, target: HTMLElement | null) {
+		if (!target || target.scrollTop === source.scrollTop) return;
+		target.scrollTop = source.scrollTop;
+	}
 </script>
 
 <div class="git-graph">
@@ -133,51 +140,73 @@
 	{:else if graph.graph && !graph.graph.is_repo}
 		<div class="state">{graph.graph.message || 'This workspace is not a git repository.'}</div>
 	{:else}
-		<div class="rows scrollbar-none" bind:this={rowsEl}>
-			<svg class="graph-rails" width={graphWidth} height={graphHeight} aria-hidden="true">
-				{#each strokes as stroke, index (index)}
-					<path d={stroke.d} fill="none" stroke={stroke.color} stroke-width="1.5" />
-				{/each}
+		<div class="rows">
+			<div
+				class="graph-pane"
+				bind:this={graphPane}
+				onscroll={() => syncPaneScroll(graphPane!, rowsEl)}
+			>
+				<div
+					class="graph-track"
+					style:width="{graphWidth}px"
+					style:height="{graphHeight}px"
+				>
+					<svg
+						class="graph-rails"
+						width={graphWidth}
+						height={graphHeight}
+						aria-hidden="true"
+					>
+						{#each strokes as stroke, index (index)}
+							<path
+								d={stroke.d}
+								fill="none"
+								stroke={stroke.color}
+								stroke-width="1.5"
+							/>
+						{/each}
+						{#each nodes as node, index (index)}
+							<circle cx={node.x} cy={node.y} r="3.5" fill={node.color} />
+						{/each}
+					</svg>
+				</div>
+			</div>
+			<div
+				class="info-pane"
+				bind:this={rowsEl}
+				onscroll={() => syncPaneScroll(rowsEl!, graphPane)}
+			>
 				{#if graph.uncommittedCount > 0}
-					<circle
-						cx={(graph.commits[0]?.lane ?? 0) * 16 + 8}
-						cy="14"
-						r="3.5"
-						fill={laneColor(graph.commits[0]?.lane ?? 0)}
+					<button type="button" class="uncommitted" onclick={() => onShowChanges?.()}>
+						<strong>Uncommitted Changes ({graph.uncommittedCount})</strong>
+					</button>
+				{/if}
+				{#each graph.commits as commit (commit.sha)}
+					<GitGraphRow
+						{commit}
+						selected={graph.selectedSha === commit.sha}
+						headSha={graph.graph?.head_sha ?? ''}
+						onOpen={() => void graph.selectCommit(commit.sha)}
+						onCommitMenu={graph.openCommitMenu}
+						onRefMenu={graph.openRefMenu}
 					/>
+					{#if graph.selectedSha === commit.sha}
+						<div class="detail-slot" bind:clientHeight={detailHeight}>
+							<GitGraphDetail
+								detail={graph.detail}
+								loading={graph.detailLoading}
+								error={graph.detailError}
+								onClose={graph.closeDetail}
+								onOpenFile={(path) =>
+									onOpenCommitFile?.(graph.selectedSha ?? '', path)}
+							/>
+						</div>
+					{/if}
+				{/each}
+				{#if graph.graph?.truncated}
+					<div class="more-sentinel" bind:this={moreSentinel} aria-hidden="true"></div>
 				{/if}
-			</svg>
-			{#if graph.uncommittedCount > 0}
-				<button type="button" class="uncommitted" onclick={() => onShowChanges?.()}>
-					<span class="lane-spacer" style:width="{graphWidth}px"></span>
-					<strong>Uncommitted Changes ({graph.uncommittedCount})</strong>
-				</button>
-			{/if}
-			{#each graph.commits as commit (commit.sha)}
-				<GitGraphRow
-					{commit}
-					{columns}
-					selected={graph.selectedSha === commit.sha}
-					headSha={graph.graph?.head_sha ?? ''}
-					onOpen={() => void graph.selectCommit(commit.sha)}
-					onCommitMenu={graph.openCommitMenu}
-					onRefMenu={graph.openRefMenu}
-				/>
-				{#if graph.selectedSha === commit.sha}
-					<div class="detail-slot" bind:clientHeight={detailHeight}>
-						<GitGraphDetail
-							detail={graph.detail}
-							loading={graph.detailLoading}
-							error={graph.detailError}
-							onClose={graph.closeDetail}
-							onOpenFile={(path) => onOpenCommitFile?.(graph.selectedSha ?? '', path)}
-						/>
-					</div>
-				{/if}
-			{/each}
-			{#if graph.graph?.truncated}
-				<div class="more-sentinel" bind:this={moreSentinel} aria-hidden="true"></div>
-			{/if}
+			</div>
 		</div>
 	{/if}
 
@@ -259,23 +288,46 @@
 	}
 
 	.rows {
-		position: relative;
+		display: grid;
+		grid-template-columns: minmax(72px, 168px) minmax(0, 1fr);
 		flex: 1;
 		min-height: 0;
+		min-width: 0;
+	}
+
+	.graph-pane,
+	.info-pane {
+		min-width: 0;
 		overflow: auto;
+		scrollbar-width: none;
+	}
+
+	.graph-pane::-webkit-scrollbar,
+	.info-pane::-webkit-scrollbar {
+		display: none;
+	}
+
+	.graph-pane {
+		padding: 4px 0 12px 4px;
+	}
+
+	.info-pane {
 		padding: 4px 0 12px;
+	}
+
+	.graph-track {
+		position: relative;
 	}
 
 	.detail-slot {
 		position: relative;
 		z-index: 2;
+		min-width: max-content;
 		background: var(--panel-bg);
 	}
 
 	.graph-rails {
-		position: absolute;
-		top: 4px;
-		left: 4px;
+		display: block;
 		pointer-events: none;
 	}
 
@@ -304,27 +356,21 @@
 	.uncommitted {
 		display: flex;
 		align-items: center;
-		gap: 8px;
 		width: max-content;
 		min-width: 100%;
 		height: 28px;
-		padding: 0 10px 0 4px;
+		padding: 0 10px 0 8px;
 		border: none;
 		background: transparent;
 		color: var(--text-main);
 		font-size: 13px;
 		text-align: left;
+		white-space: nowrap;
 		cursor: pointer;
 	}
 
 	.uncommitted:hover {
 		background: color-mix(in srgb, var(--accent) 8%, transparent);
-	}
-
-	.lane-spacer {
-		display: block;
-		flex: 0 0 auto;
-		height: 1px;
 	}
 
 	.more-sentinel {

@@ -136,6 +136,12 @@ export type GraphStroke = {
 	color: string;
 };
 
+export type GraphNode = {
+	x: number;
+	y: number;
+	color: string;
+};
+
 const graphCell = 16;
 const graphRow = 28;
 
@@ -205,6 +211,34 @@ export function graphStrokes(
 		}
 	});
 	return strokes;
+}
+
+/** Commit and working-tree circles, in the same coordinates as graphStrokes. */
+export function graphNodes(
+	commits: GitGraphCommit[],
+	includeWorking: boolean,
+	expansion?: { index: number; height: number }
+): GraphNode[] {
+	const nodes: GraphNode[] = [];
+	const offset = includeWorking ? 1 : 0;
+	const shift = expansion
+		? { index: expansion.index + offset, height: expansion.height }
+		: undefined;
+	if (includeWorking && commits.length > 0) {
+		nodes.push({
+			x: graphX(commits[0].lane),
+			y: graphRow / 2,
+			color: laneColor(commits[0].lane)
+		});
+	}
+	commits.forEach((commit, index) => {
+		nodes.push({
+			x: graphX(commit.lane),
+			y: graphY(index + offset, shift),
+			color: laneColor(commit.lane)
+		});
+	});
+	return nodes;
 }
 
 export function laneColumnCount(commits: GitGraphCommit[]): number {
