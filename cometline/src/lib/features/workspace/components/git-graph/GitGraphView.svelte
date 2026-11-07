@@ -36,9 +36,7 @@
 		if (index < 0) return undefined;
 		return { index, height: detailHeight };
 	});
-	const strokes = $derived(
-		graphStrokes(graph.commits, graph.uncommittedCount > 0, expansion)
-	);
+	const strokes = $derived(graphStrokes(graph.commits, graph.uncommittedCount > 0, expansion));
 	const graphWidth = $derived(columns * 16 + 8);
 	const graphHeight = $derived(
 		(graph.commits.length + (graph.uncommittedCount > 0 ? 1 : 0)) * 28 + detailHeight
@@ -120,12 +118,7 @@
 		<div class="state">{graph.graph.message || 'This workspace is not a git repository.'}</div>
 	{:else}
 		<div class="rows scrollbar-none">
-			<svg
-				class="graph-rails"
-				width={graphWidth}
-				height={graphHeight}
-				aria-hidden="true"
-			>
+			<svg class="graph-rails" width={graphWidth} height={graphHeight} aria-hidden="true">
 				{#each strokes as stroke, index (index)}
 					<path d={stroke.d} fill="none" stroke={stroke.color} stroke-width="1.5" />
 				{/each}
@@ -144,11 +137,10 @@
 					<strong>Uncommitted Changes ({graph.uncommittedCount})</strong>
 				</button>
 			{/if}
-			{#each graph.commits as commit, index (commit.sha)}
+			{#each graph.commits as commit (commit.sha)}
 				<GitGraphRow
 					{commit}
 					{columns}
-					first={index === 0 && graph.uncommittedCount === 0}
 					selected={graph.selectedSha === commit.sha}
 					headSha={graph.graph?.head_sha ?? ''}
 					onOpen={() => void graph.selectCommit(commit.sha)}
@@ -157,18 +149,23 @@
 				/>
 				{#if graph.selectedSha === commit.sha}
 					<div class="detail-slot" bind:clientHeight={detailHeight}>
-					<GitGraphDetail
-						detail={graph.detail}
-						loading={graph.detailLoading}
-						error={graph.detailError}
-						onClose={graph.closeDetail}
-						onOpenFile={(path) => onOpenCommitFile?.(graph.selectedSha ?? '', path)}
-					/>
+						<GitGraphDetail
+							detail={graph.detail}
+							loading={graph.detailLoading}
+							error={graph.detailError}
+							onClose={graph.closeDetail}
+							onOpenFile={(path) => onOpenCommitFile?.(graph.selectedSha ?? '', path)}
+						/>
 					</div>
 				{/if}
 			{/each}
 			{#if graph.graph?.truncated}
-				<button type="button" class="more" disabled={graph.loading} onclick={() => void graph.loadMore()}>
+				<button
+					type="button"
+					class="more"
+					disabled={graph.loading}
+					onclick={() => void graph.loadMore()}
+				>
 					{graph.loading ? 'Loading…' : 'Load more'}
 				</button>
 			{/if}
@@ -197,10 +194,7 @@
 	confirmLabel={dialog?.kind.startsWith('delete') ? 'Delete' : 'Save'}
 	confirmTone={dialog?.kind.startsWith('delete') ? 'danger' : 'accent'}
 	showInput={Boolean(dialog) && !dialog?.kind.startsWith('delete')}
-	bind:inputValue={
-		() => dialogInput,
-		(value) => graph.setDialogName(value)
-	}
+	bind:inputValue={() => dialogInput, (value) => graph.setDialogName(value)}
 	inputPlaceholder="Name"
 	onCancel={graph.cancelDialog}
 	onConfirm={() => void graph.confirmDialog()}

@@ -52,10 +52,16 @@
 			<p>
 				<strong>Parents:</strong>
 				{#each detail.parents as parent, index (parent)}
-					<span class="mono link">{parent.slice(0, 12)}</span>{index < detail.parents.length - 1 ? ', ' : ''}
+					<span class="mono link">{parent.slice(0, 12)}</span>{index <
+					detail.parents.length - 1
+						? ', '
+						: ''}
 				{/each}
 			</p>
-			<p><strong>Author:</strong> {detail.author} <span class="mono">&lt;{detail.author_email}&gt;</span></p>
+			<p>
+				<strong>Author:</strong>
+				{detail.author} <span class="mono">&lt;{detail.author_email}&gt;</span>
+			</p>
 			<p><strong>Date:</strong> {when}</p>
 			{#if detail.body}
 				<p class="body">{detail.body}</p>
@@ -65,7 +71,12 @@
 		</div>
 		<div class="files">
 			{#each detail.files as file (file.path)}
-				<button type="button" class="file" title={file.path} onclick={() => onOpenFile?.(file.path)}>
+				<button
+					type="button"
+					class="file"
+					title={file.path}
+					onclick={() => onOpenFile?.(file.path)}
+				>
 					<span class="dir">{fileDir(file.path)}</span>
 					<span class="name">
 						<FileTypeIcon path={file.path} size={14} />

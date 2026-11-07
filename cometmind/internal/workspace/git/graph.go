@@ -414,15 +414,15 @@ func refsOrEmpty(refs []GraphRef) []GraphRef {
 
 // CommitDetail is the expanded card for one commit.
 type CommitDetail struct {
-	SHA        string           `json:"sha"`
-	ShortSHA   string           `json:"short_sha"`
-	Parents    []string         `json:"parents"`
-	Subject    string           `json:"subject"`
-	Body       string           `json:"body,omitempty"`
-	Author     string           `json:"author,omitempty"`
-	AuthorEmail string          `json:"author_email,omitempty"`
-	AuthoredAt int64            `json:"authored_at,omitempty"`
-	Files      []CommitFileStat `json:"files"`
+	SHA         string           `json:"sha"`
+	ShortSHA    string           `json:"short_sha"`
+	Parents     []string         `json:"parents"`
+	Subject     string           `json:"subject"`
+	Body        string           `json:"body,omitempty"`
+	Author      string           `json:"author,omitempty"`
+	AuthorEmail string           `json:"author_email,omitempty"`
+	AuthoredAt  int64            `json:"authored_at,omitempty"`
+	Files       []CommitFileStat `json:"files"`
 }
 
 // CommitFileStat is one path changed by a commit.

@@ -11,7 +11,6 @@
 		columns,
 		selected = false,
 		headSha = '',
-		first = false,
 		onOpen,
 		onCommitMenu,
 		onRefMenu
@@ -20,7 +19,6 @@
 		columns: number;
 		selected?: boolean;
 		headSha?: string;
-		first?: boolean;
 		onOpen: () => void;
 		onCommitMenu: (sha: string, event: MouseEvent) => void;
 		onRefMenu: (ref: GitGraphRef, sha: string, event: MouseEvent) => void;
@@ -90,7 +88,12 @@
 		<span class="subject" title={commit.subject}>{commit.subject}</span>
 	</div>
 
-	<button type="button" class="meta sha" title={commit.sha} onclick={(event) => onCommitMenu(commit.sha, event)}>
+	<button
+		type="button"
+		class="meta sha"
+		title={commit.sha}
+		onclick={(event) => onCommitMenu(commit.sha, event)}
+	>
 		{commit.short_sha}
 	</button>
 </div>
@@ -205,5 +208,4 @@
 		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 		cursor: pointer;
 	}
-
 </style>

@@ -43,12 +43,7 @@ export type GitGraphCommitDetail = {
 	files: GitGraphCommitFile[];
 };
 
-export type GitGraphMenuAction =
-	| 'checkout'
-	| 'create-branch'
-	| 'create-tag'
-	| 'rename'
-	| 'delete';
+export type GitGraphMenuAction = 'checkout' | 'create-branch' | 'create-tag' | 'rename' | 'delete';
 
 export type GitGraphMenuItem = {
 	id: GitGraphMenuAction;
@@ -101,11 +96,13 @@ export function refMenuItems(ref: GitGraphRef): GitGraphMenuItem[] {
 	return items;
 }
 
-export function dialogInputValue(dialog: {
-	kind: string;
-	name?: string;
-	next?: string;
-} | null): string {
+export function dialogInputValue(
+	dialog: {
+		kind: string;
+		name?: string;
+		next?: string;
+	} | null
+): string {
 	if (!dialog || dialog.kind.startsWith('delete')) return '';
 	if (dialog.kind.startsWith('rename')) return dialog.next ?? '';
 	return dialog.name ?? '';
@@ -173,7 +170,9 @@ export function graphStrokes(
 		});
 	}
 	const offset = includeWorking ? 1 : 0;
-	const shift = expansion ? { index: expansion.index + offset, height: expansion.height } : undefined;
+	const shift = expansion
+		? { index: expansion.index + offset, height: expansion.height }
+		: undefined;
 	for (let lane = 0; lane < columns; lane++) {
 		let start = -1;
 		commits.forEach((commit, index) => {

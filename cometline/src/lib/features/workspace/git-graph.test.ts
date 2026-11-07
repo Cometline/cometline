@@ -24,10 +24,9 @@ function commit(partial: Partial<GitGraphCommit> & Pick<GitGraphCommit, 'sha'>):
 
 describe('git graph menu', () => {
 	it('hides delete on the current branch and hides remote actions', () => {
-		expect(refMenuItems({ name: 'main', kind: 'branch', current: true }).map((item) => item.id)).toEqual([
-			'checkout',
-			'rename'
-		]);
+		expect(
+			refMenuItems({ name: 'main', kind: 'branch', current: true }).map((item) => item.id)
+		).toEqual(['checkout', 'rename']);
 		expect(refMenuItems({ name: 'origin/main', kind: 'remote' })).toEqual([]);
 		expect(refMenuItems({ name: 'HEAD → dev', kind: 'head', current: true })).toEqual([]);
 		expect(refMenuItems({ name: 'v1', kind: 'tag' }).map((item) => item.id)).toEqual([
