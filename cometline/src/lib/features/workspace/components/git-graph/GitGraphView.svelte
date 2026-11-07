@@ -289,7 +289,7 @@
 
 	.rows {
 		display: grid;
-		grid-template-columns: minmax(72px, 168px) minmax(0, 1fr);
+		grid-template-columns: minmax(0, 168px) minmax(0, 1fr);
 		flex: 1;
 		min-height: 0;
 		min-width: 0;
@@ -308,11 +308,21 @@
 	}
 
 	.graph-pane {
+		width: min(168px, 100%);
+		max-width: max-content;
 		padding: 4px 0 12px 4px;
 	}
 
 	.info-pane {
 		padding: 4px 0 12px;
+		overflow-x: hidden;
+	}
+
+	.info-pane > :global(.git-graph-row),
+	.info-pane > :global(.uncommitted),
+	.info-pane > :global(.detail-slot) {
+		width: 100%;
+		max-width: 100%;
 	}
 
 	.graph-track {
@@ -322,7 +332,7 @@
 	.detail-slot {
 		position: relative;
 		z-index: 2;
-		min-width: max-content;
+		width: 100%;
 		background: var(--panel-bg);
 	}
 
@@ -356,8 +366,7 @@
 	.uncommitted {
 		display: flex;
 		align-items: center;
-		width: max-content;
-		min-width: 100%;
+		width: 100%;
 		height: 28px;
 		padding: 0 10px 0 8px;
 		border: none;

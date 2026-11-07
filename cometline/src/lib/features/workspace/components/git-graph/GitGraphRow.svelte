@@ -73,13 +73,13 @@
 <style>
 	.git-graph-row {
 		display: grid;
-		grid-template-columns: max-content minmax(8em, 1fr) 64px;
+		grid-template-columns: minmax(0, 1fr) 7ch;
 		align-items: center;
 		gap: 10px;
 		height: 28px;
-		width: max-content;
-		min-width: 100%;
-		padding: 0 10px 0 8px;
+		width: 100%;
+		min-width: 0;
+		padding: 0 12px 0 8px;
 	}
 
 	.git-graph-row:hover,
@@ -101,18 +101,20 @@
 
 	.refs {
 		display: flex;
-		flex: 0 0 auto;
+		flex: 0 1 auto;
 		flex-wrap: nowrap;
 		gap: 4px;
+		min-width: 0;
+		overflow: hidden;
 	}
 
 	.ref {
 		display: inline-flex;
 		align-items: center;
 		gap: 4px;
-		min-width: 7.5em;
-		max-width: none;
-		flex: 0 0 auto;
+		min-width: 0;
+		max-width: 12em;
+		flex: 0 1 auto;
 		border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border-soft));
 		border-radius: 6px;
 		padding: 0 6px;
@@ -124,6 +126,8 @@
 	}
 
 	.ref span {
+		overflow: hidden;
+		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
 
@@ -151,6 +155,8 @@
 	}
 
 	.subject {
+		flex: 1 1 auto;
+		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
@@ -167,7 +173,9 @@
 	}
 
 	.sha {
-		justify-self: end;
+		overflow: hidden;
+		text-align: right;
+		white-space: nowrap;
 		border: none;
 		background: transparent;
 		padding: 0;
