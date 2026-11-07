@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/Cometline/cometline/cometmind/internal/apigen"
@@ -48,7 +49,12 @@ func (a *App) handleWorkspaceGitDiff(c *gin.Context) {
 		return
 	}
 
-	result, err := workspacegit.Diff(c.Request.Context(), ws.Path, path, scope)
+	var result workspacegit.DiffResult
+	if sha := strings.TrimSpace(c.Query("sha")); sha != "" {
+		result, err = workspacegit.CommitPathDiff(c.Request.Context(), ws.Path, sha, path)
+	} else {
+		result, err = workspacegit.Diff(c.Request.Context(), ws.Path, path, scope)
+	}
 	if err != nil {
 		writeGitClientOrServerError(c, err)
 		return
@@ -95,6 +101,159 @@ func (a *App) handleWorkspaceGitDiscard(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+func (a *App) handleWorkspaceGitGraph(c *gin.Context) {
+	ws, ok := a.resolveCreateWorkspace(c, c.Query("workspace_id"), c.Query("workspace_path"))
+	if !ok {
+		return
+	}
+	limit, offset, err := parseGraphPage(c.Query("limit"), c.Query("offset"))
+	if err != nil {
+		writeError(c, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+	result, err := workspacegit.Graph(c.Request.Context(), ws.Path, workspacegit.GraphQuery{
+		Limit:  limit,
+		Offset: offset,
+	})
+	if err != nil {
+		writeGitClientOrServerError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
+func (a *App) handleWorkspaceGitCommitDetail(c *gin.Context) {
+	ws, ok := a.resolveCreateWorkspace(c, c.Query("workspace_id"), c.Query("workspace_path"))
+	if !ok {
+		return
+	}
+	detail, err := workspacegit.CommitInfo(c.Request.Context(), ws.Path, c.Query("sha"))
+	if err != nil {
+		writeGitClientOrServerError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, detail)
+}
+
+func (a *App) handleWorkspaceGitCheckout(c *gin.Context) {
+	var req apigen.WorkspaceGitCheckoutRequest
+	if !bindGitJSON(c, &req) {
+		return
+	}
+	ws, ok := a.resolveCreateWorkspace(c, derefString(req.WorkspaceId), derefString(req.WorkspacePath))
+	if !ok {
+		return
+	}
+	result, err := workspacegit.Checkout(c.Request.Context(), ws.Path, req.Ref)
+	if err != nil {
+		writeGitClientOrServerError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
+func (a *App) handleWorkspaceGitCreateBranch(c *gin.Context) {
+	var req apigen.WorkspaceGitBranchCreateRequest
+	if !bindGitJSON(c, &req) {
+		return
+	}
+	ws, ok := a.resolveCreateWorkspace(c, derefString(req.WorkspaceId), derefString(req.WorkspacePath))
+	if !ok {
+		return
+	}
+	result, err := workspacegit.CreateBranch(c.Request.Context(), ws.Path, req.Name, derefString(req.StartPoint))
+	if err != nil {
+		writeGitClientOrServerError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
+func (a *App) handleWorkspaceGitRenameBranch(c *gin.Context) {
+	var req apigen.WorkspaceGitRefRenameRequest
+	if !bindGitJSON(c, &req) {
+		return
+	}
+	ws, ok := a.resolveCreateWorkspace(c, derefString(req.WorkspaceId), derefString(req.WorkspacePath))
+	if !ok {
+		return
+	}
+	result, err := workspacegit.RenameBranch(c.Request.Context(), ws.Path, req.Name, req.NewName)
+	if err != nil {
+		writeGitClientOrServerError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
+func (a *App) handleWorkspaceGitDeleteBranch(c *gin.Context) {
+	var req apigen.WorkspaceGitRefDeleteRequest
+	if !bindGitJSON(c, &req) {
+		return
+	}
+	ws, ok := a.resolveCreateWorkspace(c, derefString(req.WorkspaceId), derefString(req.WorkspacePath))
+	if !ok {
+		return
+	}
+	result, err := workspacegit.DeleteBranch(c.Request.Context(), ws.Path, req.Name)
+	if err != nil {
+		writeGitClientOrServerError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
+func (a *App) handleWorkspaceGitCreateTag(c *gin.Context) {
+	var req apigen.WorkspaceGitTagCreateRequest
+	if !bindGitJSON(c, &req) {
+		return
+	}
+	ws, ok := a.resolveCreateWorkspace(c, derefString(req.WorkspaceId), derefString(req.WorkspacePath))
+	if !ok {
+		return
+	}
+	result, err := workspacegit.CreateTag(c.Request.Context(), ws.Path, req.Name, derefString(req.Sha))
+	if err != nil {
+		writeGitClientOrServerError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
+func (a *App) handleWorkspaceGitRenameTag(c *gin.Context) {
+	var req apigen.WorkspaceGitRefRenameRequest
+	if !bindGitJSON(c, &req) {
+		return
+	}
+	ws, ok := a.resolveCreateWorkspace(c, derefString(req.WorkspaceId), derefString(req.WorkspacePath))
+	if !ok {
+		return
+	}
+	result, err := workspacegit.RenameTag(c.Request.Context(), ws.Path, req.Name, req.NewName)
+	if err != nil {
+		writeGitClientOrServerError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
+func (a *App) handleWorkspaceGitDeleteTag(c *gin.Context) {
+	var req apigen.WorkspaceGitRefDeleteRequest
+	if !bindGitJSON(c, &req) {
+		return
+	}
+	ws, ok := a.resolveCreateWorkspace(c, derefString(req.WorkspaceId), derefString(req.WorkspacePath))
+	if !ok {
+		return
+	}
+	result, err := workspacegit.DeleteTag(c.Request.Context(), ws.Path, req.Name)
+	if err != nil {
+		writeGitClientOrServerError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
 func (a *App) handleWorkspaceGitCommit(c *gin.Context) {
 	var req apigen.WorkspaceGitCommitRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -126,6 +285,40 @@ func (a *App) bindGitPathsRequest(c *gin.Context) (apigen.WorkspaceGitPathsReque
 	return req, ws, true
 }
 
+func parseGraphPage(limitRaw, offsetRaw string) (int, int, error) {
+	limit := 0
+	offset := 0
+	if strings.TrimSpace(limitRaw) != "" {
+		n, err := strconv.Atoi(limitRaw)
+		if err != nil || n < 1 {
+			return 0, 0, errInvalidPage("limit must be a positive integer")
+		}
+		limit = n
+	}
+	if strings.TrimSpace(offsetRaw) != "" {
+		n, err := strconv.Atoi(offsetRaw)
+		if err != nil || n < 0 {
+			return 0, 0, errInvalidPage("offset must be a non-negative integer")
+		}
+		offset = n
+	}
+	return limit, offset, nil
+}
+
+type pageError string
+
+func (e pageError) Error() string { return string(e) }
+
+func errInvalidPage(msg string) error { return pageError(msg) }
+
+func bindGitJSON(c *gin.Context, dest any) bool {
+	if err := c.ShouldBindJSON(dest); err != nil {
+		writeError(c, http.StatusBadRequest, "bad_request", "invalid JSON body")
+		return false
+	}
+	return true
+}
+
 func writeGitClientOrServerError(c *gin.Context, err error) {
 	msg := err.Error()
 	lower := strings.ToLower(msg)
@@ -136,6 +329,17 @@ func writeGitClientOrServerError(c *gin.Context, err error) {
 		strings.Contains(lower, "nothing staged") ||
 		strings.Contains(lower, "not a git repository") ||
 		strings.Contains(lower, "refusing to discard") ||
+		strings.Contains(lower, "refusing to delete") ||
+		strings.Contains(lower, "invalid branch") ||
+		strings.Contains(lower, "invalid tag") ||
+		strings.Contains(lower, "invalid ref") ||
+		strings.Contains(lower, "invalid start") ||
+		strings.Contains(lower, "invalid commit") ||
+		strings.Contains(lower, "dirty") ||
+		strings.Contains(lower, "not fully merged") ||
+		strings.Contains(lower, "already exists") ||
+		strings.Contains(lower, "limit must") ||
+		strings.Contains(lower, "offset must") ||
 		strings.Contains(lower, "too many paths") ||
 		strings.Contains(lower, "exceeds") {
 		writeError(c, http.StatusBadRequest, "bad_request", msg)

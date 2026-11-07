@@ -12,12 +12,14 @@
 		workspacePath,
 		filePath,
 		scope = 'working' as GitScope,
+		sha = '',
 		onBack,
 		onMutated
 	}: {
 		workspacePath: string;
 		filePath: string;
 		scope?: GitScope;
+		sha?: string;
 		onBack?: () => void;
 		onMutated?: () => void;
 	} = $props();
@@ -26,12 +28,13 @@
 		getWorkspacePath: () => workspacePath,
 		getFilePath: () => filePath,
 		getScope: () => scope,
+		getSha: () => sha,
 		getOnBack: () => onBack,
 		getOnMutated: () => onMutated
 	});
 
 	$effect(() => {
-		void [workspacePath, filePath, scope, workspaceChangeVersion(workspacePath)];
+		void [workspacePath, filePath, scope, sha, workspaceChangeVersion(workspacePath)];
 		void diff.load();
 	});
 </script>

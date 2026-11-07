@@ -152,6 +152,139 @@ export type WorkspaceGitPathsRequest = {
     paths: Array<string>;
 };
 
+export type WorkspaceGitGraphLane = {
+    lane: number;
+    /**
+     * commit is the row's own node, pass continues another lane, merge marks a multi-parent node.
+     */
+    kind: 'commit' | 'pass' | 'merge';
+    /**
+     * Column a merge edge joins. Omitted for vertical cells.
+     */
+    to?: number;
+};
+
+export type WorkspaceGitGraphRef = {
+    /**
+     * Branch name, tag name, or remote-tracking name such as origin/main.
+     */
+    name: string;
+    kind: 'branch' | 'remote' | 'tag' | 'head';
+    /**
+     * True for the branch currently checked out.
+     */
+    current?: boolean;
+};
+
+export type WorkspaceGitGraphCommit = {
+    sha: string;
+    short_sha: string;
+    parents: Array<string>;
+    subject: string;
+    author?: string;
+    /**
+     * Unix seconds.
+     */
+    authored_at?: number;
+    lane: number;
+    lanes: Array<WorkspaceGitGraphLane>;
+    refs: Array<WorkspaceGitGraphRef>;
+};
+
+export type WorkspaceGitGraph = {
+    is_repo: boolean;
+    head_sha?: string;
+    /**
+     * Empty when HEAD is detached.
+     */
+    head_branch?: string;
+    commits: Array<WorkspaceGitGraphCommit>;
+    /**
+     * True when another page exists after this one.
+     */
+    truncated?: boolean;
+    message?: string;
+};
+
+export type WorkspaceGitCommitFile = {
+    path: string;
+    status: 'modified' | 'renamed' | 'binary';
+    additions: number;
+    deletions: number;
+};
+
+export type WorkspaceGitCommitDetail = {
+    sha: string;
+    short_sha: string;
+    parents: Array<string>;
+    subject: string;
+    body?: string;
+    author?: string;
+    author_email?: string;
+    /**
+     * Unix seconds.
+     */
+    authored_at?: number;
+    files: Array<WorkspaceGitCommitFile>;
+};
+
+/**
+ * Provide either workspace_id or workspace_path.
+ */
+export type WorkspaceGitCheckoutRequest = {
+    workspace_id?: string;
+    workspace_path?: string;
+    /**
+     * Local branch name or commit SHA.
+     */
+    ref: string;
+};
+
+/**
+ * Provide either workspace_id or workspace_path.
+ */
+export type WorkspaceGitBranchCreateRequest = {
+    workspace_id?: string;
+    workspace_path?: string;
+    name: string;
+    /**
+     * Commit or ref to start from. Defaults to HEAD.
+     */
+    start_point?: string;
+};
+
+/**
+ * Provide either workspace_id or workspace_path.
+ */
+export type WorkspaceGitTagCreateRequest = {
+    workspace_id?: string;
+    workspace_path?: string;
+    name: string;
+    /**
+     * Commit to tag. Defaults to HEAD.
+     */
+    sha?: string;
+};
+
+/**
+ * Provide either workspace_id or workspace_path.
+ */
+export type WorkspaceGitRefRenameRequest = {
+    workspace_id?: string;
+    workspace_path?: string;
+    name: string;
+    new_name: string;
+};
+
+/**
+ * Provide either workspace_id or workspace_path.
+ */
+export type WorkspaceGitRefDeleteRequest = {
+    workspace_id?: string;
+    workspace_path?: string;
+    name: string;
+};
+
 /**
  * Provide either workspace_id or workspace_path.
  */
@@ -1694,7 +1827,14 @@ export type GetWorkspaceGitDiffData = {
          * Workspace-relative file path.
          */
         path: string;
+        /**
+         * Ignored when sha is set.
+         */
         scope?: 'working' | 'staged' | 'all';
+        /**
+         * When set, return this path's diff in that commit instead of the worktree.
+         */
+        sha?: string;
     };
     url: '/api/v1/workspaces/git/diff';
 };
@@ -1811,6 +1951,284 @@ export type DiscardWorkspaceGitPathsResponses = {
 };
 
 export type DiscardWorkspaceGitPathsResponse = DiscardWorkspaceGitPathsResponses[keyof DiscardWorkspaceGitPathsResponses];
+
+export type GetWorkspaceGitGraphData = {
+    body?: never;
+    path?: never;
+    query?: {
+        workspace_id?: string;
+        workspace_path?: string;
+        limit?: number;
+        offset?: number;
+    };
+    url: '/api/v1/workspaces/git/graph';
+};
+
+export type GetWorkspaceGitGraphErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type GetWorkspaceGitGraphError = GetWorkspaceGitGraphErrors[keyof GetWorkspaceGitGraphErrors];
+
+export type GetWorkspaceGitGraphResponses = {
+    /**
+     * Commit graph page
+     */
+    200: WorkspaceGitGraph;
+};
+
+export type GetWorkspaceGitGraphResponse = GetWorkspaceGitGraphResponses[keyof GetWorkspaceGitGraphResponses];
+
+export type GetWorkspaceGitCommitDetailData = {
+    body?: never;
+    path?: never;
+    query: {
+        workspace_id?: string;
+        workspace_path?: string;
+        sha: string;
+    };
+    url: '/api/v1/workspaces/git/commit-detail';
+};
+
+export type GetWorkspaceGitCommitDetailErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type GetWorkspaceGitCommitDetailError = GetWorkspaceGitCommitDetailErrors[keyof GetWorkspaceGitCommitDetailErrors];
+
+export type GetWorkspaceGitCommitDetailResponses = {
+    /**
+     * Commit detail
+     */
+    200: WorkspaceGitCommitDetail;
+};
+
+export type GetWorkspaceGitCommitDetailResponse = GetWorkspaceGitCommitDetailResponses[keyof GetWorkspaceGitCommitDetailResponses];
+
+export type CheckoutWorkspaceGitData = {
+    body: WorkspaceGitCheckoutRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/workspaces/git/checkout';
+};
+
+export type CheckoutWorkspaceGitErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type CheckoutWorkspaceGitError = CheckoutWorkspaceGitErrors[keyof CheckoutWorkspaceGitErrors];
+
+export type CheckoutWorkspaceGitResponses = {
+    /**
+     * Checked out
+     */
+    200: WorkspaceGitMutationResult;
+};
+
+export type CheckoutWorkspaceGitResponse = CheckoutWorkspaceGitResponses[keyof CheckoutWorkspaceGitResponses];
+
+export type CreateWorkspaceGitBranchData = {
+    body: WorkspaceGitBranchCreateRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/workspaces/git/branches';
+};
+
+export type CreateWorkspaceGitBranchErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type CreateWorkspaceGitBranchError = CreateWorkspaceGitBranchErrors[keyof CreateWorkspaceGitBranchErrors];
+
+export type CreateWorkspaceGitBranchResponses = {
+    /**
+     * Branch created
+     */
+    200: WorkspaceGitMutationResult;
+};
+
+export type CreateWorkspaceGitBranchResponse = CreateWorkspaceGitBranchResponses[keyof CreateWorkspaceGitBranchResponses];
+
+export type RenameWorkspaceGitBranchData = {
+    body: WorkspaceGitRefRenameRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/workspaces/git/branches/rename';
+};
+
+export type RenameWorkspaceGitBranchErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type RenameWorkspaceGitBranchError = RenameWorkspaceGitBranchErrors[keyof RenameWorkspaceGitBranchErrors];
+
+export type RenameWorkspaceGitBranchResponses = {
+    /**
+     * Branch renamed
+     */
+    200: WorkspaceGitMutationResult;
+};
+
+export type RenameWorkspaceGitBranchResponse = RenameWorkspaceGitBranchResponses[keyof RenameWorkspaceGitBranchResponses];
+
+export type DeleteWorkspaceGitBranchData = {
+    body: WorkspaceGitRefDeleteRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/workspaces/git/branches/delete';
+};
+
+export type DeleteWorkspaceGitBranchErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type DeleteWorkspaceGitBranchError = DeleteWorkspaceGitBranchErrors[keyof DeleteWorkspaceGitBranchErrors];
+
+export type DeleteWorkspaceGitBranchResponses = {
+    /**
+     * Branch deleted
+     */
+    200: WorkspaceGitMutationResult;
+};
+
+export type DeleteWorkspaceGitBranchResponse = DeleteWorkspaceGitBranchResponses[keyof DeleteWorkspaceGitBranchResponses];
+
+export type CreateWorkspaceGitTagData = {
+    body: WorkspaceGitTagCreateRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/workspaces/git/tags';
+};
+
+export type CreateWorkspaceGitTagErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type CreateWorkspaceGitTagError = CreateWorkspaceGitTagErrors[keyof CreateWorkspaceGitTagErrors];
+
+export type CreateWorkspaceGitTagResponses = {
+    /**
+     * Tag created
+     */
+    200: WorkspaceGitMutationResult;
+};
+
+export type CreateWorkspaceGitTagResponse = CreateWorkspaceGitTagResponses[keyof CreateWorkspaceGitTagResponses];
+
+export type RenameWorkspaceGitTagData = {
+    body: WorkspaceGitRefRenameRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/workspaces/git/tags/rename';
+};
+
+export type RenameWorkspaceGitTagErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type RenameWorkspaceGitTagError = RenameWorkspaceGitTagErrors[keyof RenameWorkspaceGitTagErrors];
+
+export type RenameWorkspaceGitTagResponses = {
+    /**
+     * Tag renamed
+     */
+    200: WorkspaceGitMutationResult;
+};
+
+export type RenameWorkspaceGitTagResponse = RenameWorkspaceGitTagResponses[keyof RenameWorkspaceGitTagResponses];
+
+export type DeleteWorkspaceGitTagData = {
+    body: WorkspaceGitRefDeleteRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/workspaces/git/tags/delete';
+};
+
+export type DeleteWorkspaceGitTagErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type DeleteWorkspaceGitTagError = DeleteWorkspaceGitTagErrors[keyof DeleteWorkspaceGitTagErrors];
+
+export type DeleteWorkspaceGitTagResponses = {
+    /**
+     * Tag deleted
+     */
+    200: WorkspaceGitMutationResult;
+};
+
+export type DeleteWorkspaceGitTagResponse = DeleteWorkspaceGitTagResponses[keyof DeleteWorkspaceGitTagResponses];
 
 export type CommitWorkspaceGitData = {
     body: WorkspaceGitCommitRequest;

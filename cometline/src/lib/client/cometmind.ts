@@ -32,7 +32,16 @@ import {
 	listWorkspaceFiles as listWorkspaceFilesApi,
 	listWorkspaceFileChildren as listWorkspaceFileChildrenApi,
 	getWorkspaceGitStatus as getWorkspaceGitStatusApi,
+	getWorkspaceGitGraph as getWorkspaceGitGraphApi,
+	getWorkspaceGitCommitDetail as getWorkspaceGitCommitDetailApi,
 	getWorkspaceGitDiff as getWorkspaceGitDiffApi,
+	checkoutWorkspaceGit as checkoutWorkspaceGitApi,
+	createWorkspaceGitBranch as createWorkspaceGitBranchApi,
+	renameWorkspaceGitBranch as renameWorkspaceGitBranchApi,
+	deleteWorkspaceGitBranch as deleteWorkspaceGitBranchApi,
+	createWorkspaceGitTag as createWorkspaceGitTagApi,
+	renameWorkspaceGitTag as renameWorkspaceGitTagApi,
+	deleteWorkspaceGitTag as deleteWorkspaceGitTagApi,
 	stageWorkspaceGitPaths as stageWorkspaceGitPathsApi,
 	unstageWorkspaceGitPaths as unstageWorkspaceGitPathsApi,
 	discardWorkspaceGitPaths as discardWorkspaceGitPathsApi,
@@ -112,6 +121,8 @@ import type {
 	Workspace,
 	WorkspaceFileContent,
 	WorkspaceGitStatus,
+	WorkspaceGitGraph,
+	WorkspaceGitCommitDetail,
 	WorkspaceGitDiff,
 	WorkspaceGitMutationResult,
 	WorkspaceGitCommitResult,
@@ -377,6 +388,7 @@ export type GitScope = 'working' | 'staged' | 'all';
 
 export type {
 	WorkspaceGitStatus,
+	WorkspaceGitGraph,
 	WorkspaceGitDiff,
 	WorkspaceGitMutationResult,
 	WorkspaceGitCommitResult
@@ -392,13 +404,119 @@ export function getWorkspaceGitStatus(
 	}).then(({ data }) => data);
 }
 
+export function getWorkspaceGitCommitDetail(
+	workspacePath: string,
+	sha: string
+): Promise<WorkspaceGitCommitDetail> {
+	return getWorkspaceGitCommitDetailApi({
+		query: { workspace_path: workspacePath, sha },
+		throwOnError: true
+	}).then(({ data }) => data);
+}
+
+export function getWorkspaceGitGraph(
+	workspacePath: string,
+	page: { limit?: number; offset?: number } = {}
+): Promise<WorkspaceGitGraph> {
+	return getWorkspaceGitGraphApi({
+		query: {
+			workspace_path: workspacePath,
+			limit: page.limit,
+			offset: page.offset
+		},
+		throwOnError: true
+	}).then(({ data }) => data);
+}
+
+export async function checkoutWorkspaceGit(
+	workspacePath: string,
+	ref: string
+): Promise<WorkspaceGitMutationResult> {
+	const { data } = await checkoutWorkspaceGitApi({
+		body: { workspace_path: workspacePath, ref },
+		throwOnError: true
+	});
+	return data;
+}
+
+export async function createWorkspaceGitBranch(
+	workspacePath: string,
+	name: string,
+	startPoint?: string
+): Promise<WorkspaceGitMutationResult> {
+	const { data } = await createWorkspaceGitBranchApi({
+		body: { workspace_path: workspacePath, name, start_point: startPoint },
+		throwOnError: true
+	});
+	return data;
+}
+
+export async function renameWorkspaceGitBranch(
+	workspacePath: string,
+	name: string,
+	newName: string
+): Promise<WorkspaceGitMutationResult> {
+	const { data } = await renameWorkspaceGitBranchApi({
+		body: { workspace_path: workspacePath, name, new_name: newName },
+		throwOnError: true
+	});
+	return data;
+}
+
+export async function deleteWorkspaceGitBranch(
+	workspacePath: string,
+	name: string
+): Promise<WorkspaceGitMutationResult> {
+	const { data } = await deleteWorkspaceGitBranchApi({
+		body: { workspace_path: workspacePath, name },
+		throwOnError: true
+	});
+	return data;
+}
+
+export async function createWorkspaceGitTag(
+	workspacePath: string,
+	name: string,
+	sha?: string
+): Promise<WorkspaceGitMutationResult> {
+	const { data } = await createWorkspaceGitTagApi({
+		body: { workspace_path: workspacePath, name, sha },
+		throwOnError: true
+	});
+	return data;
+}
+
+export async function renameWorkspaceGitTag(
+	workspacePath: string,
+	name: string,
+	newName: string
+): Promise<WorkspaceGitMutationResult> {
+	const { data } = await renameWorkspaceGitTagApi({
+		body: { workspace_path: workspacePath, name, new_name: newName },
+		throwOnError: true
+	});
+	return data;
+}
+
+export async function deleteWorkspaceGitTag(
+	workspacePath: string,
+	name: string
+): Promise<WorkspaceGitMutationResult> {
+	const { data } = await deleteWorkspaceGitTagApi({
+		body: { workspace_path: workspacePath, name },
+		throwOnError: true
+	});
+	return data;
+}
+
 export function getWorkspaceGitDiff(
 	workspacePath: string,
 	path: string,
-	scope: GitScope = 'working'
+	scope: GitScope = 'working',
+	sha?: string
 ): Promise<WorkspaceGitDiff> {
 	return getWorkspaceGitDiffApi({
-		query: { workspace_path: workspacePath, path, scope },
+		query: { workspace_path: workspacePath, path, scope, sha },
 		throwOnError: true
 	}).then(({ data }) => data);
 }

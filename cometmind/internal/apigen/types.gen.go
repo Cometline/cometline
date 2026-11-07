@@ -1009,6 +1009,72 @@ func (e WorkspaceFileTextContentKind) Valid() bool {
 	}
 }
 
+// Defines values for WorkspaceGitCommitFileStatus.
+const (
+	Binary   WorkspaceGitCommitFileStatus = "binary"
+	Modified WorkspaceGitCommitFileStatus = "modified"
+	Renamed  WorkspaceGitCommitFileStatus = "renamed"
+)
+
+// Valid indicates whether the value is a known member of the WorkspaceGitCommitFileStatus enum.
+func (e WorkspaceGitCommitFileStatus) Valid() bool {
+	switch e {
+	case Binary:
+		return true
+	case Modified:
+		return true
+	case Renamed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WorkspaceGitGraphLaneKind.
+const (
+	Commit WorkspaceGitGraphLaneKind = "commit"
+	Merge  WorkspaceGitGraphLaneKind = "merge"
+	Pass   WorkspaceGitGraphLaneKind = "pass"
+)
+
+// Valid indicates whether the value is a known member of the WorkspaceGitGraphLaneKind enum.
+func (e WorkspaceGitGraphLaneKind) Valid() bool {
+	switch e {
+	case Commit:
+		return true
+	case Merge:
+		return true
+	case Pass:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WorkspaceGitGraphRefKind.
+const (
+	Branch WorkspaceGitGraphRefKind = "branch"
+	Head   WorkspaceGitGraphRefKind = "head"
+	Remote WorkspaceGitGraphRefKind = "remote"
+	Tag    WorkspaceGitGraphRefKind = "tag"
+)
+
+// Valid indicates whether the value is a known member of the WorkspaceGitGraphRefKind enum.
+func (e WorkspaceGitGraphRefKind) Valid() bool {
+	switch e {
+	case Branch:
+		return true
+	case Head:
+		return true
+	case Remote:
+		return true
+	case Tag:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListInboxMessagesParamsStatus.
 const (
 	ListInboxMessagesParamsStatusArchived ListInboxMessagesParamsStatus = "archived"
@@ -2523,6 +2589,50 @@ type WorkspaceFileTextContent struct {
 // WorkspaceFileTextContentKind defines model for WorkspaceFileTextContent.Kind.
 type WorkspaceFileTextContentKind string
 
+// WorkspaceGitBranchCreateRequest Provide either workspace_id or workspace_path.
+type WorkspaceGitBranchCreateRequest struct {
+	Name string `json:"name"`
+
+	// StartPoint Commit or ref to start from. Defaults to HEAD.
+	StartPoint    *string `json:"start_point,omitempty"`
+	WorkspaceId   *string `json:"workspace_id,omitempty"`
+	WorkspacePath *string `json:"workspace_path,omitempty"`
+}
+
+// WorkspaceGitCheckoutRequest Provide either workspace_id or workspace_path.
+type WorkspaceGitCheckoutRequest struct {
+	// Ref Local branch name or commit SHA.
+	Ref           string  `json:"ref"`
+	WorkspaceId   *string `json:"workspace_id,omitempty"`
+	WorkspacePath *string `json:"workspace_path,omitempty"`
+}
+
+// WorkspaceGitCommitDetail defines model for WorkspaceGitCommitDetail.
+type WorkspaceGitCommitDetail struct {
+	Author      *string `json:"author,omitempty"`
+	AuthorEmail *string `json:"author_email,omitempty"`
+
+	// AuthoredAt Unix seconds.
+	AuthoredAt *int                     `json:"authored_at,omitempty"`
+	Body       *string                  `json:"body,omitempty"`
+	Files      []WorkspaceGitCommitFile `json:"files"`
+	Parents    []string                 `json:"parents"`
+	Sha        string                   `json:"sha"`
+	ShortSha   string                   `json:"short_sha"`
+	Subject    string                   `json:"subject"`
+}
+
+// WorkspaceGitCommitFile defines model for WorkspaceGitCommitFile.
+type WorkspaceGitCommitFile struct {
+	Additions int                          `json:"additions"`
+	Deletions int                          `json:"deletions"`
+	Path      string                       `json:"path"`
+	Status    WorkspaceGitCommitFileStatus `json:"status"`
+}
+
+// WorkspaceGitCommitFileStatus defines model for WorkspaceGitCommitFile.Status.
+type WorkspaceGitCommitFileStatus string
+
 // WorkspaceGitCommitRequest Provide either workspace_id or workspace_path.
 type WorkspaceGitCommitRequest struct {
 	// Message Commit message (staged changes only).
@@ -2570,6 +2680,61 @@ type WorkspaceGitFileStatus struct {
 	Xy *string `json:"xy,omitempty"`
 }
 
+// WorkspaceGitGraph defines model for WorkspaceGitGraph.
+type WorkspaceGitGraph struct {
+	Commits []WorkspaceGitGraphCommit `json:"commits"`
+
+	// HeadBranch Empty when HEAD is detached.
+	HeadBranch *string `json:"head_branch,omitempty"`
+	HeadSha    *string `json:"head_sha,omitempty"`
+	IsRepo     bool    `json:"is_repo"`
+	Message    *string `json:"message,omitempty"`
+
+	// Truncated True when another page exists after this one.
+	Truncated *bool `json:"truncated,omitempty"`
+}
+
+// WorkspaceGitGraphCommit defines model for WorkspaceGitGraphCommit.
+type WorkspaceGitGraphCommit struct {
+	Author *string `json:"author,omitempty"`
+
+	// AuthoredAt Unix seconds.
+	AuthoredAt *int                    `json:"authored_at,omitempty"`
+	Lane       int                     `json:"lane"`
+	Lanes      []WorkspaceGitGraphLane `json:"lanes"`
+	Parents    []string                `json:"parents"`
+	Refs       []WorkspaceGitGraphRef  `json:"refs"`
+	Sha        string                  `json:"sha"`
+	ShortSha   string                  `json:"short_sha"`
+	Subject    string                  `json:"subject"`
+}
+
+// WorkspaceGitGraphLane defines model for WorkspaceGitGraphLane.
+type WorkspaceGitGraphLane struct {
+	// Kind commit is the row's own node, pass continues another lane, merge marks a multi-parent node.
+	Kind WorkspaceGitGraphLaneKind `json:"kind"`
+	Lane int                       `json:"lane"`
+
+	// To Column a merge edge joins. Omitted for vertical cells.
+	To *int `json:"to,omitempty"`
+}
+
+// WorkspaceGitGraphLaneKind commit is the row's own node, pass continues another lane, merge marks a multi-parent node.
+type WorkspaceGitGraphLaneKind string
+
+// WorkspaceGitGraphRef defines model for WorkspaceGitGraphRef.
+type WorkspaceGitGraphRef struct {
+	// Current True for the branch currently checked out.
+	Current *bool                    `json:"current,omitempty"`
+	Kind    WorkspaceGitGraphRefKind `json:"kind"`
+
+	// Name Branch name, tag name, or remote-tracking name such as origin/main.
+	Name string `json:"name"`
+}
+
+// WorkspaceGitGraphRefKind defines model for WorkspaceGitGraphRef.Kind.
+type WorkspaceGitGraphRefKind string
+
 // WorkspaceGitMutationResult defines model for WorkspaceGitMutationResult.
 type WorkspaceGitMutationResult struct {
 	Message *string `json:"message,omitempty"`
@@ -2582,6 +2747,21 @@ type WorkspaceGitPathsRequest struct {
 	Paths         []string `json:"paths"`
 	WorkspaceId   *string  `json:"workspace_id,omitempty"`
 	WorkspacePath *string  `json:"workspace_path,omitempty"`
+}
+
+// WorkspaceGitRefDeleteRequest Provide either workspace_id or workspace_path.
+type WorkspaceGitRefDeleteRequest struct {
+	Name          string  `json:"name"`
+	WorkspaceId   *string `json:"workspace_id,omitempty"`
+	WorkspacePath *string `json:"workspace_path,omitempty"`
+}
+
+// WorkspaceGitRefRenameRequest Provide either workspace_id or workspace_path.
+type WorkspaceGitRefRenameRequest struct {
+	Name          string  `json:"name"`
+	NewName       string  `json:"new_name"`
+	WorkspaceId   *string `json:"workspace_id,omitempty"`
+	WorkspacePath *string `json:"workspace_path,omitempty"`
 }
 
 // WorkspaceGitStatus defines model for WorkspaceGitStatus.
@@ -2601,6 +2781,16 @@ type WorkspaceGitStatus struct {
 
 	// Upstream Tracking branch when configured.
 	Upstream *string `json:"upstream,omitempty"`
+}
+
+// WorkspaceGitTagCreateRequest Provide either workspace_id or workspace_path.
+type WorkspaceGitTagCreateRequest struct {
+	Name string `json:"name"`
+
+	// Sha Commit to tag. Defaults to HEAD.
+	Sha           *string `json:"sha,omitempty"`
+	WorkspaceId   *string `json:"workspace_id,omitempty"`
+	WorkspacePath *string `json:"workspace_path,omitempty"`
 }
 
 // WorkspaceListResponse defines model for WorkspaceListResponse.
@@ -2842,18 +3032,38 @@ type ReadWorkspaceFileContentParams struct {
 	Path string `form:"path" json:"path"`
 }
 
+// GetWorkspaceGitCommitDetailParams defines parameters for GetWorkspaceGitCommitDetail.
+type GetWorkspaceGitCommitDetailParams struct {
+	WorkspaceId   *string `form:"workspace_id,omitempty" json:"workspace_id,omitempty"`
+	WorkspacePath *string `form:"workspace_path,omitempty" json:"workspace_path,omitempty"`
+	Sha           string  `form:"sha" json:"sha"`
+}
+
 // GetWorkspaceGitDiffParams defines parameters for GetWorkspaceGitDiff.
 type GetWorkspaceGitDiffParams struct {
 	WorkspaceId   *string `form:"workspace_id,omitempty" json:"workspace_id,omitempty"`
 	WorkspacePath *string `form:"workspace_path,omitempty" json:"workspace_path,omitempty"`
 
 	// Path Workspace-relative file path.
-	Path  string                          `form:"path" json:"path"`
+	Path string `form:"path" json:"path"`
+
+	// Scope Ignored when sha is set.
 	Scope *GetWorkspaceGitDiffParamsScope `form:"scope,omitempty" json:"scope,omitempty"`
+
+	// Sha When set, return this path's diff in that commit instead of the worktree.
+	Sha *string `form:"sha,omitempty" json:"sha,omitempty"`
 }
 
 // GetWorkspaceGitDiffParamsScope defines parameters for GetWorkspaceGitDiff.
 type GetWorkspaceGitDiffParamsScope string
+
+// GetWorkspaceGitGraphParams defines parameters for GetWorkspaceGitGraph.
+type GetWorkspaceGitGraphParams struct {
+	WorkspaceId   *string `form:"workspace_id,omitempty" json:"workspace_id,omitempty"`
+	WorkspacePath *string `form:"workspace_path,omitempty" json:"workspace_path,omitempty"`
+	Limit         *int    `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset        *int    `form:"offset,omitempty" json:"offset,omitempty"`
+}
 
 // GetWorkspaceGitStatusParams defines parameters for GetWorkspaceGitStatus.
 type GetWorkspaceGitStatusParams struct {
@@ -2956,6 +3166,18 @@ type CreateWorkspaceJSONRequestBody = CreateWorkspaceRequest
 // WriteWorkspaceFileContentJSONRequestBody defines body for WriteWorkspaceFileContent for application/json ContentType.
 type WriteWorkspaceFileContentJSONRequestBody = WriteWorkspaceFileRequest
 
+// CreateWorkspaceGitBranchJSONRequestBody defines body for CreateWorkspaceGitBranch for application/json ContentType.
+type CreateWorkspaceGitBranchJSONRequestBody = WorkspaceGitBranchCreateRequest
+
+// DeleteWorkspaceGitBranchJSONRequestBody defines body for DeleteWorkspaceGitBranch for application/json ContentType.
+type DeleteWorkspaceGitBranchJSONRequestBody = WorkspaceGitRefDeleteRequest
+
+// RenameWorkspaceGitBranchJSONRequestBody defines body for RenameWorkspaceGitBranch for application/json ContentType.
+type RenameWorkspaceGitBranchJSONRequestBody = WorkspaceGitRefRenameRequest
+
+// CheckoutWorkspaceGitJSONRequestBody defines body for CheckoutWorkspaceGit for application/json ContentType.
+type CheckoutWorkspaceGitJSONRequestBody = WorkspaceGitCheckoutRequest
+
 // CommitWorkspaceGitJSONRequestBody defines body for CommitWorkspaceGit for application/json ContentType.
 type CommitWorkspaceGitJSONRequestBody = WorkspaceGitCommitRequest
 
@@ -2964,6 +3186,15 @@ type DiscardWorkspaceGitPathsJSONRequestBody = WorkspaceGitPathsRequest
 
 // StageWorkspaceGitPathsJSONRequestBody defines body for StageWorkspaceGitPaths for application/json ContentType.
 type StageWorkspaceGitPathsJSONRequestBody = WorkspaceGitPathsRequest
+
+// CreateWorkspaceGitTagJSONRequestBody defines body for CreateWorkspaceGitTag for application/json ContentType.
+type CreateWorkspaceGitTagJSONRequestBody = WorkspaceGitTagCreateRequest
+
+// DeleteWorkspaceGitTagJSONRequestBody defines body for DeleteWorkspaceGitTag for application/json ContentType.
+type DeleteWorkspaceGitTagJSONRequestBody = WorkspaceGitRefDeleteRequest
+
+// RenameWorkspaceGitTagJSONRequestBody defines body for RenameWorkspaceGitTag for application/json ContentType.
+type RenameWorkspaceGitTagJSONRequestBody = WorkspaceGitRefRenameRequest
 
 // UnstageWorkspaceGitPathsJSONRequestBody defines body for UnstageWorkspaceGitPaths for application/json ContentType.
 type UnstageWorkspaceGitPathsJSONRequestBody = WorkspaceGitPathsRequest

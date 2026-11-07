@@ -91,6 +91,51 @@ func (s *strictServer) WriteWorkspaceFileContent(ctx context.Context, _ apigen.W
 	return nil, nil
 }
 
+func (s *strictServer) GetWorkspaceGitGraph(ctx context.Context, _ apigen.GetWorkspaceGitGraphRequestObject) (apigen.GetWorkspaceGitGraphResponseObject, error) {
+	delegateGin(ctx, s.app.handleWorkspaceGitGraph)
+	return nil, nil
+}
+
+func (s *strictServer) GetWorkspaceGitCommitDetail(ctx context.Context, _ apigen.GetWorkspaceGitCommitDetailRequestObject) (apigen.GetWorkspaceGitCommitDetailResponseObject, error) {
+	delegateGin(ctx, s.app.handleWorkspaceGitCommitDetail)
+	return nil, nil
+}
+
+func (s *strictServer) CheckoutWorkspaceGit(ctx context.Context, _ apigen.CheckoutWorkspaceGitRequestObject) (apigen.CheckoutWorkspaceGitResponseObject, error) {
+	delegateGin(ctx, s.app.handleWorkspaceGitCheckout)
+	return nil, nil
+}
+
+func (s *strictServer) CreateWorkspaceGitBranch(ctx context.Context, _ apigen.CreateWorkspaceGitBranchRequestObject) (apigen.CreateWorkspaceGitBranchResponseObject, error) {
+	delegateGin(ctx, s.app.handleWorkspaceGitCreateBranch)
+	return nil, nil
+}
+
+func (s *strictServer) RenameWorkspaceGitBranch(ctx context.Context, _ apigen.RenameWorkspaceGitBranchRequestObject) (apigen.RenameWorkspaceGitBranchResponseObject, error) {
+	delegateGin(ctx, s.app.handleWorkspaceGitRenameBranch)
+	return nil, nil
+}
+
+func (s *strictServer) DeleteWorkspaceGitBranch(ctx context.Context, _ apigen.DeleteWorkspaceGitBranchRequestObject) (apigen.DeleteWorkspaceGitBranchResponseObject, error) {
+	delegateGin(ctx, s.app.handleWorkspaceGitDeleteBranch)
+	return nil, nil
+}
+
+func (s *strictServer) CreateWorkspaceGitTag(ctx context.Context, _ apigen.CreateWorkspaceGitTagRequestObject) (apigen.CreateWorkspaceGitTagResponseObject, error) {
+	delegateGin(ctx, s.app.handleWorkspaceGitCreateTag)
+	return nil, nil
+}
+
+func (s *strictServer) RenameWorkspaceGitTag(ctx context.Context, _ apigen.RenameWorkspaceGitTagRequestObject) (apigen.RenameWorkspaceGitTagResponseObject, error) {
+	delegateGin(ctx, s.app.handleWorkspaceGitRenameTag)
+	return nil, nil
+}
+
+func (s *strictServer) DeleteWorkspaceGitTag(ctx context.Context, _ apigen.DeleteWorkspaceGitTagRequestObject) (apigen.DeleteWorkspaceGitTagResponseObject, error) {
+	delegateGin(ctx, s.app.handleWorkspaceGitDeleteTag)
+	return nil, nil
+}
+
 func (s *strictServer) CommitWorkspaceGit(ctx context.Context, _ apigen.CommitWorkspaceGitRequestObject) (apigen.CommitWorkspaceGitResponseObject, error) {
 	delegateGin(ctx, s.app.handleWorkspaceGitCommit)
 	return nil, nil
