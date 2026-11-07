@@ -66,8 +66,10 @@ async function configureHttpServer(container: HTMLElement) {
 }
 
 function oauthButton(container: HTMLElement): HTMLButtonElement {
-	const button = [...container.querySelectorAll('button')].find((candidate) =>
-		candidate.textContent?.includes('Connect with OAuth')
+	const button = [...container.querySelectorAll('button')].find(
+		(candidate) =>
+			candidate.classList.contains('row-oauth') ||
+			candidate.textContent?.includes('Connect with OAuth')
 	) as HTMLButtonElement | undefined;
 	expect(button).toBeTruthy();
 	return button!;
@@ -193,6 +195,55 @@ describe('SettingsMCPPanel add server', () => {
 		expect(persist.mock.calls[0]?.[0]?.mcp.enabled).toBe(true);
 		expect(persist.mock.calls[0]?.[0]?.mcp.servers[0]?.url).toBe('https://mcp.example.com/mcp');
 		expect(calls).toEqual(['save', 'oauth']);
+	});
+
+	it('re-authorizes a signed-in connector from the row without opening the editor', async () => {
+		vi.mocked(listMcpServers).mockResolvedValue([
+			{
+				id: 'svelte',
+				name: 'Svelte',
+				enabled: true,
+				transport: 'http',
+				status: 'connected',
+				tool_count: 4,
+				oauth_connected: true
+			}
+		]);
+		vi.mocked(startMcpOAuth).mockResolvedValue({ ok: true, connected: true });
+		const persist = vi.fn(async () => {});
+		const mcp: CometMindMCPSettings = {
+			...defaultSettings().cometmind.mcp,
+			enabled: true,
+			servers: [
+				{
+					id: 'svelte',
+					name: 'Svelte',
+					enabled: true,
+					transport: 'http',
+					command: '',
+					args: [],
+					env: {},
+					url: 'https://mcp.svelte.dev/mcp',
+					headers: {}
+				}
+			]
+		};
+		const { container } = render(Harness, {
+			props: { mcp, onPersistBeforeRuntimeAction: persist }
+		});
+
+		await waitFor(() => {
+			expect(container.querySelector('.row-oauth')?.textContent).toContain('Re-auth');
+		});
+		expect(container.querySelector('.mcp-server-editor')).toBeNull();
+
+		await fireEvent.click(container.querySelector('.row-oauth')!);
+
+		await waitFor(() => {
+			expect(startMcpOAuth).toHaveBeenCalledWith('svelte');
+		});
+		expect(persist).toHaveBeenCalledTimes(1);
+		expect(container.querySelector('.mcp-server-editor')).toBeNull();
 	});
 
 	it('shows a Test button that does not disable Refresh status', async () => {

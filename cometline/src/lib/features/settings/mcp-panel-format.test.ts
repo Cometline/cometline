@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { MCPServerConfig } from '#lib/cometmind-settings.js';
 import {
+	canOAuthFromRow,
 	displayError,
 	formatEnv,
 	mergeKnownTools,
@@ -34,6 +35,14 @@ describe('mcp-panel-format', () => {
 		expect(parseEnv('A=1\nB\n =x\n C = two ')).toEqual({ A: '1', C: 'two' });
 		expect(formatEnv({ A: '1', C: 'two' })).toBe('A=1\nC=two');
 		expect(parseArgs('  -y   pkg ')).toEqual(['-y', 'pkg']);
+	});
+
+	it('offers row OAuth only for remote connectors with a URL', () => {
+		expect(canOAuthFromRow(server)).toBe(false);
+		expect(canOAuthFromRow({ ...server, transport: 'http', url: '  ' })).toBe(false);
+		expect(
+			canOAuthFromRow({ ...server, transport: 'http', url: 'https://mcp.example.com/mcp' })
+		).toBe(true);
 	});
 
 	it('labels auth errors as needing sign-in', () => {
