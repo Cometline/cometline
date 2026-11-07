@@ -12,6 +12,7 @@
 	import type { WorkspacePanelView } from '#lib/features/workspace/workspace-panel-view.svelte.js';
 
 	let { view, panel }: { view: WorkspacePanelView; panel: WorkspacePanelController } = $props();
+	let commitDiffSha = $state('');
 </script>
 
 <WorkspacePanelLayer variant="terminal" active={view.terminalLayerActive}>
@@ -37,7 +38,10 @@
 		/>
 	</WorkspacePanelLayer>
 	<WorkspacePanelLayer active={view.changesLayerActive}>
-		<GitChangesBrowser workspacePath={view.normalizedWorkspacePath} />
+		<GitChangesBrowser
+			workspacePath={view.normalizedWorkspacePath}
+			onOpenCommitFile={(sha) => (commitDiffSha = sha)}
+		/>
 	</WorkspacePanelLayer>
 	<WorkspaceFileSurface
 		workspacePath={shellStore.workspacePath}
@@ -58,7 +62,11 @@
 				workspacePath={shellStore.workspacePath}
 				filePath={view.changesDiffPath}
 				scope="all"
-				onBack={() => shellStore.panelHistoryBack()}
+				sha={commitDiffSha}
+				onBack={() => {
+					commitDiffSha = '';
+					shellStore.panelHistoryBack();
+				}}
 			/>
 		</WorkspacePanelLayer>
 	{/if}

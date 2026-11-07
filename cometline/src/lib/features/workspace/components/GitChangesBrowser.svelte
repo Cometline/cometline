@@ -4,7 +4,9 @@
 	import GitChangesHeader from '#lib/features/workspace/components/git-changes/GitChangesHeader.svelte';
 	import GitChangesSection from '#lib/features/workspace/components/git-changes/GitChangesSection.svelte';
 	import GitFileRow from '#lib/features/workspace/components/git-changes/GitFileRow.svelte';
+	import GitGraphView from '#lib/features/workspace/components/git-graph/GitGraphView.svelte';
 	import GitReviewView from '#lib/features/workspace/components/GitReviewView.svelte';
+	import { shellStore } from '#lib/stores/shell.svelte.js';
 	import { createGitChangesBrowserController } from '#lib/features/workspace/git-changes-browser.svelte.js';
 	import type {
 		GitChangesSectionKind,
@@ -13,15 +15,18 @@
 	import { workspaceChangeVersion } from '#lib/features/workspace/workspace-change.svelte.js';
 
 	let {
-		workspacePath
+		workspacePath,
+		onOpenCommitFile
 	}: {
 		workspacePath: string;
+		onOpenCommitFile?: (sha: string, path: string) => void;
 	} = $props();
 
 	const changes = createGitChangesBrowserController({ getWorkspacePath: () => workspacePath });
 
 	let stagedOpen = $state(true);
 	let changesOpen = $state(true);
+	let tab = $state<'changes' | 'graph'>('changes');
 
 	$effect(() => {
 		void [changes.normalizedWorkspace, workspaceChangeVersion(changes.normalizedWorkspace)];
@@ -44,6 +49,36 @@
 {/snippet}
 
 <div class="git-changes">
+	<div class="source-toggle" role="group" aria-label="Git panel">
+		<button
+			type="button"
+			class="source-toggle-btn"
+			class:active={tab === 'changes'}
+			aria-pressed={tab === 'changes'}
+			onclick={() => (tab = 'changes')}
+		>
+			Changes
+		</button>
+		<button
+			type="button"
+			class="source-toggle-btn"
+			class:active={tab === 'graph'}
+			aria-pressed={tab === 'graph'}
+			onclick={() => (tab = 'graph')}
+		>
+			Graph
+		</button>
+	</div>
+	{#if tab === 'graph'}
+		<GitGraphView
+			{workspacePath}
+			onShowChanges={() => (tab = 'changes')}
+			onOpenCommitFile={(sha, path) => {
+				onOpenCommitFile?.(sha, path);
+				queueMicrotask(() => shellStore.openGitDiffForActive(path));
+			}}
+		/>
+	{:else}
 	<GitChangesHeader
 		status={changes.status}
 		loading={changes.loading}
@@ -116,6 +151,7 @@
 			{/if}
 		</div>
 	{/if}
+	{/if}
 </div>
 
 <ConfirmActionModal
@@ -136,6 +172,33 @@
 		height: 100%;
 		min-height: 0;
 		background: var(--panel-bg);
+	}
+
+	.source-toggle {
+		display: flex;
+		gap: 2px;
+		width: fit-content;
+		margin: 8px 12px 0;
+		padding: 2px;
+		border-radius: 8px;
+		background: var(--surface-muted, rgba(0, 0, 0, 0.04));
+	}
+
+	.source-toggle-btn {
+		border: none;
+		border-radius: 6px;
+		padding: 5px 10px;
+		background: transparent;
+		color: var(--text-muted);
+		font-size: 12px;
+		font-weight: 550;
+		cursor: pointer;
+	}
+
+	.source-toggle-btn.active {
+		background: var(--surface-elevated, var(--panel-bg));
+		color: var(--text-primary, var(--color-111111));
+		box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
 	}
 
 	.git-state {
