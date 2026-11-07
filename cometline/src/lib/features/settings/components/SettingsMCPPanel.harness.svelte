@@ -6,12 +6,16 @@
 	} from '#lib/cometmind-settings.js';
 
 	let {
+		mcp: initialMcp,
 		onPersistBeforeRuntimeAction
 	}: {
+		mcp?: CometMindMCPSettings;
 		onPersistBeforeRuntimeAction?: (overrides?: { mcp: CometMindMCPSettings }) => Promise<void>;
 	} = $props();
 
-	let mcp = $state<CometMindMCPSettings>(defaultCometMindMCPSettings());
+	// Intentional snapshot: the panel owns the draft after mount.
+	// svelte-ignore state_referenced_locally
+	let mcp = $state<CometMindMCPSettings>(initialMcp ?? defaultCometMindMCPSettings());
 </script>
 
 <SettingsMCPPanel bind:mcp {onPersistBeforeRuntimeAction} />

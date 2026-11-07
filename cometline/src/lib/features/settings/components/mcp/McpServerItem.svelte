@@ -1,11 +1,12 @@
 <script lang="ts">
-	import { ChevronDown, ChevronRight, Pencil, Trash2 } from '@lucide/svelte';
+	import { ChevronDown, ChevronRight, KeyRound, Pencil, Trash2 } from '@lucide/svelte';
 	import McpServerEditor from './McpServerEditor.svelte';
 	import McpToolToggles from './McpToolToggles.svelte';
 	import type { MCPServerConfig } from '#lib/cometmind-settings.js';
 	import type { McpServerStatus } from '#lib/client/cometmind.js';
 	import type { McpPanelController } from '#lib/features/settings/mcp-panel-controller.svelte.js';
 	import {
+		canOAuthFromRow,
 		connectionSummary,
 		displayError,
 		statusClass,
@@ -27,6 +28,10 @@
 		mcpEnabled: boolean;
 		controller: McpPanelController;
 	} = $props();
+
+	const oauthBusy = $derived(controller.rowBusy[server.id] === 'oauth');
+	const showOAuth = $derived(canOAuthFromRow(server));
+	const signedIn = $derived(Boolean(status?.oauth_connected));
 </script>
 
 <div class="mcp-server-item" class:expanded>
@@ -73,6 +78,24 @@
 			>
 				<span></span>
 			</button>
+			{#if showOAuth}
+				<button
+					type="button"
+					class="row-oauth"
+					disabled={controller.isRowBusy(server.id)}
+					aria-label={signedIn
+						? `Re-authorize ${server.name}`
+						: `Connect ${server.name} with OAuth`}
+					title={signedIn ? 'Re-authorize' : 'Connect with OAuth'}
+					onclick={(e) => {
+						e.stopPropagation();
+						void controller.connectOAuth(server);
+					}}
+				>
+					<KeyRound size={14} />
+					<span>{oauthBusy ? 'Connecting…' : signedIn ? 'Re-auth' : 'Connect'}</span>
+				</button>
+			{/if}
 			<button
 				type="button"
 				class="row-edit"
@@ -165,6 +188,7 @@
 		background: var(--color-7aa1aa);
 	}
 
+	.row-oauth,
 	.row-edit,
 	.row-remove {
 		display: inline-flex;
@@ -176,6 +200,28 @@
 		border-radius: 8px;
 		padding: 6px;
 		cursor: pointer;
+	}
+
+	.row-oauth {
+		gap: 4px;
+		padding: 4px 8px;
+		font: inherit;
+		font-size: 11px;
+		font-weight: 650;
+		color: var(--color-2f6f4f);
+		background: rgba(47, 111, 79, 0.08);
+		border-color: rgba(47, 111, 79, 0.16);
+	}
+
+	.row-oauth:hover:not(:disabled) {
+		color: var(--color-2f6f4f);
+		background: rgba(47, 111, 79, 0.14);
+		border-color: rgba(47, 111, 79, 0.28);
+	}
+
+	.row-oauth:disabled {
+		opacity: 0.55;
+		cursor: default;
 	}
 
 	.row-edit:hover,

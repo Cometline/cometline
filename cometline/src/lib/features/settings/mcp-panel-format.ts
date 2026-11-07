@@ -98,6 +98,11 @@ export function connectionSummary(server: MCPServerConfig): string {
 	return String(server.url ?? '').trim() || 'No URL configured';
 }
 
+/** HTTP connectors can sign in from the row; stdio has no OAuth. */
+export function canOAuthFromRow(server: MCPServerConfig): boolean {
+	return server.transport !== 'stdio' && Boolean(String(server.url ?? '').trim());
+}
+
 export function statusLabel(
 	status: McpServerStatus | undefined,
 	server: MCPServerConfig,
