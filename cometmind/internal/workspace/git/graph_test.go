@@ -59,6 +59,21 @@ func TestGraph_BranchMergeAndTag(t *testing.T) {
 	if !hasRef(side.Refs, "v1", "tag", false) {
 		t.Fatalf("tag: %+v", side.Refs)
 	}
+	run(t, dir, "git", "tag", "-a", "v1-annotated", "-m", "release", sideSHA)
+	annotated, err := Graph(context.Background(), dir, GraphQuery{Limit: 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var annotatedSide *GraphCommit
+	for i := range annotated.Commits {
+		if annotated.Commits[i].SHA == sideSHA {
+			annotatedSide = &annotated.Commits[i]
+			break
+		}
+	}
+	if annotatedSide == nil || !hasRef(annotatedSide.Refs, "v1-annotated", "tag", false) {
+		t.Fatalf("annotated tag: %+v", annotatedSide)
+	}
 	if side.Lane == merge.Lane && len(res.Commits) > 2 {
 		// Side diverged, so it should not sit on the same column as the merge
 		// unless the assigner reused a free column later. The merge itself is

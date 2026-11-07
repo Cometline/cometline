@@ -172,7 +172,7 @@ func headIdentity(ctx context.Context, workspace string) (sha, branch string) {
 func listRefs(ctx context.Context, workspace, headBranch string) (map[string][]GraphRef, error) {
 	out, err := runGit(ctx, workspace,
 		"for-each-ref",
-		"--format=%(objectname)%00%(refname)",
+		"--format=%(objectname)%00%(*objectname)%00%(refname)",
 		"refs/heads",
 		"refs/tags",
 		"refs/remotes",
@@ -186,8 +186,17 @@ func listRefs(ctx context.Context, workspace, headBranch string) (map[string][]G
 		if line == "" {
 			continue
 		}
-		sha, name, ok := strings.Cut(line, "\x00")
-		if !ok || sha == "" || name == "" {
+		parts := strings.SplitN(line, "\x00", 3)
+		if len(parts) != 3 || parts[2] == "" {
+			continue
+		}
+		// Annotated tags report the tag object in objectname. *objectname is the
+		// commit that object points at, which is the row the chip belongs on.
+		sha, name := parts[0], parts[2]
+		if parts[1] != "" {
+			sha = parts[1]
+		}
+		if sha == "" {
 			continue
 		}
 		ref, ok := classifyRef(name, headBranch)
