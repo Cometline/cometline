@@ -271,7 +271,10 @@
 							onConfirmBeforeDeletingMediaChange={panelController.setConfirmBeforeDeletingMedia}
 							onFileSearchSourceChange={panelController.setFileSearchSource}
 						/>
-						<SettingsPanelAppSection controller={panelController} />
+						<SettingsPanelAppSection
+							controller={panelController}
+							introVariant={draft.app.introVariant}
+						/>
 					</div>
 				{/if}
 			</div>

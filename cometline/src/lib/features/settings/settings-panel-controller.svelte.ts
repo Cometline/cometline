@@ -83,6 +83,7 @@ export function createSettingsPanelController(deps: SettingsPanelControllerDeps)
 		installUpdate: app.installUpdate,
 		changeWorkspace: app.changeWorkspace,
 		cleanupWorkspaces: app.cleanupWorkspaces,
+		setIntroVariant: app.setIntroVariant,
 		replayIntro: app.replayIntro,
 		runSetupWizard: app.runSetupWizard,
 		updateProvider: providers.updateProvider,

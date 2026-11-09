@@ -1,6 +1,7 @@
 import { pruneWorkspaces } from '#lib/client/cometmind.js';
 import type { UpdateState } from '#lib/electron-api.js';
 import { shellStore } from '#lib/stores/shell.svelte.js';
+import type { IntroVariant } from '#lib/types.js';
 import type { SettingsPanelControllerDeps } from './settings-panel-types';
 
 export function createSettingsPanelApp(
@@ -129,6 +130,15 @@ export function createSettingsPanelApp(
 		workspacePruneMessage = '';
 	}
 
+	function setIntroVariant(variant: IntroVariant) {
+		const draft = deps.getDraft();
+		if (draft.app.introVariant === variant) return;
+		deps.setDraft({
+			...draft,
+			app: { ...draft.app, introVariant: variant }
+		});
+	}
+
 	function replayIntro() {
 		// In a separate Settings window the intro has no AppShell to render into,
 		// so ask the main window to play it and reveal itself.
@@ -199,6 +209,7 @@ export function createSettingsPanelApp(
 		changeWorkspace,
 		cleanupWorkspaces,
 		clearWorkspacePruneMessage,
+		setIntroVariant,
 		replayIntro,
 		runSetupWizard,
 		pickGatewayWorkspace

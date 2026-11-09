@@ -119,8 +119,12 @@ export interface CustomPersona {
 	createdAt: number;
 }
 
+export type IntroVariant = 'v1' | 'v2';
+
 export interface AppSettings {
 	openAtLogin: boolean;
+	/** First-run cinematic: v1 paper print, v2 Dia-inspired sky sequence. */
+	introVariant: IntroVariant;
 	hasSeenIntro: boolean;
 	hasCompletedSetup: boolean;
 	hasDismissedSetupWizard: boolean;

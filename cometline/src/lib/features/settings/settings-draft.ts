@@ -40,6 +40,7 @@ export function cloneSettings(settings: ProviderSettings): ProviderSettings {
 		shortcuts: cloneShortcuts(settings),
 		app: {
 			openAtLogin: settings.app?.openAtLogin ?? false,
+			introVariant: settings.app?.introVariant === 'v1' ? 'v1' : 'v2',
 			hasSeenIntro: settings.app?.hasSeenIntro ?? false,
 			hasCompletedSetup: settings.app?.hasCompletedSetup ?? false,
 			hasDismissedSetupWizard: settings.app?.hasDismissedSetupWizard ?? false,

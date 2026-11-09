@@ -8,9 +8,16 @@
 		Trash2
 	} from '@lucide/svelte';
 	import { shellStore } from '#lib/stores/shell.svelte.js';
+	import type { IntroVariant } from '#lib/types.js';
 	import type { createSettingsPanelController } from '../../settings-panel-controller.svelte';
 
-	let { controller }: { controller: ReturnType<typeof createSettingsPanelController> } = $props();
+	let {
+		controller,
+		introVariant
+	}: {
+		controller: ReturnType<typeof createSettingsPanelController>;
+		introVariant: IntroVariant;
+	} = $props();
 </script>
 
 <section class="settings-panel-frame">
@@ -100,12 +107,26 @@
 			</div>
 		</div>
 
-		<div class="settings-row">
+		<div class="settings-row align-start">
 			<div class="settings-row-copy">
 				<span class="settings-row-label">Intro</span>
-				<span class="settings-row-hint">Replay the first-run animation</span>
+				<span class="settings-row-hint">
+					Cinematic first-launch animation. Cinematic (v2) is the new sky sequence;
+					Classic (v1) is the original paper print intro.
+				</span>
 			</div>
 			<div class="settings-row-actions">
+				<label class="intro-variant">
+					<span class="sr-only">Intro animation variant</span>
+					<select
+						value={introVariant}
+						onchange={(event) =>
+							controller.setIntroVariant(event.currentTarget.value as IntroVariant)}
+					>
+						<option value="v2">Cinematic (v2)</option>
+						<option value="v1">Classic (v1)</option>
+					</select>
+				</label>
 				<button class="secondary" onclick={controller.replayIntro}>
 					<Sparkles size={14} />
 					Replay intro
@@ -161,5 +182,27 @@
 		line-height: 1.45;
 		color: var(--text-muted);
 		max-width: 420px;
+	}
+
+	.intro-variant select {
+		min-width: 148px;
+		border-radius: 8px;
+		border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.12));
+		padding: 6px 10px;
+		font-size: 12px;
+		background: var(--panel-bg, #fff);
+		color: var(--text-main);
+	}
+
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
 	}
 </style>

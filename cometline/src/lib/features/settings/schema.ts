@@ -1002,9 +1002,14 @@ function defaultAppearance(): AppearanceSettings {
 	};
 }
 
+function normalizeIntroVariant(value: unknown): AppSettings['introVariant'] {
+	return value === 'v1' ? 'v1' : 'v2';
+}
+
 function defaultAppSettings(): AppSettings {
 	return {
 		openAtLogin: false,
+		introVariant: 'v2',
 		hasSeenIntro: false,
 		hasCompletedSetup: false,
 		hasDismissedSetupWizard: false,
@@ -1204,6 +1209,9 @@ export function normalizeSettings(
 				typeof next.app?.openAtLogin === 'boolean'
 					? next.app.openAtLogin
 					: defaultAppSettings().openAtLogin,
+			introVariant: normalizeIntroVariant(
+				(next.app as { introVariant?: unknown } | undefined)?.introVariant
+			),
 			hasSeenIntro:
 				typeof next.app?.hasSeenIntro === 'boolean'
 					? next.app.hasSeenIntro
@@ -1336,6 +1344,7 @@ const providerSettingsSchema = z.object({
 	shortcuts: z.record(z.string(), z.unknown()),
 	app: z.object({
 		openAtLogin: z.boolean(),
+		introVariant: z.enum(['v1', 'v2']),
 		hasSeenIntro: z.boolean(),
 		hasCompletedSetup: z.boolean(),
 		hasDismissedSetupWizard: z.boolean(),

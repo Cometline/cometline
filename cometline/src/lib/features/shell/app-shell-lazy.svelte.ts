@@ -3,7 +3,7 @@ import { shellStore } from '#lib/stores/shell.svelte.js';
 type WorkspacePanelModuleComponent =
 	typeof import('#lib/features/workspace/components/WorkspacePanel.svelte').default;
 type IntroAnimationComponent =
-	typeof import('#lib/features/shell/components/IntroAnimation.svelte').default;
+	typeof import('#lib/features/shell/components/IntroAnimationGate.svelte').default;
 type InboxDrawerComponent =
 	typeof import('#lib/features/inbox/components/InboxDrawer.svelte').default;
 
@@ -40,7 +40,7 @@ export function createAppShellLazyPanels() {
 	function loadIntroAnimation() {
 		if (Intro) return Promise.resolve(Intro);
 		if (!introLoadPromise) {
-			introLoadPromise = import('#lib/features/shell/components/IntroAnimation.svelte')
+			introLoadPromise = import('#lib/features/shell/components/IntroAnimationGate.svelte')
 				.then((module) => {
 					Intro = module.default;
 					return module.default;
