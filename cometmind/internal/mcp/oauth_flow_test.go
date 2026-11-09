@@ -43,6 +43,34 @@ func TestResolveAuthServerMetadataFallsBackToPredefinedEndpoints(t *testing.T) {
 	}
 }
 
+func TestResolveOAuthScopesAddsOfflineAccessFromAuthServer(t *testing.T) {
+	got := resolveOAuthScopes(nil, []string{"space:read", "space:write"}, []string{"openid", "offline_access", "space:read"})
+	want := []string{"space:read", "space:write", "offline_access"}
+	if len(got) != len(want) {
+		t.Fatalf("scopes = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("scopes = %v, want %v", got, want)
+		}
+	}
+}
+
+func TestResolveOAuthScopesKeepsExplicitScopes(t *testing.T) {
+	got := resolveOAuthScopes([]string{"space:read"}, []string{"space:read", "space:write"}, []string{"offline_access"})
+	want := []string{"space:read", "offline_access"}
+	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+		t.Fatalf("scopes = %v, want %v", got, want)
+	}
+}
+
+func TestResolveOAuthScopesSkipsOfflineAccessWhenUnsupported(t *testing.T) {
+	got := resolveOAuthScopes(nil, []string{"read"}, []string{"read", "write"})
+	if len(got) != 1 || got[0] != "read" {
+		t.Fatalf("scopes = %v, want [read]", got)
+	}
+}
+
 func TestResolveOAuthClientUsesManualClientID(t *testing.T) {
 	client, err := resolveOAuthClient(context.Background(), OAuthFlowOptions{ManualClientID: " manual "}, &oauthex.AuthServerMeta{}, nil)
 	if err != nil {

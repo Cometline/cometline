@@ -39,8 +39,10 @@ type OAuthFlowOptions struct {
 	// preregistered public client id instead (power-user / fallback path).
 	ManualClientID     string
 	ManualClientSecret string
-	// Scopes optionally overrides the scopes requested. When empty, scopes are
-	// taken from discovery (PRM scopes_supported).
+	// Scopes optionally overrides the resource scopes requested. When empty,
+	// resource scopes are taken from discovery (PRM scopes_supported).
+	// offline_access is added separately when the authorization server
+	// advertises it, so a refresh token can be issued.
 	Scopes []string
 	// HTTPClient is used for all discovery/registration/exchange requests.
 	HTTPClient *http.Client
@@ -84,11 +86,9 @@ func PerformInteractiveOAuth(ctx context.Context, opts OAuthFlowOptions, fetch A
 		return err
 	}
 
-	// 4. Resolve scopes: explicit override > discovery.
-	scopes := opts.Scopes
-	if len(scopes) == 0 {
-		scopes = prm.ScopesSupported
-	}
+	// 4. Resolve scopes: explicit override > discovery, plus offline_access
+	// when the authorization server can issue a refresh token.
+	scopes := resolveOAuthScopes(opts.Scopes, prm.ScopesSupported, asm.ScopesSupported)
 
 	cfg := &oauth2.Config{
 		ClientID:     client.id,
@@ -124,6 +124,32 @@ func PerformInteractiveOAuth(ctx context.Context, opts OAuthFlowOptions, fetch A
 	}
 	invalidateOAuthTokenSource(opts.ServerID)
 	return nil
+}
+
+// resolveOAuthScopes picks resource scopes from an explicit override, or from
+// protected-resource metadata when the override is empty. offline_access is
+// appended when the authorization server advertises it and it is not already
+// present. OIDC servers such as Heptabase omit refresh tokens unless this
+// scope is requested, even when grant_types_supported includes refresh_token.
+func resolveOAuthScopes(explicit, resource, authServer []string) []string {
+	base := explicit
+	if len(base) == 0 {
+		base = resource
+	}
+	scopes := append([]string(nil), base...)
+	if !scopeListContains(authServer, "offline_access") || scopeListContains(scopes, "offline_access") {
+		return scopes
+	}
+	return append(scopes, "offline_access")
+}
+
+func scopeListContains(scopes []string, want string) bool {
+	for _, scope := range scopes {
+		if strings.TrimSpace(scope) == want {
+			return true
+		}
+	}
+	return false
 }
 
 func validateOAuthFlowOptions(opts OAuthFlowOptions, fetch AuthCodeFetcher) error {
