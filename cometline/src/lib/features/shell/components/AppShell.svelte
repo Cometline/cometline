@@ -158,6 +158,7 @@
 	class:sidebar-collapsed={!shellStore.sidebarOpen}
 	class:is-fullscreen={shellStore.fullscreen}
 	class:utility-page={isUtilityPage}
+	class:intro-active={shellStore.introOpen}
 >
 	<Sidebar bind:this={sidebarRef} collapsed={!shellStore.sidebarOpen} />
 	<div class="content-row" bind:this={contentRowRef}>
@@ -243,13 +244,6 @@
 		open={shortcuts.fileSearchOpen}
 		onClose={() => (shortcuts.fileSearchOpen = false)}
 	/>
-	{#if shellStore.introOpen}
-		{#if panels.Intro}
-			<panels.Intro />
-		{:else}
-			<div class="intro-loading" aria-label="Loading introduction"></div>
-		{/if}
-	{/if}
 	{#if shellStore.setupOpen}
 		<SetupWizard />
 	{/if}
@@ -265,11 +259,10 @@
 		box-sizing: border-box;
 	}
 
-	.intro-loading {
-		position: fixed;
-		inset: 0;
-		z-index: 90;
-		background: var(--intro-bg, var(--color-fafafa));
+	.app-shell.intro-active :global(.sidebar),
+	.app-shell.intro-active .content-row {
+		visibility: hidden;
+		pointer-events: none;
 	}
 
 	.app-shell.sidebar-collapsed {

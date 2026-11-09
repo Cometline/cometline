@@ -6,12 +6,12 @@ export type IntroV2Motion = {
 	windowRadius: number;
 	backdropAlpha: number;
 	openerOpacity: number;
-	cometOpacity: number;
-	cometLift: number;
 	wordmarkOpacity: number;
 	wordmarkBlur: number;
+	iconOpacity: number;
 	skyBlur: number;
 	skyWash: number;
+	skySharpOpacity: number;
 	welcomeOpacity: number;
 	welcomeScale: number;
 	shadowStrength: number;
@@ -30,40 +30,51 @@ export function computeIntroV2Motion(elapsed: number, reducedMotion: boolean): I
 			windowRadius: 16,
 			backdropAlpha: 0.2 * t,
 			openerOpacity: 1 - t,
-			cometOpacity: 0,
-			cometLift: 0,
-			wordmarkOpacity: Math.min(1, t * 2) * (1 - t),
+			wordmarkOpacity: Math.min(1, t * 1.6) * (1 - t * 0.7),
 			wordmarkBlur: 0,
+			iconOpacity: t > 0.35 ? 1 : 0,
 			skyBlur: lerp(12, 0, easeOut(t)),
 			skyWash: 1,
-			welcomeOpacity: t > 0.55 ? easeOut((t - 0.55) / 0.45) : 0,
+			skySharpOpacity: easeOut(t),
+			welcomeOpacity: 0,
 			welcomeScale: 1,
 			shadowStrength: 0.35
 		};
 	}
 
 	const windowP = easeOut(seg(elapsed, 0, T.windowSettle));
-	const openerFade = 1 - easeOut(seg(elapsed, T.openerHold, T.openerOut));
-	const cometP = easeOut(seg(elapsed, T.openerOut - 200, T.cometRise));
-	const wordP = easeOut(seg(elapsed, T.wordmarkIn - 400, T.wordmarkIn + 900));
-	const brandOut = easeOut(seg(elapsed, T.brandHold, T.brandOut));
-	const brandOpacity = Math.max(0, 1 - brandOut);
-	const skyP = easeOut(seg(elapsed, T.brandOut - 200, T.skyReveal));
-	const welcomeP = easeOut(seg(elapsed, T.welcomeIn, T.welcomeIn + 1200));
+	const openerFade =
+		elapsed < T.openerOut ? 1 - easeOut(seg(elapsed, T.openerHold, T.openerOut)) : 0;
+	const wordP = easeOut(seg(elapsed, T.wordmarkIn - 500, T.wordmarkIn + 700));
+	const wordHold = 1 - easeOut(seg(elapsed, T.wordmarkHold, T.brandOut));
+	const skyP = easeOut(seg(elapsed, T.brandOut, T.skyReveal));
+	const welcomeIn = easeOut(seg(elapsed, T.welcomeIn, T.welcomeIn + 900));
+	const welcomeOut = easeOut(seg(elapsed, T.welcomeOut, T.welcomeOut + 600));
+	const welcomeP = Math.max(0, welcomeIn * (1 - welcomeOut));
+
+	let wordmarkOpacity = clamp01(wordP * wordHold);
+	// Icon is the handoff anchor for v1-style flight — visible once the title resolves.
+	const iconOpacity = clamp01(wordP * (elapsed >= T.wordmarkIn + 200 ? 1 : 0));
+	const openerOpacity = openerFade * Math.max(0, 1 - wordP * 1.5) * Math.max(0, 1 - welcomeP * 2);
+
+	// While the welcome card is up, ease the title back so the panel reads cleanly.
+	if (welcomeP > 0.15) {
+		wordmarkOpacity *= Math.max(0, 1 - welcomeP * 1.4);
+	}
 
 	return {
 		windowScale: lerp(1, 0.9, windowP),
 		windowRadius: lerp(0, 22, windowP),
 		backdropAlpha: lerp(0, 0.38, windowP),
-		openerOpacity: openerFade,
-		cometOpacity: brandOpacity * Math.min(1, cometP * 1.4),
-		cometLift: cometP,
-		wordmarkOpacity: brandOpacity * wordP,
-		wordmarkBlur: lerp(10, 0, wordP),
-		skyBlur: lerp(36, 0, skyP),
-		skyWash: lerp(0.35, 1, skyP),
-		welcomeOpacity: welcomeP,
-		welcomeScale: lerp(0.96, 1, welcomeP),
+		openerOpacity,
+		wordmarkOpacity,
+		wordmarkBlur: lerp(14, 0, wordP),
+		iconOpacity: welcomeP > 0.55 ? iconOpacity * (1 - welcomeP) : iconOpacity,
+		skyBlur: lerp(44, 0, skyP),
+		skyWash: lerp(0.5, 1, skyP),
+		skySharpOpacity: lerp(0, 0.92, easeOut(Math.min(1, skyP * 1.15))),
+		welcomeOpacity: welcomeP * 0.92,
+		welcomeScale: lerp(0.96, 1, welcomeIn),
 		shadowStrength: lerp(0, 0.42, windowP)
 	};
 }

@@ -7,7 +7,7 @@ describe('intro v2 motion', () => {
 		const m = computeIntroV2Motion(0, false);
 		expect(m.windowScale).toBe(1);
 		expect(m.windowRadius).toBe(0);
-		expect(m.skyBlur).toBeGreaterThan(30);
+		expect(m.skyBlur).toBeGreaterThan(40);
 		expect(m.openerOpacity).toBe(1);
 	});
 
@@ -19,9 +19,21 @@ describe('intro v2 motion', () => {
 	});
 
 	it('reveals welcome panel near the end', () => {
-		const m = computeIntroV2Motion(INTRO_V2_BEATS.welcomeIn + 800, false);
-		expect(m.skyBlur).toBeLessThan(4);
-		expect(m.welcomeOpacity).toBeGreaterThan(0.5);
+		const m = computeIntroV2Motion(INTRO_V2_BEATS.welcomeIn + 500, false);
+		expect(m.welcomeOpacity).toBeGreaterThan(0.3);
+		expect(m.openerOpacity).toBe(0);
+	});
+
+	it('shows a strong brand beat mid-sequence', () => {
+		const m = computeIntroV2Motion(3600, false);
+		expect(m.wordmarkOpacity).toBeGreaterThan(0.45);
+		expect(m.iconOpacity).toBeGreaterThan(0.3);
+	});
+
+	it('sharpens the sky after brand fade', () => {
+		const m = computeIntroV2Motion(INTRO_V2_BEATS.skyReveal, false);
+		expect(m.skyBlur).toBeLessThan(6);
+		expect(m.skySharpOpacity).toBeGreaterThan(0.7);
 	});
 
 	it('completes on schedule', () => {
@@ -30,8 +42,6 @@ describe('intro v2 motion', () => {
 	});
 
 	it('honors reduced motion with a short path', () => {
-		const m = computeIntroV2Motion(400, true);
-		expect(m.skyBlur).toBeLessThan(15);
 		expect(introV2Complete(INTRO_V2_BEATS.reducedTotal, true)).toBe(true);
 	});
 });

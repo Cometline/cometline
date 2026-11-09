@@ -1,9 +1,7 @@
-import { shellStore } from '#lib/stores/shell.svelte.js';
+import { createIntroLazyLoader } from '#lib/features/shell/intro-lazy.svelte.js';
 
 type WorkspacePanelModuleComponent =
 	typeof import('#lib/features/workspace/components/WorkspacePanel.svelte').default;
-type IntroAnimationComponent =
-	typeof import('#lib/features/shell/components/IntroAnimationGate.svelte').default;
 type InboxDrawerComponent =
 	typeof import('#lib/features/inbox/components/InboxDrawer.svelte').default;
 
@@ -11,8 +9,7 @@ export function createAppShellLazyPanels() {
 	let WorkspacePanel = $state<WorkspacePanelModuleComponent | null>(null);
 	let workspacePanelLoadPromise: Promise<WorkspacePanelModuleComponent | null> | null = null;
 	let workspacePanelLoadFailed = $state(false);
-	let Intro = $state<IntroAnimationComponent | null>(null);
-	let introLoadPromise: Promise<IntroAnimationComponent | null> | null = null;
+	const introLoader = createIntroLazyLoader();
 	let Inbox = $state<InboxDrawerComponent | null>(null);
 	let inboxLoadPromise: Promise<InboxDrawerComponent | null> | null = null;
 	let inboxLoadFailed = $state(false);
@@ -35,24 +32,6 @@ export function createAppShellLazyPanels() {
 					});
 		}
 		return workspacePanelLoadPromise;
-	}
-
-	function loadIntroAnimation() {
-		if (Intro) return Promise.resolve(Intro);
-		if (!introLoadPromise) {
-			introLoadPromise = import('#lib/features/shell/components/IntroAnimationGate.svelte')
-				.then((module) => {
-					Intro = module.default;
-					return module.default;
-				})
-				.catch((error) => {
-					introLoadPromise = null;
-					console.error('Intro animation failed to load', error);
-					shellStore.closeIntro();
-					return null;
-				});
-		}
-		return introLoadPromise;
 	}
 
 	function loadInboxDrawer() {
@@ -79,7 +58,7 @@ export function createAppShellLazyPanels() {
 			return WorkspacePanel;
 		},
 		get Intro() {
-			return Intro;
+			return introLoader.Intro;
 		},
 		get Inbox() {
 			return Inbox;
@@ -91,7 +70,7 @@ export function createAppShellLazyPanels() {
 			return inboxLoadFailed;
 		},
 		loadWorkspacePanel,
-		loadIntroAnimation,
+		loadIntroAnimation: introLoader.loadIntroAnimation,
 		loadInboxDrawer
 	};
 }

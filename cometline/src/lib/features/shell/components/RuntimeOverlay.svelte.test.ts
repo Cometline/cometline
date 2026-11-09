@@ -16,6 +16,8 @@ async function exhaustConnectingGrace(
 describe('RuntimeOverlay', () => {
 	it('shows connecting state copy', async () => {
 		const { connectionState } = await import('#lib/stores/runtime.svelte.js');
+		const { shellStore } = await import('#lib/stores/shell.svelte.js');
+		shellStore.closeIntro();
 		connectionState.reconnect();
 		render(RuntimeOverlay);
 		expect(screen.getByText('Starting CometMind…')).toBeTruthy();
@@ -23,6 +25,8 @@ describe('RuntimeOverlay', () => {
 
 	it('stays on connecting UI after a single failed health check', async () => {
 		const { connectionState } = await import('#lib/stores/runtime.svelte.js');
+		const { shellStore } = await import('#lib/stores/shell.svelte.js');
+		shellStore.closeIntro();
 		vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Failed to fetch'));
 		await connectionState.check();
 		render(RuntimeOverlay);
@@ -30,8 +34,19 @@ describe('RuntimeOverlay', () => {
 		expect(screen.queryByRole('alert')).toBeNull();
 	});
 
+	it('hides while the first-run intro is open', async () => {
+		const { connectionState } = await import('#lib/stores/runtime.svelte.js');
+		const { shellStore } = await import('#lib/stores/shell.svelte.js');
+		shellStore.openIntro();
+		connectionState.reconnect();
+		render(RuntimeOverlay);
+		expect(screen.queryByText('Starting CometMind…')).toBeNull();
+	});
+
 	it('does not block the UI with an error card after grace budget', async () => {
 		const { connectionState } = await import('#lib/stores/runtime.svelte.js');
+		const { shellStore } = await import('#lib/stores/shell.svelte.js');
+		shellStore.closeIntro();
 		vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Connection refused'));
 		await exhaustConnectingGrace(connectionState);
 		render(RuntimeOverlay);

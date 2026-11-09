@@ -3,39 +3,75 @@
 	import { onMount, tick } from 'svelte';
 	import { shellStore } from '#lib/stores/shell.svelte.js';
 	import { settingsStore } from '#lib/stores/settings.svelte.js';
+	import {
+		resolvePersona,
+		personaAvatarSrcset as builtinAvatarSrcset
+	} from '#lib/personas/index.js';
+	import { personaAvatarCache } from '#lib/personas/avatar-cache.svelte.js';
+	import { rectStyle } from '#lib/features/chat/first-turn-flight.js';
 	import { normalizeHeroComposerAppearance } from '#lib/hero-composer-appearance.js';
 	import {
 		computeIntroV2Motion,
 		introV2Complete,
 		type IntroV2Motion
 	} from '#lib/features/shell/intro-v2-motion.js';
-	/** When set (intro lab only), freeze the timeline at this elapsed ms. */
-	let { debugFrozenElapsed = null }: { debugFrozenElapsed?: number | null } = $props();
+	import {
+		startIntroV2CometCanvas,
+		type IntroV2CanvasRun
+	} from '#lib/features/shell/intro-v2-canvas.js';
+	import IntroTitleCard from './intro/IntroTitleCard.svelte';
+
+	let {
+		debugFrozenElapsed = null,
+		previewMode = false
+	}: {
+		debugFrozenElapsed?: number | null;
+		previewMode?: boolean;
+	} = $props();
 
 	let phase = $state<'run' | 'exit'>('run');
 	let motion = $state<IntroV2Motion>(computeIntroV2Motion(0, false));
+	let elapsed = $state(0);
 	let reducedMotion = false;
 	let finished = false;
 	let skipRef = $state<HTMLButtonElement | null>(null);
+	let cometCanvas = $state<HTMLCanvasElement | null>(null);
+	let canvasRun: IntroV2CanvasRun | null = null;
 	let raf = 0;
 	let start = 0;
 
+	let projectIconRef = $state<HTMLImageElement | null>(null);
+	let showFlyIcon = $state(false);
+	let flyIconStyle = $state('');
+
+	let resolvedPersona = $derived(
+		resolvePersona(
+			settingsStore.settings.app.personaId,
+			settingsStore.settings.app.personas.custom
+		)
+	);
+	let avatarSrc = $derived(personaAvatarCache.avatarSrcFor(resolvedPersona, 192));
+	let avatarSrcset = $derived(
+		resolvedPersona.kind === 'builtin' ? builtinAvatarSrcset(resolvedPersona) : undefined
+	);
 	let heroGlowColor = $derived(
 		normalizeHeroComposerAppearance(settingsStore.settings.appearance.heroComposer).glowColor
 	);
+
+	let showWordmark = $derived(motion.wordmarkOpacity > 0.08 || motion.iconOpacity > 0.15);
+	let showTagline = $derived(motion.wordmarkOpacity > 0.65 && motion.welcomeOpacity < 0.2);
+	let showHint = $derived(elapsed > 2200 && phase === 'run');
 
 	let shellStyle = $derived(
 		[
 			`--win-scale:${motion.windowScale}`,
 			`--win-radius:${motion.windowRadius}px`,
 			`--backdrop-alpha:${motion.backdropAlpha}`,
-			`--opener-opacity:${motion.openerOpacity}`,
-			`--comet-opacity:${motion.cometOpacity}`,
-			`--comet-lift:${motion.cometLift}`,
 			`--wordmark-opacity:${motion.wordmarkOpacity}`,
-			`--wordmark-blur:${motion.wordmarkBlur}px`,
+			`--icon-opacity:${motion.iconOpacity}`,
 			`--sky-blur:${motion.skyBlur}px`,
 			`--sky-wash:${motion.skyWash}`,
+			`--sky-sharp-opacity:${motion.skySharpOpacity}`,
 			`--welcome-opacity:${motion.welcomeOpacity}`,
 			`--welcome-scale:${motion.welcomeScale}`,
 			`--shadow-strength:${motion.shadowStrength}`,
@@ -43,13 +79,26 @@
 		].join(';')
 	);
 
+	function captureIconFlightOrigin() {
+		if (reducedMotion || !projectIconRef) return;
+		const from = projectIconRef.getBoundingClientRect();
+		const target = document.querySelector('.empty-state .avatar');
+		if (!(target instanceof HTMLElement)) return;
+		flyIconStyle = rectStyle(from, target.getBoundingClientRect());
+	}
+
 	function complete() {
 		if (finished) return;
 		finished = true;
 		cancelAnimationFrame(raf);
+		canvasRun?.cancelFrame();
+		captureIconFlightOrigin();
 		phase = 'exit';
-		void settingsStore.markIntroSeen().catch(() => {});
-		setTimeout(() => shellStore.closeIntro(), reducedMotion ? 0 : 720);
+		if (flyIconStyle) showFlyIcon = true;
+		if (!previewMode) {
+			void settingsStore.markIntroSeen().catch(() => {});
+			setTimeout(() => shellStore.closeIntro(), reducedMotion ? 0 : 760);
+		}
 	}
 
 	function skip(event?: Event) {
@@ -58,16 +107,17 @@
 	}
 
 	function onKeydown(event: KeyboardEvent) {
-		if (event.key === 'Escape' || event.key === 'Enter') {
+		if (event.key === 'Escape' || event.key === 'Enter' || event.key === ' ') {
 			event.preventDefault();
 			skip();
 		}
 	}
 
 	function frame(now: number) {
-		const elapsed = now - start;
-		motion = computeIntroV2Motion(elapsed, reducedMotion);
-		if (introV2Complete(elapsed, reducedMotion)) {
+		const t = now - start;
+		elapsed = t;
+		motion = computeIntroV2Motion(t, reducedMotion);
+		if (introV2Complete(t, reducedMotion)) {
 			complete();
 			return;
 		}
@@ -83,20 +133,63 @@
 		void tick().then(() => skipRef?.focus());
 
 		if (debugFrozenElapsed != null && Number.isFinite(debugFrozenElapsed)) {
+			elapsed = debugFrozenElapsed;
 			motion = computeIntroV2Motion(debugFrozenElapsed, reducedMotion);
 			return () => window.removeEventListener('keydown', onKeydown, true);
 		}
 
+		if (reducedMotion) {
+			elapsed = 1200;
+			motion = computeIntroV2Motion(elapsed, true);
+			const t = setTimeout(complete, 1500);
+			return () => {
+				clearTimeout(t);
+				window.removeEventListener('keydown', onKeydown, true);
+			};
+		}
+
 		start = performance.now();
 		motion = computeIntroV2Motion(0, reducedMotion);
+
 		raf = requestAnimationFrame(frame);
 
 		return () => {
 			cancelAnimationFrame(raf);
+			canvasRun?.destroy();
 			window.removeEventListener('keydown', onKeydown, true);
 		};
 	});
+
+	$effect(() => {
+		const el = cometCanvas;
+		if (!el) return;
+		const ctx = el.getContext('2d', { alpha: true });
+		if (!ctx) return;
+
+		canvasRun?.destroy();
+		if (debugFrozenElapsed != null && Number.isFinite(debugFrozenElapsed)) {
+			canvasRun = startIntroV2CometCanvas(el, ctx, {
+				heroGlowColor,
+				getElapsed: () => debugFrozenElapsed
+			});
+			return () => canvasRun?.destroy();
+		}
+
+		if (reducedMotion || finished) return;
+
+		canvasRun = startIntroV2CometCanvas(el, ctx, {
+			heroGlowColor,
+			getElapsed: () => elapsed
+		});
+		return () => canvasRun?.destroy();
+	});
 </script>
+
+{#if showFlyIcon}
+	<div class="fly-icon" style={flyIconStyle} aria-hidden="true">
+		<img src={avatarSrc} srcset={avatarSrcset} sizes="82px" alt="" />
+	</div>
+{/if}
 
 <div
 	class="intro-v2"
@@ -109,59 +202,60 @@
 
 	<div class="float-window">
 		<div class="sky" aria-hidden="true">
-			<div class="sky-gradient"></div>
-			<div class="sky-clouds"></div>
-			<div class="sky-sharp" style:background-image="url('/intro/visual-comet.jpg')"></div>
-		</div>
-
-		<div class="opener" class:hidden={motion.openerOpacity < 0.02} aria-hidden="true">
-			<p class="opener-kicker">COMETLINE</p>
-			<p class="opener-sub">presents</p>
-		</div>
-
-		<div class="brand" aria-hidden="true">
-			<div class="comet-rise">
-				<svg class="comet-glyph" viewBox="0 0 240 160" aria-hidden="true">
-					<defs>
-						<linearGradient id="comet-tail" x1="0%" y1="50%" x2="100%" y2="50%">
-							<stop offset="0%" stop-color="rgba(255,255,255,0)" />
-							<stop offset="100%" stop-color="var(--hero-glow)" />
-						</linearGradient>
-					</defs>
-					<path
-						d="M12 118 C 70 104, 118 86, 196 42"
-						stroke="url(#comet-tail)"
-						stroke-width="3"
-						stroke-linecap="round"
-						fill="none"
-					/>
-					<circle cx="196" cy="42" r="5.5" fill="white" />
-					<circle cx="196" cy="42" r="12" fill="var(--hero-glow)" opacity="0.35" />
-				</svg>
+			<div class="sky-layer sky-blurred">
+				<div class="sky-gradient"></div>
+				<div class="sky-clouds"></div>
 			</div>
-			<h1 class="wordmark">
-				<span class="lead">Comet</span><span class="trail">line</span>
-			</h1>
+			<div
+				class="sky-layer sky-sharp"
+				style:background-image="url('/intro/visual-comet.jpg')"
+			></div>
 		</div>
 
-		<div class="welcome-panel" class:visible={motion.welcomeOpacity > 0.08}>
-			<h2>Welcome to Cometline</h2>
-			<p>
-				Your local agent for chat, files, and long-running tasks — entirely on your machine.
-			</p>
-			<ul class="welcome-points" aria-hidden="true">
-				<li>Connect providers and models</li>
-				<li>Work in your project workspace</li>
-				<li>Pick up where you left off</li>
-			</ul>
-			<button type="button" class="continue" onclick={() => skip()}> Continue </button>
+		<canvas bind:this={cometCanvas} class="comet-canvas" aria-hidden="true"></canvas>
+
+		{#if motion.openerOpacity > 0.04}
+			<div class="opener" style:opacity={motion.openerOpacity} aria-hidden="true">
+				<p class="opener-kicker">COMETLINE</p>
+				<p class="opener-sub">presents</p>
+			</div>
+		{/if}
+
+		<div
+			class="brand-stage"
+			style:opacity={Math.max(motion.wordmarkOpacity, motion.iconOpacity)}
+		>
+			<IntroTitleCard
+				bind:projectIconRef
+				{avatarSrc}
+				{avatarSrcset}
+				{showWordmark}
+				{showTagline}
+				{showFlyIcon}
+			/>
 		</div>
+
+		{#if motion.welcomeOpacity > 0.05}
+			<div
+				class="welcome-panel"
+				style:opacity={motion.welcomeOpacity}
+				style:transform="translate(-50%, -50%) scale({motion.welcomeScale})"
+			>
+				<h2>Welcome to Cometline</h2>
+				<p>
+					Your local agent for chat, files, and long-running tasks — entirely on your
+					machine.
+				</p>
+				<button type="button" class="continue" onclick={() => skip()}>Continue</button>
+			</div>
+		{/if}
 	</div>
 
 	<button
 		bind:this={skipRef}
 		type="button"
 		class="skip-pill"
+		class:in={showHint}
 		onclick={skip}
 		aria-keyshortcuts="Enter Escape"
 	>
@@ -174,10 +268,10 @@
 	.intro-v2 {
 		position: fixed;
 		inset: 0;
-		z-index: 92;
+		z-index: 100000;
 		overflow: hidden;
 		pointer-events: auto;
-		transition: opacity 720ms var(--ease-intro, cubic-bezier(0.16, 1, 0.3, 1));
+		transition: opacity 760ms var(--ease-intro, cubic-bezier(0.16, 1, 0.3, 1));
 	}
 
 	.intro-v2.is-exit {
@@ -193,7 +287,6 @@
 			#06080d 70%
 		);
 		opacity: var(--backdrop-alpha, 0);
-		transition: opacity 80ms linear;
 	}
 
 	.float-window {
@@ -216,37 +309,50 @@
 		overflow: hidden;
 	}
 
-	.sky-gradient,
-	.sky-clouds,
-	.sky-sharp {
+	.sky-layer {
 		position: absolute;
-		inset: -8%;
+		inset: -10%;
+	}
+
+	.sky-blurred {
+		opacity: calc(1 - var(--sky-sharp-opacity, 0) * 0.92);
+		filter: blur(var(--sky-blur, 44px));
+		transform: scale(1.06);
 	}
 
 	.sky-gradient {
-		background: linear-gradient(175deg, #c9d8ec 0%, #9eb4d4 38%, #6f8fb8 70%, #4b688f 100%);
-		opacity: calc(0.65 + var(--sky-wash, 0) * 0.35);
-		filter: blur(var(--sky-blur, 36px));
-		transform: scale(1.05);
-		will-change: filter;
+		position: absolute;
+		inset: 0;
+		background: linear-gradient(165deg, #d4e2f4 0%, #a5bdd9 36%, #6f91bc 68%, #3d5f88 100%);
+		opacity: calc(0.75 + var(--sky-wash, 0) * 0.25);
 	}
 
 	.sky-clouds {
+		position: absolute;
+		inset: 0;
 		background:
-			radial-gradient(60% 42% at 22% 28%, rgba(255, 255, 255, 0.68), transparent 70%),
-			radial-gradient(48% 36% at 68% 22%, rgba(255, 255, 255, 0.52), transparent 72%),
-			radial-gradient(55% 40% at 48% 62%, rgba(255, 255, 255, 0.34), transparent 74%);
+			radial-gradient(58% 40% at 20% 26%, rgba(255, 255, 255, 0.82), transparent 72%),
+			radial-gradient(46% 34% at 72% 20%, rgba(255, 255, 255, 0.62), transparent 74%),
+			radial-gradient(52% 38% at 50% 64%, rgba(255, 255, 255, 0.46), transparent 76%);
 		mix-blend-mode: screen;
-		opacity: calc(var(--sky-wash, 0.4) * 0.95);
-		filter: blur(calc(var(--sky-blur, 36px) * 0.65));
-		will-change: filter, opacity;
+		opacity: calc(var(--sky-wash, 0.5) * 0.98);
 	}
 
 	.sky-sharp {
 		background-size: cover;
-		background-position: center 40%;
-		opacity: calc(var(--sky-wash, 0) * 0.42);
-		filter: blur(calc(var(--sky-blur, 36px) * 0.35)) saturate(1.05);
+		background-position: center 42%;
+		opacity: var(--sky-sharp-opacity, 0);
+		filter: saturate(1.12) contrast(1.04);
+		transform: scale(1.02);
+	}
+
+	.comet-canvas {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
+		z-index: 3;
 	}
 
 	.opener {
@@ -256,13 +362,8 @@
 		place-content: center;
 		text-align: center;
 		color: white;
-		opacity: var(--opener-opacity, 1);
-		transform: translate3d(0, calc((1 - var(--opener-opacity, 1)) * -12px), 0);
+		z-index: 4;
 		pointer-events: none;
-	}
-
-	.opener.hidden {
-		visibility: hidden;
 	}
 
 	.opener-kicker {
@@ -283,64 +384,55 @@
 		opacity: 0.92;
 	}
 
-	.brand {
+	.brand-stage {
 		position: absolute;
 		inset: 0;
+		z-index: 5;
 		display: grid;
-		place-content: center;
-		text-align: center;
-		gap: 6px;
+		place-items: center;
 		pointer-events: none;
-	}
-
-	.comet-rise {
-		opacity: var(--comet-opacity, 0);
-		transform: translate3d(0, calc(26px + (1 - var(--comet-lift, 0)) * 120px), 0);
-	}
-
-	.comet-glyph {
-		width: min(240px, 54vw);
-		height: auto;
-		display: block;
-		margin: 0 auto;
-	}
-
-	.wordmark {
-		margin: 0;
-		font-family:
-			'Hoefler Text', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
-		font-weight: 600;
-		letter-spacing: 0.14em;
-		font-size: clamp(40px, 7vw, 84px);
-		color: white;
 		opacity: var(--wordmark-opacity, 0);
-		filter: blur(var(--wordmark-blur, 8px));
-		text-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
 	}
 
-	.wordmark .trail {
-		color: color-mix(in srgb, var(--hero-glow) 82%, white);
+	.brand-stage :global(.card) {
+		transform: translateY(26px);
+	}
+
+	.brand-stage :global(.wordmark) {
+		color: white;
+		text-shadow:
+			0 2px 0 rgba(0, 0, 0, 0.14),
+			0 16px 48px rgba(0, 0, 0, 0.35);
+		font-size: clamp(48px, 8.8vw, 104px);
+		opacity: var(--wordmark-opacity, 0);
+		filter: blur(0);
+	}
+
+	.brand-stage :global(.wordmark .trail) {
+		color: color-mix(in srgb, var(--hero-glow) 70%, white);
+	}
+
+	.brand-stage :global(.tagline) {
+		color: rgba(255, 255, 255, 0.82);
+	}
+
+	.brand-stage :global(.project-icon) {
+		opacity: var(--icon-opacity, 0);
 	}
 
 	.welcome-panel {
 		position: absolute;
-		left: clamp(18px, 6vw, 54px);
-		bottom: clamp(18px, 6vh, 42px);
-		max-width: min(420px, 82vw);
+		left: 50%;
+		top: 50%;
+		z-index: 6;
+		max-width: min(400px, calc(100% - 56px));
 		padding: 22px 24px 20px;
 		border-radius: 16px;
-		background: color-mix(in srgb, white 76%, transparent);
+		background: color-mix(in srgb, white 78%, transparent);
 		backdrop-filter: blur(14px);
 		box-shadow: 0 18px 42px rgba(15, 23, 42, 0.16);
 		color: var(--intro-ink, #2a2d35);
-		opacity: 0;
-		transform: translate3d(0, 12px, 0) scale(var(--welcome-scale, 0.96));
-		pointer-events: none;
-	}
-
-	.welcome-panel.visible {
-		opacity: var(--welcome-opacity, 0);
-		transform: translate3d(0, 0, 0) scale(var(--welcome-scale, 1));
+		text-align: left;
 		pointer-events: auto;
 	}
 
@@ -358,21 +450,12 @@
 		color: color-mix(in srgb, var(--intro-ink, #2a2d35) 72%, white);
 	}
 
-	.welcome-points {
-		margin: 0 0 18px;
-		padding: 0 0 0 18px;
-		font-size: 12px;
-		line-height: 1.45;
-		color: color-mix(in srgb, var(--intro-ink, #2a2d35) 62%, white);
-	}
-
 	.continue {
 		border: 0;
 		border-radius: 999px;
 		padding: 9px 16px;
 		font-size: 12px;
 		font-weight: 600;
-		letter-spacing: 0.04em;
 		cursor: pointer;
 		color: #0b1220;
 		background: linear-gradient(
@@ -386,7 +469,7 @@
 		position: absolute;
 		right: clamp(16px, 3vw, 28px);
 		bottom: clamp(16px, 3vh, 28px);
-		z-index: 3;
+		z-index: 8;
 		display: inline-flex;
 		align-items: center;
 		gap: 8px;
@@ -398,7 +481,11 @@
 		color: white;
 		background: rgba(12, 16, 24, 0.72);
 		cursor: pointer;
-		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+		opacity: 0.85;
+	}
+
+	.skip-pill.in {
+		opacity: 1;
 	}
 
 	.skip-pill:focus-visible {
@@ -417,12 +504,40 @@
 		font-size: 11px;
 	}
 
+	.fly-icon {
+		position: fixed;
+		z-index: 100001;
+		pointer-events: none;
+		transform-origin: top left;
+		border-radius: 50%;
+		overflow: hidden;
+		background: linear-gradient(145deg, var(--panel-bg), var(--color-eef2f6));
+		box-shadow: 0 5px 14px rgba(15, 23, 42, 0.06);
+		animation: intro-icon-flight 560ms var(--ease-smooth) forwards;
+	}
+
+	.fly-icon img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		border-radius: 50%;
+		display: block;
+	}
+
+	@keyframes intro-icon-flight {
+		from {
+			transform: translate3d(0, 0, 0) scale(1, 1);
+		}
+		to {
+			transform: translate3d(var(--flight-x), var(--flight-y), 0)
+				scale(var(--flight-sx), var(--flight-sy));
+		}
+	}
+
 	@media (prefers-reduced-motion: reduce) {
 		.float-window,
-		.sky-gradient,
-		.sky-clouds,
-		.comet-rise,
-		.welcome-panel {
+		.sky-blurred,
+		.brand-stage {
 			transition: none !important;
 		}
 	}

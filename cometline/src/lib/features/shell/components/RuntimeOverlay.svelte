@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { connectionState } from '#lib/stores/runtime.svelte.js';
+	import { shellStore } from '#lib/stores/shell.svelte.js';
 	import ThinkingIndicator from '#lib/components/ThinkingIndicator.svelte';
 </script>
 
-{#if connectionState.status === 'connecting'}
+{#if connectionState.status === 'connecting' && !shellStore.introOpen}
 	<div class="overlay" role="status" aria-live="polite" aria-label="Starting CometMind">
 		<div class="overlay-card">
 			<ThinkingIndicator size={24} label="Starting CometMind" />

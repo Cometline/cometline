@@ -4,6 +4,7 @@
 	import { onMount } from 'svelte';
 	import AssistantMarkdownProse from '#lib/components/AssistantMarkdownProse.svelte';
 	import AppShell from '#lib/features/shell/components/AppShell.svelte';
+	import IntroOverlayHost from '#lib/features/shell/components/IntroOverlayHost.svelte';
 	import MiniShell from '#lib/features/shell/components/MiniShell.svelte';
 	import { connectionState } from '#lib/stores/runtime.svelte.js';
 	import { settingsStore, readHasDismissedSetupWizardSync } from '#lib/stores/settings.svelte.js';
@@ -53,6 +54,7 @@
 	let isSettingsRoute = $derived(
 		page.url.pathname === '/settings' || page.url.pathname.startsWith('/settings/')
 	);
+	let isIntroLabRoute = $derived(page.url.pathname === '/intro-lab');
 	let previousConnectionStatus = $state(connectionState.status);
 
 	$effect(() => {
@@ -299,8 +301,11 @@
 	</MiniShell>
 {:else if isSettingsRoute}
 	{@render children()}
+{:else if isIntroLabRoute}
+	{@render children()}
 {:else}
 	<AppShell>
 		{@render children()}
 	</AppShell>
+	<IntroOverlayHost />
 {/if}

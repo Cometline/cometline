@@ -172,7 +172,7 @@
 	.intro {
 		position: fixed;
 		inset: 0;
-		z-index: 90;
+		z-index: 100000;
 		background: var(--intro-bg, var(--color-fafafa));
 		overflow: hidden;
 		cursor: pointer;
