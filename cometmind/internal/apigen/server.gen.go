@@ -298,9 +298,21 @@ type ServerInterface interface {
 	// Discard local changes for workspace files
 	// (POST /api/v1/workspaces/git/discard)
 	DiscardWorkspaceGitPaths(c *gin.Context)
+	// Fetch remotes for a workspace repository
+	// (POST /api/v1/workspaces/git/fetch)
+	FetchWorkspaceGit(c *gin.Context)
 	// List a page of the workspace commit graph
 	// (GET /api/v1/workspaces/git/graph)
 	GetWorkspaceGitGraph(c *gin.Context, params GetWorkspaceGitGraphParams)
+	// Push the current or named branch to a remote
+	// (POST /api/v1/workspaces/git/push)
+	PushWorkspaceGit(c *gin.Context)
+	// Push one or all local tags to a remote
+	// (POST /api/v1/workspaces/git/push-tags)
+	PushWorkspaceGitTags(c *gin.Context)
+	// List git remotes for a workspace repository
+	// (GET /api/v1/workspaces/git/remotes)
+	ListWorkspaceGitRemotes(c *gin.Context, params ListWorkspaceGitRemotesParams)
 	// Stage workspace files in git
 	// (POST /api/v1/workspaces/git/stage)
 	StageWorkspaceGitPaths(c *gin.Context)
@@ -2613,6 +2625,19 @@ func (siw *ServerInterfaceWrapper) DiscardWorkspaceGitPaths(c *gin.Context) {
 	siw.Handler.DiscardWorkspaceGitPaths(c)
 }
 
+// FetchWorkspaceGit operation middleware
+func (siw *ServerInterfaceWrapper) FetchWorkspaceGit(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.FetchWorkspaceGit(c)
+}
+
 // GetWorkspaceGitGraph operation middleware
 func (siw *ServerInterfaceWrapper) GetWorkspaceGitGraph(c *gin.Context) {
 
@@ -2662,6 +2687,67 @@ func (siw *ServerInterfaceWrapper) GetWorkspaceGitGraph(c *gin.Context) {
 	}
 
 	siw.Handler.GetWorkspaceGitGraph(c, params)
+}
+
+// PushWorkspaceGit operation middleware
+func (siw *ServerInterfaceWrapper) PushWorkspaceGit(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.PushWorkspaceGit(c)
+}
+
+// PushWorkspaceGitTags operation middleware
+func (siw *ServerInterfaceWrapper) PushWorkspaceGitTags(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.PushWorkspaceGitTags(c)
+}
+
+// ListWorkspaceGitRemotes operation middleware
+func (siw *ServerInterfaceWrapper) ListWorkspaceGitRemotes(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListWorkspaceGitRemotesParams
+
+	// ------------- Optional query parameter "workspace_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "workspace_id", c.Request.URL.Query(), &params.WorkspaceId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter workspace_id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "workspace_path" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "workspace_path", c.Request.URL.Query(), &params.WorkspacePath, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter workspace_path: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListWorkspaceGitRemotes(c, params)
 }
 
 // StageWorkspaceGitPaths operation middleware
@@ -2906,7 +2992,11 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/api/v1/workspaces/git/commit-detail", wrapper.GetWorkspaceGitCommitDetail)
 	router.GET(options.BaseURL+"/api/v1/workspaces/git/diff", wrapper.GetWorkspaceGitDiff)
 	router.POST(options.BaseURL+"/api/v1/workspaces/git/discard", wrapper.DiscardWorkspaceGitPaths)
+	router.POST(options.BaseURL+"/api/v1/workspaces/git/fetch", wrapper.FetchWorkspaceGit)
 	router.GET(options.BaseURL+"/api/v1/workspaces/git/graph", wrapper.GetWorkspaceGitGraph)
+	router.POST(options.BaseURL+"/api/v1/workspaces/git/push", wrapper.PushWorkspaceGit)
+	router.POST(options.BaseURL+"/api/v1/workspaces/git/push-tags", wrapper.PushWorkspaceGitTags)
+	router.GET(options.BaseURL+"/api/v1/workspaces/git/remotes", wrapper.ListWorkspaceGitRemotes)
 	router.POST(options.BaseURL+"/api/v1/workspaces/git/stage", wrapper.StageWorkspaceGitPaths)
 	router.GET(options.BaseURL+"/api/v1/workspaces/git/status", wrapper.GetWorkspaceGitStatus)
 	router.POST(options.BaseURL+"/api/v1/workspaces/git/tags", wrapper.CreateWorkspaceGitTag)
@@ -7947,6 +8037,70 @@ func (response DiscardWorkspaceGitPaths500JSONResponse) VisitDiscardWorkspaceGit
 	return err
 }
 
+type FetchWorkspaceGitRequestObject struct {
+	Body *FetchWorkspaceGitJSONRequestBody
+}
+
+type FetchWorkspaceGitResponseObject interface {
+	VisitFetchWorkspaceGitResponse(w http.ResponseWriter) error
+}
+
+type FetchWorkspaceGit200JSONResponse WorkspaceGitMutationResult
+
+func (response FetchWorkspaceGit200JSONResponse) VisitFetchWorkspaceGitResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FetchWorkspaceGit400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response FetchWorkspaceGit400JSONResponse) VisitFetchWorkspaceGitResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FetchWorkspaceGit404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response FetchWorkspaceGit404JSONResponse) VisitFetchWorkspaceGitResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FetchWorkspaceGit500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response FetchWorkspaceGit500JSONResponse) VisitFetchWorkspaceGitResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetWorkspaceGitGraphRequestObject struct {
 	Params GetWorkspaceGitGraphParams
 }
@@ -8000,6 +8154,198 @@ func (response GetWorkspaceGitGraph404JSONResponse) VisitGetWorkspaceGitGraphRes
 type GetWorkspaceGitGraph500JSONResponse struct{ InternalErrorJSONResponse }
 
 func (response GetWorkspaceGitGraph500JSONResponse) VisitGetWorkspaceGitGraphResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PushWorkspaceGitRequestObject struct {
+	Body *PushWorkspaceGitJSONRequestBody
+}
+
+type PushWorkspaceGitResponseObject interface {
+	VisitPushWorkspaceGitResponse(w http.ResponseWriter) error
+}
+
+type PushWorkspaceGit200JSONResponse WorkspaceGitMutationResult
+
+func (response PushWorkspaceGit200JSONResponse) VisitPushWorkspaceGitResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PushWorkspaceGit400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PushWorkspaceGit400JSONResponse) VisitPushWorkspaceGitResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PushWorkspaceGit404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PushWorkspaceGit404JSONResponse) VisitPushWorkspaceGitResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PushWorkspaceGit500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response PushWorkspaceGit500JSONResponse) VisitPushWorkspaceGitResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PushWorkspaceGitTagsRequestObject struct {
+	Body *PushWorkspaceGitTagsJSONRequestBody
+}
+
+type PushWorkspaceGitTagsResponseObject interface {
+	VisitPushWorkspaceGitTagsResponse(w http.ResponseWriter) error
+}
+
+type PushWorkspaceGitTags200JSONResponse WorkspaceGitMutationResult
+
+func (response PushWorkspaceGitTags200JSONResponse) VisitPushWorkspaceGitTagsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PushWorkspaceGitTags400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PushWorkspaceGitTags400JSONResponse) VisitPushWorkspaceGitTagsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PushWorkspaceGitTags404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PushWorkspaceGitTags404JSONResponse) VisitPushWorkspaceGitTagsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PushWorkspaceGitTags500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response PushWorkspaceGitTags500JSONResponse) VisitPushWorkspaceGitTagsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListWorkspaceGitRemotesRequestObject struct {
+	Params ListWorkspaceGitRemotesParams
+}
+
+type ListWorkspaceGitRemotesResponseObject interface {
+	VisitListWorkspaceGitRemotesResponse(w http.ResponseWriter) error
+}
+
+type ListWorkspaceGitRemotes200JSONResponse WorkspaceGitRemotes
+
+func (response ListWorkspaceGitRemotes200JSONResponse) VisitListWorkspaceGitRemotesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListWorkspaceGitRemotes400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ListWorkspaceGitRemotes400JSONResponse) VisitListWorkspaceGitRemotesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListWorkspaceGitRemotes404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ListWorkspaceGitRemotes404JSONResponse) VisitListWorkspaceGitRemotesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListWorkspaceGitRemotes500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ListWorkspaceGitRemotes500JSONResponse) VisitListWorkspaceGitRemotesResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -8644,9 +8990,21 @@ type StrictServerInterface interface {
 	// Discard local changes for workspace files
 	// (POST /api/v1/workspaces/git/discard)
 	DiscardWorkspaceGitPaths(ctx context.Context, request DiscardWorkspaceGitPathsRequestObject) (DiscardWorkspaceGitPathsResponseObject, error)
+	// Fetch remotes for a workspace repository
+	// (POST /api/v1/workspaces/git/fetch)
+	FetchWorkspaceGit(ctx context.Context, request FetchWorkspaceGitRequestObject) (FetchWorkspaceGitResponseObject, error)
 	// List a page of the workspace commit graph
 	// (GET /api/v1/workspaces/git/graph)
 	GetWorkspaceGitGraph(ctx context.Context, request GetWorkspaceGitGraphRequestObject) (GetWorkspaceGitGraphResponseObject, error)
+	// Push the current or named branch to a remote
+	// (POST /api/v1/workspaces/git/push)
+	PushWorkspaceGit(ctx context.Context, request PushWorkspaceGitRequestObject) (PushWorkspaceGitResponseObject, error)
+	// Push one or all local tags to a remote
+	// (POST /api/v1/workspaces/git/push-tags)
+	PushWorkspaceGitTags(ctx context.Context, request PushWorkspaceGitTagsRequestObject) (PushWorkspaceGitTagsResponseObject, error)
+	// List git remotes for a workspace repository
+	// (GET /api/v1/workspaces/git/remotes)
+	ListWorkspaceGitRemotes(ctx context.Context, request ListWorkspaceGitRemotesRequestObject) (ListWorkspaceGitRemotesResponseObject, error)
 	// Stage workspace files in git
 	// (POST /api/v1/workspaces/git/stage)
 	StageWorkspaceGitPaths(ctx context.Context, request StageWorkspaceGitPathsRequestObject) (StageWorkspaceGitPathsResponseObject, error)
@@ -11334,6 +11692,37 @@ func (sh *strictHandler) DiscardWorkspaceGitPaths(ctx *gin.Context) {
 	}
 }
 
+// FetchWorkspaceGit operation middleware
+func (sh *strictHandler) FetchWorkspaceGit(ctx *gin.Context) {
+	var request FetchWorkspaceGitRequestObject
+
+	var body FetchWorkspaceGitJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(ctx, err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.FetchWorkspaceGit(ctx, request.(FetchWorkspaceGitRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "FetchWorkspaceGit")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(FetchWorkspaceGitResponseObject); ok {
+		if err := validResponse.VisitFetchWorkspaceGitResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetWorkspaceGitGraph operation middleware
 func (sh *strictHandler) GetWorkspaceGitGraph(ctx *gin.Context, params GetWorkspaceGitGraphParams) {
 	var request GetWorkspaceGitGraphRequestObject
@@ -11353,6 +11742,94 @@ func (sh *strictHandler) GetWorkspaceGitGraph(ctx *gin.Context, params GetWorksp
 		sh.options.HandlerErrorFunc(ctx, err)
 	} else if validResponse, ok := response.(GetWorkspaceGitGraphResponseObject); ok {
 		if err := validResponse.VisitGetWorkspaceGitGraphResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PushWorkspaceGit operation middleware
+func (sh *strictHandler) PushWorkspaceGit(ctx *gin.Context) {
+	var request PushWorkspaceGitRequestObject
+
+	var body PushWorkspaceGitJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(ctx, err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.PushWorkspaceGit(ctx, request.(PushWorkspaceGitRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PushWorkspaceGit")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(PushWorkspaceGitResponseObject); ok {
+		if err := validResponse.VisitPushWorkspaceGitResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PushWorkspaceGitTags operation middleware
+func (sh *strictHandler) PushWorkspaceGitTags(ctx *gin.Context) {
+	var request PushWorkspaceGitTagsRequestObject
+
+	var body PushWorkspaceGitTagsJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(ctx, err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.PushWorkspaceGitTags(ctx, request.(PushWorkspaceGitTagsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PushWorkspaceGitTags")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(PushWorkspaceGitTagsResponseObject); ok {
+		if err := validResponse.VisitPushWorkspaceGitTagsResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListWorkspaceGitRemotes operation middleware
+func (sh *strictHandler) ListWorkspaceGitRemotes(ctx *gin.Context, params ListWorkspaceGitRemotesParams) {
+	var request ListWorkspaceGitRemotesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListWorkspaceGitRemotes(ctx, request.(ListWorkspaceGitRemotesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListWorkspaceGitRemotes")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(ListWorkspaceGitRemotesResponseObject); ok {
+		if err := validResponse.VisitListWorkspaceGitRemotesResponse(ctx.Writer); err != nil {
 			sh.options.ResponseErrorHandlerFunc(ctx, err)
 		}
 	} else if response != nil {

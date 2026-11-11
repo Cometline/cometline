@@ -36,6 +36,10 @@ import {
 	getWorkspaceGitCommitDetail as getWorkspaceGitCommitDetailApi,
 	getWorkspaceGitDiff as getWorkspaceGitDiffApi,
 	checkoutWorkspaceGit as checkoutWorkspaceGitApi,
+	fetchWorkspaceGit as fetchWorkspaceGitApi,
+	listWorkspaceGitRemotes as listWorkspaceGitRemotesApi,
+	pushWorkspaceGit as pushWorkspaceGitApi,
+	pushWorkspaceGitTags as pushWorkspaceGitTagsApi,
 	createWorkspaceGitBranch as createWorkspaceGitBranchApi,
 	renameWorkspaceGitBranch as renameWorkspaceGitBranchApi,
 	deleteWorkspaceGitBranch as deleteWorkspaceGitBranchApi,
@@ -439,6 +443,54 @@ export async function checkoutWorkspaceGit(
 	return data;
 }
 
+export async function fetchWorkspaceGit(
+	workspacePath: string
+): Promise<WorkspaceGitMutationResult> {
+	const { data } = await fetchWorkspaceGitApi({
+		body: { workspace_path: workspacePath },
+		throwOnError: true
+	});
+	return data;
+}
+
+export async function listWorkspaceGitRemotes(workspacePath: string): Promise<string[]> {
+	const { data } = await listWorkspaceGitRemotesApi({
+		query: { workspace_path: workspacePath },
+		throwOnError: true
+	});
+	return data.remotes;
+}
+
+export async function pushWorkspaceGit(
+	workspacePath: string,
+	options: { remote?: string; branch?: string } = {}
+): Promise<WorkspaceGitMutationResult> {
+	const { data } = await pushWorkspaceGitApi({
+		body: {
+			workspace_path: workspacePath,
+			remote: options.remote,
+			branch: options.branch
+		},
+		throwOnError: true
+	});
+	return data;
+}
+
+export async function pushWorkspaceGitTags(
+	workspacePath: string,
+	options: { remote?: string; tag?: string } = {}
+): Promise<WorkspaceGitMutationResult> {
+	const { data } = await pushWorkspaceGitTagsApi({
+		body: {
+			workspace_path: workspacePath,
+			remote: options.remote,
+			tag: options.tag
+		},
+		throwOnError: true
+	});
+	return data;
+}
+
 export async function createWorkspaceGitBranch(
 	workspacePath: string,
 	name: string,
@@ -477,10 +529,11 @@ export async function deleteWorkspaceGitBranch(
 export async function createWorkspaceGitTag(
 	workspacePath: string,
 	name: string,
-	sha?: string
+	sha?: string,
+	message?: string
 ): Promise<WorkspaceGitMutationResult> {
 	const { data } = await createWorkspaceGitTagApi({
-		body: { workspace_path: workspacePath, name, sha },
+		body: { workspace_path: workspacePath, name, sha, message: message?.trim() || undefined },
 		throwOnError: true
 	});
 	return data;

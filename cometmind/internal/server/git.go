@@ -135,6 +135,80 @@ func (a *App) handleWorkspaceGitCommitDetail(c *gin.Context) {
 	c.JSON(http.StatusOK, detail)
 }
 
+func (a *App) handleWorkspaceGitRemotes(c *gin.Context) {
+	ws, ok := a.resolveCreateWorkspace(c, c.Query("workspace_id"), c.Query("workspace_path"))
+	if !ok {
+		return
+	}
+	remotes, err := workspacegit.ListRemotes(c.Request.Context(), ws.Path)
+	if err != nil {
+		writeGitClientOrServerError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, apigen.WorkspaceGitRemotes{Remotes: remotes})
+}
+
+func (a *App) handleWorkspaceGitPush(c *gin.Context) {
+	var req apigen.WorkspaceGitPushRequest
+	if !bindGitJSON(c, &req) {
+		return
+	}
+	ws, ok := a.resolveCreateWorkspace(c, derefString(req.WorkspaceId), derefString(req.WorkspacePath))
+	if !ok {
+		return
+	}
+	result, err := workspacegit.PushBranch(
+		c.Request.Context(),
+		ws.Path,
+		derefString(req.Remote),
+		derefString(req.Branch),
+	)
+	if err != nil {
+		writeGitClientOrServerError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
+func (a *App) handleWorkspaceGitPushTags(c *gin.Context) {
+	var req apigen.WorkspaceGitPushTagsRequest
+	if !bindGitJSON(c, &req) {
+		return
+	}
+	ws, ok := a.resolveCreateWorkspace(c, derefString(req.WorkspaceId), derefString(req.WorkspacePath))
+	if !ok {
+		return
+	}
+	result, err := workspacegit.PushTags(
+		c.Request.Context(),
+		ws.Path,
+		derefString(req.Remote),
+		derefString(req.Tag),
+	)
+	if err != nil {
+		writeGitClientOrServerError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
+func (a *App) handleWorkspaceGitFetch(c *gin.Context) {
+	var req apigen.WorkspaceGitFetchRequest
+	if !bindGitJSON(c, &req) {
+		return
+	}
+	ws, ok := a.resolveCreateWorkspace(c, derefString(req.WorkspaceId), derefString(req.WorkspacePath))
+	if !ok {
+		return
+	}
+	result, err := workspacegit.Fetch(c.Request.Context(), ws.Path)
+	if err != nil {
+		writeGitClientOrServerError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
 func (a *App) handleWorkspaceGitCheckout(c *gin.Context) {
 	var req apigen.WorkspaceGitCheckoutRequest
 	if !bindGitJSON(c, &req) {
@@ -212,7 +286,13 @@ func (a *App) handleWorkspaceGitCreateTag(c *gin.Context) {
 	if !ok {
 		return
 	}
-	result, err := workspacegit.CreateTag(c.Request.Context(), ws.Path, req.Name, derefString(req.Sha))
+	result, err := workspacegit.CreateTag(
+		c.Request.Context(),
+		ws.Path,
+		req.Name,
+		derefString(req.Sha),
+		derefString(req.Message),
+	)
 	if err != nil {
 		writeGitClientOrServerError(c, err)
 		return
@@ -341,7 +421,11 @@ func writeGitClientOrServerError(c *gin.Context, err error) {
 		strings.Contains(lower, "limit must") ||
 		strings.Contains(lower, "offset must") ||
 		strings.Contains(lower, "too many paths") ||
-		strings.Contains(lower, "exceeds") {
+		strings.Contains(lower, "exceeds") ||
+		strings.Contains(lower, "push rejected") ||
+		strings.Contains(lower, "detached head") ||
+		strings.Contains(lower, "no git remotes") ||
+		strings.Contains(lower, "remote") && strings.Contains(lower, "does not exist") {
 		writeError(c, http.StatusBadRequest, "bad_request", msg)
 		return
 	}

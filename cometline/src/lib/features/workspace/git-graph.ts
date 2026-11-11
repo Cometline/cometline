@@ -43,7 +43,14 @@ export type GitGraphCommitDetail = {
 	files: GitGraphCommitFile[];
 };
 
-export type GitGraphMenuAction = 'checkout' | 'create-branch' | 'create-tag' | 'rename' | 'delete';
+export type GitGraphMenuAction =
+	| 'checkout'
+	| 'create-branch'
+	| 'create-tag'
+	| 'push-branch'
+	| 'push-tag'
+	| 'rename'
+	| 'delete';
 
 export type GitGraphMenuItem = {
 	id: GitGraphMenuAction;
@@ -86,11 +93,13 @@ export function refMenuItems(ref: GitGraphRef): GitGraphMenuItem[] {
 	if (ref.kind === 'remote' || ref.kind === 'head') return [];
 	if (ref.kind === 'tag') {
 		return [
+			{ id: 'push-tag', label: 'Push tag to remote' },
 			{ id: 'rename', label: 'Rename tag' },
 			{ id: 'delete', label: 'Delete tag' }
 		];
 	}
 	const items: GitGraphMenuItem[] = [{ id: 'checkout', label: 'Checkout branch' }];
+	if (ref.current) items.push({ id: 'push-branch', label: 'Push branch to remote' });
 	items.push({ id: 'rename', label: 'Rename branch' });
 	if (!ref.current) items.push({ id: 'delete', label: 'Delete branch' });
 	return items;
@@ -105,7 +114,13 @@ export function dialogInputValue(
 ): string {
 	if (!dialog || dialog.kind.startsWith('delete')) return '';
 	if (dialog.kind.startsWith('rename')) return dialog.next ?? '';
+	if (dialog.kind === 'pick-remote') return '';
 	return dialog.name ?? '';
+}
+
+export function defaultRemoteChoice(remotes: string[]): string {
+	if (remotes.includes('origin')) return 'origin';
+	return remotes[0] ?? '';
 }
 
 export function fileName(path: string): string {

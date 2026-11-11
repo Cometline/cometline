@@ -410,6 +410,118 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/workspaces/git/fetch:
+    post:
+      tags: [Files]
+      summary: Fetch remotes for a workspace repository
+      description: |
+        Runs `git fetch --all --prune` in the workspace. Read-only with respect
+        to the worktree; updates remote-tracking refs only.
+      operationId: fetchWorkspaceGit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceGitFetchRequest'
+      responses:
+        '200':
+          description: Fetch completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceGitMutationResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/workspaces/git/remotes:
+    get:
+      tags: [Files]
+      summary: List git remotes for a workspace repository
+      operationId: listWorkspaceGitRemotes
+      parameters:
+        - name: workspace_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: workspace_path
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Remote names
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceGitRemotes'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/workspaces/git/push:
+    post:
+      tags: [Files]
+      summary: Push the current or named branch to a remote
+      description: |
+        Runs a non-force `git push`. Sets upstream with `-u` when missing.
+        Rejects non-fast-forward updates with a user-facing error.
+      operationId: pushWorkspaceGit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceGitPushRequest'
+      responses:
+        '200':
+          description: Push completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceGitMutationResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/workspaces/git/push-tags:
+    post:
+      tags: [Files]
+      summary: Push one or all local tags to a remote
+      description: Runs a non-force tag push. Omits tag to push all local tags.
+      operationId: pushWorkspaceGitTags
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceGitPushTagsRequest'
+      responses:
+        '200':
+          description: Tags pushed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceGitMutationResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/workspaces/git/checkout:
     post:
       tags: [Files]
@@ -3447,6 +3559,16 @@ components:
           description: Local branch name or commit SHA.
       description: Provide either workspace_id or workspace_path.
 
+    WorkspaceGitFetchRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        workspace_id:
+          type: string
+        workspace_path:
+          type: string
+      description: Provide either workspace_id or workspace_path.
+
     WorkspaceGitBranchCreateRequest:
       type: object
       additionalProperties: false
@@ -3479,6 +3601,51 @@ components:
         sha:
           type: string
           description: Commit to tag. Defaults to HEAD.
+        message:
+          type: string
+          description: When set, creates an annotated tag with this message.
+      description: Provide either workspace_id or workspace_path.
+
+    WorkspaceGitRemotes:
+      type: object
+      additionalProperties: false
+      required: [remotes]
+      properties:
+        remotes:
+          type: array
+          items:
+            type: string
+
+    WorkspaceGitPushRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        workspace_id:
+          type: string
+        workspace_path:
+          type: string
+        remote:
+          type: string
+          description: Remote name. Defaults to origin when present.
+        branch:
+          type: string
+          description: Local branch to push. Defaults to the current branch.
+      description: Provide either workspace_id or workspace_path.
+
+    WorkspaceGitPushTagsRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        workspace_id:
+          type: string
+        workspace_path:
+          type: string
+        remote:
+          type: string
+          description: Remote name. Defaults to origin when present.
+        tag:
+          type: string
+          description: Tag to push. Omit to push all local tags.
       description: Provide either workspace_id or workspace_path.
 
     WorkspaceGitRefRenameRequest:

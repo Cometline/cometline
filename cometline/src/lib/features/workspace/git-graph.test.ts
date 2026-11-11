@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	commitMenuItems,
+	defaultRemoteChoice,
 	dialogInputValue,
 	formatGraphDate,
 	isUnsafeRefName,
@@ -23,14 +24,22 @@ function commit(partial: Partial<GitGraphCommit> & Pick<GitGraphCommit, 'sha'>):
 	};
 }
 
+describe('git graph remote choice', () => {
+	it('prefers origin when present', () => {
+		expect(defaultRemoteChoice(['upstream', 'origin'])).toBe('origin');
+		expect(defaultRemoteChoice(['upstream'])).toBe('upstream');
+	});
+});
+
 describe('git graph menu', () => {
 	it('hides delete on the current branch and hides remote actions', () => {
 		expect(
 			refMenuItems({ name: 'main', kind: 'branch', current: true }).map((item) => item.id)
-		).toEqual(['checkout', 'rename']);
+		).toEqual(['checkout', 'push-branch', 'rename']);
 		expect(refMenuItems({ name: 'origin/main', kind: 'remote' })).toEqual([]);
 		expect(refMenuItems({ name: 'HEAD → dev', kind: 'head', current: true })).toEqual([]);
 		expect(refMenuItems({ name: 'v1', kind: 'tag' }).map((item) => item.id)).toEqual([
+			'push-tag',
 			'rename',
 			'delete'
 		]);

@@ -243,6 +243,14 @@ export type WorkspaceGitCheckoutRequest = {
 /**
  * Provide either workspace_id or workspace_path.
  */
+export type WorkspaceGitFetchRequest = {
+    workspace_id?: string;
+    workspace_path?: string;
+};
+
+/**
+ * Provide either workspace_id or workspace_path.
+ */
 export type WorkspaceGitBranchCreateRequest = {
     workspace_id?: string;
     workspace_path?: string;
@@ -264,6 +272,46 @@ export type WorkspaceGitTagCreateRequest = {
      * Commit to tag. Defaults to HEAD.
      */
     sha?: string;
+    /**
+     * When set, creates an annotated tag with this message.
+     */
+    message?: string;
+};
+
+export type WorkspaceGitRemotes = {
+    remotes: Array<string>;
+};
+
+/**
+ * Provide either workspace_id or workspace_path.
+ */
+export type WorkspaceGitPushRequest = {
+    workspace_id?: string;
+    workspace_path?: string;
+    /**
+     * Remote name. Defaults to origin when present.
+     */
+    remote?: string;
+    /**
+     * Local branch to push. Defaults to the current branch.
+     */
+    branch?: string;
+};
+
+/**
+ * Provide either workspace_id or workspace_path.
+ */
+export type WorkspaceGitPushTagsRequest = {
+    workspace_id?: string;
+    workspace_path?: string;
+    /**
+     * Remote name. Defaults to origin when present.
+     */
+    remote?: string;
+    /**
+     * Tag to push. Omit to push all local tags.
+     */
+    tag?: string;
 };
 
 /**
@@ -2026,6 +2074,141 @@ export type GetWorkspaceGitCommitDetailResponses = {
 };
 
 export type GetWorkspaceGitCommitDetailResponse = GetWorkspaceGitCommitDetailResponses[keyof GetWorkspaceGitCommitDetailResponses];
+
+export type FetchWorkspaceGitData = {
+    body: WorkspaceGitFetchRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/workspaces/git/fetch';
+};
+
+export type FetchWorkspaceGitErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type FetchWorkspaceGitError = FetchWorkspaceGitErrors[keyof FetchWorkspaceGitErrors];
+
+export type FetchWorkspaceGitResponses = {
+    /**
+     * Fetch completed
+     */
+    200: WorkspaceGitMutationResult;
+};
+
+export type FetchWorkspaceGitResponse = FetchWorkspaceGitResponses[keyof FetchWorkspaceGitResponses];
+
+export type ListWorkspaceGitRemotesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        workspace_id?: string;
+        workspace_path?: string;
+    };
+    url: '/api/v1/workspaces/git/remotes';
+};
+
+export type ListWorkspaceGitRemotesErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type ListWorkspaceGitRemotesError = ListWorkspaceGitRemotesErrors[keyof ListWorkspaceGitRemotesErrors];
+
+export type ListWorkspaceGitRemotesResponses = {
+    /**
+     * Remote names
+     */
+    200: WorkspaceGitRemotes;
+};
+
+export type ListWorkspaceGitRemotesResponse = ListWorkspaceGitRemotesResponses[keyof ListWorkspaceGitRemotesResponses];
+
+export type PushWorkspaceGitData = {
+    body: WorkspaceGitPushRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/workspaces/git/push';
+};
+
+export type PushWorkspaceGitErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type PushWorkspaceGitError = PushWorkspaceGitErrors[keyof PushWorkspaceGitErrors];
+
+export type PushWorkspaceGitResponses = {
+    /**
+     * Push completed
+     */
+    200: WorkspaceGitMutationResult;
+};
+
+export type PushWorkspaceGitResponse = PushWorkspaceGitResponses[keyof PushWorkspaceGitResponses];
+
+export type PushWorkspaceGitTagsData = {
+    body: WorkspaceGitPushTagsRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/workspaces/git/push-tags';
+};
+
+export type PushWorkspaceGitTagsErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type PushWorkspaceGitTagsError = PushWorkspaceGitTagsErrors[keyof PushWorkspaceGitTagsErrors];
+
+export type PushWorkspaceGitTagsResponses = {
+    /**
+     * Tags pushed
+     */
+    200: WorkspaceGitMutationResult;
+};
+
+export type PushWorkspaceGitTagsResponse = PushWorkspaceGitTagsResponses[keyof PushWorkspaceGitTagsResponses];
 
 export type CheckoutWorkspaceGitData = {
     body: WorkspaceGitCheckoutRequest;

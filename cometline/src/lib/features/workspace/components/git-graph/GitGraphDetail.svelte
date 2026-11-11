@@ -48,21 +48,31 @@
 		<p class="error">{error}</p>
 	{:else if detail}
 		<div class="info">
-			<p><strong>Commit:</strong> <span class="mono">{detail.sha}</span></p>
-			<p>
+			<p class="field">
+				<strong>Commit:</strong>
+				<span class="mono hash" title={detail.sha}>{detail.sha}</span>
+			</p>
+			<p class="field">
 				<strong>Parents:</strong>
-				{#each detail.parents as parent, index (parent)}
-					<span class="mono link">{parent.slice(0, 12)}</span>{index <
-					detail.parents.length - 1
-						? ', '
-						: ''}
-				{/each}
+				<span class="parents">
+					{#each detail.parents as parent, index (parent)}
+						<span class="mono link" title={parent}>{parent.slice(0, 12)}</span>{index <
+						detail.parents.length - 1
+							? ', '
+							: ''}
+					{/each}
+				</span>
 			</p>
-			<p>
+			<p class="field">
 				<strong>Author:</strong>
-				{detail.author} <span class="mono">&lt;{detail.author_email}&gt;</span>
+				<span class="author-line">
+					{detail.author}
+					<span class="mono" title={detail.author_email}
+						>&lt;{detail.author_email}&gt;</span
+					>
+				</span>
 			</p>
-			<p><strong>Date:</strong> {when}</p>
+			<p class="field"><strong>Date:</strong> <span>{when}</span></p>
 			{#if detail.body}
 				<p class="body">{detail.body}</p>
 			{:else}
@@ -77,17 +87,23 @@
 					title={file.path}
 					onclick={() => onOpenFile?.(file.path)}
 				>
-					<span class="dir">{fileDir(file.path)}</span>
-					<span class="name">
-						<FileTypeIcon path={file.path} size={14} />
-						{fileName(file.path)}
-					</span>
-					{#if file.status !== 'binary'}
-						<span class="stat">
-							<span class="add">+{file.additions}</span>
-							<span class="del">-{file.deletions}</span>
-						</span>
+					{#if fileDir(file.path)}
+						<span class="dir" title={file.path}>{fileDir(file.path)}</span>
 					{/if}
+					<span class="file-main">
+						<span class="name">
+							<FileTypeIcon path={file.path} size={14} />
+							<span class="filename" title={fileName(file.path)}
+								>{fileName(file.path)}</span
+							>
+						</span>
+						{#if file.status !== 'binary'}
+							<span class="stat" aria-label="+{file.additions} -{file.deletions}">
+								<span class="add">+{file.additions}</span>
+								<span class="del">-{file.deletions}</span>
+							</span>
+						{/if}
+					</span>
 				</button>
 			{:else}
 				<p class="muted">No file changes.</p>
@@ -99,22 +115,23 @@
 <style>
 	.detail {
 		position: relative;
-		z-index: 1;
+		isolation: isolate;
 		display: grid;
-		grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr) 28px;
+		grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+		grid-template-areas: 'info files';
 		gap: 12px;
 		margin: 0 8px 8px;
-		padding: 10px 8px 10px 12px;
+		padding: 10px 28px 10px 12px;
 		border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
 		border-radius: 8px;
 		background: color-mix(in srgb, var(--text-main) 3%, var(--panel-bg));
 	}
 
 	.close {
-		grid-column: 3;
-		grid-row: 1;
-		align-self: start;
-		justify-self: end;
+		position: absolute;
+		top: 8px;
+		right: 8px;
+		z-index: 2;
 		display: inline-flex;
 		border: none;
 		background: transparent;
@@ -122,22 +139,55 @@
 		cursor: pointer;
 	}
 
-	.info,
-	.files {
+	.info {
+		grid-area: info;
 		min-width: 0;
+		overflow: hidden;
 		font-size: 12px;
 		line-height: 1.45;
 		color: var(--text-main);
 	}
 
-	.info p,
+	.files {
+		grid-area: files;
+		min-width: 0;
+		overflow: hidden;
+		font-size: 12px;
+		line-height: 1.45;
+		color: var(--text-main);
+	}
+
+	.field,
 	.muted {
 		margin: 0 0 4px;
+	}
+
+	.field {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr);
+		gap: 4px 6px;
+		align-items: start;
+	}
+
+	.field > strong {
+		white-space: nowrap;
+	}
+
+	.parents,
+	.author-line {
+		min-width: 0;
+		overflow-wrap: anywhere;
 	}
 
 	.mono {
 		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 		font-size: 11px;
+	}
+
+	.hash {
+		min-width: 0;
+		overflow-wrap: anywhere;
+		word-break: break-all;
 	}
 
 	.link {
@@ -147,31 +197,49 @@
 	.body {
 		margin-top: 8px;
 		white-space: pre-wrap;
+		overflow-wrap: anywhere;
 	}
 
 	.file {
-		display: grid;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
 		width: 100%;
+		max-width: 100%;
 		border: none;
 		background: transparent;
+		padding: 3px 0;
 		text-align: left;
 		color: inherit;
 		cursor: pointer;
-		grid-template-columns: minmax(0, 1fr) auto;
-		gap: 2px 8px;
-		padding: 3px 0;
 	}
 
 	.dir {
-		grid-column: 1 / -1;
 		color: var(--text-muted);
 		font-size: 11px;
+		line-height: 1.35;
+		overflow-wrap: anywhere;
+		word-break: break-word;
+	}
+
+	.file-main {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		min-width: 0;
+		width: 100%;
 	}
 
 	.name {
 		display: inline-flex;
 		align-items: center;
 		gap: 6px;
+		flex: 1 1 auto;
+		min-width: 0;
+		overflow: hidden;
+	}
+
+	.filename {
 		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -179,8 +247,10 @@
 	}
 
 	.stat {
+		flex: 0 0 auto;
 		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 		font-size: 11px;
+		white-space: nowrap;
 	}
 
 	.add {
@@ -197,11 +267,10 @@
 
 	@media (max-width: 720px) {
 		.detail {
-			grid-template-columns: minmax(0, 1fr) 28px;
-		}
-
-		.files {
-			grid-column: 1;
+			grid-template-columns: minmax(0, 1fr);
+			grid-template-areas:
+				'info'
+				'files';
 		}
 	}
 </style>
