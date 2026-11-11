@@ -55,7 +55,7 @@ A dependency is a module that another module needs. Calls go only in the arrow d
 | **Discord gateway**     | A gateway connects this runtime to another chat service. The same runtime can run as a Discord bot. Each thread has its own session. |
 | **Multi-provider**      | You can switch the model or provider for one session from Settings. |
 | **Context and media**   | The app saves file, web, and terminal context references. It shows assistant images in a safe way. |
-| **Live workspace panel** | The panel watches file and Git changes made outside the app. It can refresh previews and keep unsaved drafts. |
+| **Live workspace panel** | The panel watches file and Git changes made outside the app. It can refresh previews and keep unsaved drafts. The Git surface also has a commit graph. |
 
 ## One message, end to end
 

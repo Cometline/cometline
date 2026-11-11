@@ -296,8 +296,8 @@ Also persisted:
 - `~/.cometmind/media/{storage_session_id}/` - gallery blobs; survive session/workspace delete until removed in Gallery
 - `~/.cometmind/logs/cometline.log` - CometMind sidecar log (10MB rotate → `.log.1`)
 - `~/.cometmind/logs/cometline-gateway.log` - Discord gateway log (same rotation)
-- `~/.cometmind/tool-output/` - spilled tool output (`@runtime/tool-output`); age-purged by retention (default 7 days)
-- `~/.cometmind/agent-tmp/` - shared `@runtime/tmp`; age-purged by retention (default 3 days)
+- `~/.cometmind/tool-output/` - spilled tool output (`@runtime/tool-output` in file tools only); age-purged by retention (default 7 days)
+- `~/.cometmind/agent-tmp/` - shared `@runtime/tmp` in file tools only; age-purged by retention (default 3 days)
 - `~/.cometmind/mcp-oauth/{server}.json` - MCP OAuth access/refresh token cache
 - `~/.cometmind/mcp-oauth/{server}.client.json` - MCP OAuth registered client metadata
 

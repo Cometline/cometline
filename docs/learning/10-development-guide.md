@@ -266,7 +266,9 @@ Scopes are `cometline`, `cometmind`, `comet-sdk`, or the cross-cutting scopes `d
 | `~/.cometmind/logs/cometline.log`         | Sidecar logs                            |
 | `~/.cometmind/logs/cometline-gateway.log` | Discord gateway logs                    |
 | `~/.cometmind/mcp-oauth/`                 | MCP tokens                              |
-| `~/.cometmind/tool-output/`               | Spilled tool output                     |
+| `~/.cometmind/tool-output/`               | Spilled tool output (`@runtime/tool-output` in file tools only) |
+| `~/.cometmind/agent-tmp/`                 | Shared temp files (`@runtime/tmp` in file tools only) |
+| `~/.cometmind/wiki/`                      | Personal wiki (`@runtime/wiki` in file tools only) |
 | `~/.cometmind/skills/`                    | Global skills                           |
 | `~/.cometmind/skill-drafts/`              | Draft skills                            |
 

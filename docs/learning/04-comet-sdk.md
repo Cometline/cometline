@@ -178,7 +178,7 @@ Typed errors live in `errors.go`. A **typed error** has its own Go type, not onl
 
 ## Retry behavior
 
-`internal/retry` handles **pre-stream** HTTP failures only (429, 5xx, Anthropic 529). Once the SSE body starts, errors become `StreamError`. There is no retry in the middle of a stream.
+`internal/retry` handles **pre-stream** HTTP failures only (429, 5xx, Anthropic 529). Once the SSE body starts, errors become `StreamError`. The SDK does not retry in the middle of a stream. CometMind can retry a dropped stream after that. That recovery lives in `cometmind/internal/agent`, not in this package.
 
 ## Testing strategy
 

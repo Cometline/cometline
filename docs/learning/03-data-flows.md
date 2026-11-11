@@ -196,9 +196,12 @@ Runner.Run
 | `StreamMessage`   | `comet-sdk/llm/stream.go`                          |
 | `Provider.Stream` | `comet-sdk/provider/{anthropic,openai,codex,xai}/` |
 | SSE scanner       | `comet-sdk/internal/sse/scanner.go`                |
-| Retry             | `comet-sdk/internal/retry/retry.go`                |
+| Pre-stream retry  | `comet-sdk/internal/retry/retry.go`                |
+| Mid-stream recovery | `cometmind/internal/agent/stream_step.go`        |
 
 **Critical invariant:** Callers must drain `Events()` before `Result()`. **Drain** means read every event until the channel closes. If you do not, the call deadlocks. A **deadlock** means both sides wait, and neither one finishes.
+
+The SDK retry above is only for failures before the stream body starts. After the body starts, `agent.Runner` owns recovery. A dropped stream, a timeout, or a 429/5xx can be retried up to 3 times. A real finish reason is not a drop, even when the model sent no text. User stop and auth failures are not retried. See [05-cometmind-runtime.md](./05-cometmind-runtime.md).
 
 ---
 
@@ -419,6 +422,8 @@ Filesystem/Git change under active workspace
 **Coalesce** means group many path changes into one event. The wait in the flow is 300 ms.
 
 The watcher skips dependency and build directories on purpose. Those directories change too often. It treats `.git` changes as a Git refresh signal. This is a hint to refresh the UI. It is not a second file-sync system.
+
+The Git surface has two tabs: Changes and Graph. Changes still stages, unstages, discards, and reviews diffs. Graph reads `GET /api/v1/workspaces/git/graph`. Refresh runs `POST /api/v1/workspaces/git/fetch` (`git fetch --all --prune`), then reloads the page. A fetch failure still reloads the local graph. Push, checkout, and branch or tag changes are separate mutations. Push is not a force push. A non-fast-forward update is rejected.
 
 ---
 

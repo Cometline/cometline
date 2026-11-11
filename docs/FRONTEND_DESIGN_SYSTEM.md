@@ -232,7 +232,7 @@ Rule:
 
 - Jobs: `JobsKanbanBoard.svelte`, `JobsKanbanColumn.svelte`, `JobCard.svelte`, `JobDetailDrawer.svelte`, `JobCreateForm.svelte`
 - Files: `FileTreeBrowser.svelte`, `FilePreview.svelte`, `FileEditor.svelte`, `WorkspaceFileSurface.svelte`
-- Git: `GitChangesBrowser.svelte` and `GitDiffView.svelte` (including full-page diffs)
+- Git: `GitChangesBrowser.svelte` (Changes and Graph tabs), `GitGraphView.svelte`, and `GitDiffView.svelte` (including full-page diffs)
 - Web and terminal: `WorkspaceWebSurface.svelte`, `TerminalPanel.svelte`, `TerminalInstance.svelte`
 
 `WorkspacePanel.svelte` orchestrates surface/mode switching. Each surface owns its own DOM lifecycle and local interaction styling. File previews also surface external changes and a full-page diff instead of silently overwriting an open editor.

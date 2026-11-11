@@ -95,6 +95,8 @@ Run(ctx, turn, emit):
     for event := range stream.Events():
       emit(translate(event))
     result ← stream.Result()
+    on a dropped stream, timeout, or 429/5xx: retry up to 3 times
+    a real finish reason, including an empty stop, is not retried
 
     store.AppendAssistantStep(result)
     store.SaveTokenUsage(result.Usage)
@@ -124,10 +126,13 @@ After the turn, memory extraction runs in the background. This work is **asynchr
 
 If a provider or model rejects a feature, the runtime records that failure. A **compatibility policy** uses those records. The runtime then stops requesting features that this provider or model does not support.
 
+A stream that closes without a finish reason is not a finished turn. `streamStep` retries that drop, and also timeouts, 429, and 5xx, up to 3 times. A real finish reason is kept, even when the model sent no text. User stop and auth failures are not retried. The wait and the status event live in `stream_recovery.go`.
+
 ### Related agent packages
 
 | File | Role |
 |------|------|
+| `stream_step.go`, `stream_failure.go`, `stream_recovery.go` | Mid-stream retry for a dropped or failed provider stream |
 | `request.go` | `BuildRequest` assembles the comet-sdk Request |
 | `normalize.go` | Cleans history for the current provider |
 | `job_progress_hook.go` | Reports background job progress during runs |
@@ -256,12 +261,14 @@ A tool **surface** is a capability policy. It is not a separate registry of chos
 | FS / shell / web | `read_file`, `edit_file`, `write_file`, `list_dir`, `glob`, `grep`, `run_command`, `web_fetch`, `web_search` |
 | Skills | `load_skill`, `read_skill_file`, `write_skill`, draft tools (`write_skill_draft`, …) |
 | Subagents / harness | `spawn_general_agent`, `wait_subagents`; `delegate_coding_task` when harness enabled |
-| MCP | `list_mcp_servers`, `reconnect_mcp_server`, plus `mcp_{serverId}_{toolName}` |
+| MCP | `list_mcp_servers`, `reconnect_mcp_server`, `search_mcp_tools`, `use_mcp_tool`. Remote `mcp_{serverId}_{toolName}` tools are called through `use_mcp_tool`, not listed as native tools |
 | Jobs | `list_jobs`, `propose_job`, `create_job`, `claim_job`, `update_job`, `complete_job`, `release_job`, scheduled-job tools |
 | Memory | `recall_task_outcome`, `list_memories`, `search_memories`, `create_memory`, `update_memory`, `delete_memory` |
 | Settings | `list_settings`, `get_settings`, `patch_settings` (parent only; reject desktop keys) |
 
 **FS** means the file system. The **shell** runs terminal commands.
+
+`@runtime` is a file-tool alias. `read_file`, `write_file`, and the other file tools expand it. `run_command` rejects any command that contains `@runtime`. The shell would otherwise create a literal `@runtime` directory in the workspace. Large command output is saved under `@runtime/tool-output` by the tool. Do not redirect to that alias. For an external program, pass `$HOME/.cometmind/agent-tmp`, `$HOME/.cometmind/tool-output`, or `$HOME/.cometmind/wiki`.
 
 ### Sandbox
 

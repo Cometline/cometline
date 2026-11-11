@@ -696,7 +696,7 @@ All stores are Svelte 5 `$state`-based singletons.
 
 ## Workspace Panel
 
-The right-side workspace panel is session-scoped and preserves independent content for Wiki, Workspace files, Git changes, web search, and terminal surfaces. `shell.svelte.ts` remains the integration point for active-session lookup, focus, history, and Electron visibility signals; its close and file-selection transitions delegate to the pure `workspace-panel-state.ts` module.
+The right-side workspace panel is session-scoped and preserves independent content for Wiki, Workspace files, Git, web search, and terminal surfaces. The Git surface has a Changes tab and a Graph tab. Graph reads `/api/v1/workspaces/git/graph` and can fetch, push, and mutate local refs. `shell.svelte.ts` remains the integration point for active-session lookup, focus, history, and Electron visibility signals; its close and file-selection transitions delegate to the pure `workspace-panel-state.ts` module.
 
 `WorkspacePanel.svelte` owns the shared toolbar, shortcuts, and panel-level confirmation flow. Surface-specific behavior stays in focused adapters:
 
@@ -705,6 +705,8 @@ The right-side workspace panel is session-scoped and preserves independent conte
 | `workspace-panel-state.ts` | Pure Cmd+W, file-open, and destructive-navigation transitions |
 | `WorkspaceWebSurface.svelte` | Electron `<webview>` lifecycle, navigation state, and page-context capture |
 | `WorkspaceFileSurface.svelte` | Wiki/workspace editor layers and active editor state |
+| `GitChangesBrowser.svelte` | Changes and Graph tabs for the same Git surface |
+| `GitGraphView.svelte` | Commit graph, commit detail, fetch, and local ref actions |
 | `TerminalPanel.svelte` | Per-session terminal lifecycle and focus/start behavior |
 
 File selection is transactional: a dirty active editor registers a leave guard. The shell does not commit a replacing file path until that guard approves, and `WorkspacePanel` presents the confirmation dialog. This prevents a cancelled change from reloading the editor or losing its draft.

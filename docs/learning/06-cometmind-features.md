@@ -129,7 +129,7 @@ Generated skills can be written as drafts under `~/.cometmind/skill-drafts/`. Re
 
 After a user chat reaches 10 model iterations, and a model is available, CometMind can start a hidden skill review. The review kind is `skill_review`. It looks for a reusable lesson. It may write a skill whose origin is `self-improvement`. That review is not a normal chat turn. It does not appear as one.
 
-A separate personal wiki lives at `~/.cometmind/wiki/`. In tools, that path is `@runtime/wiki`. The built-in `llm-wiki` skill ingests sources and compiles pages. `query-wiki` only reads `index.md` and a few pages. It does not write. The wiki stores longer notes. Semantic memory stores short facts. They are not the same store.
+A separate personal wiki lives at `~/.cometmind/wiki/`. In file tools, that path is `@runtime/wiki`. The shell does not expand `@runtime`. `run_command` rejects a command that contains it. The built-in `llm-wiki` skill ingests sources and compiles pages. `query-wiki` only reads `index.md` and a few pages. It does not write. The wiki stores longer notes. Semantic memory stores short facts. They are not the same store.
 
 The Skills page can filter by tag. It also marks skills that the review just wrote. Self-improvement skills have a lifecycle in `internal/skillcurator`. An unused skill can be archived after 30 days. An archived skill can be deleted 10 days later. A pinned skill does not expire. Loading the skill again restarts the archive clock. The page shows an expiry label. The user does not have to archive the skill first. The clock starts on its own.
 
@@ -188,6 +188,10 @@ Protected Resource Metadata (RFC 9728)
 | Client identity and token endpoint | `~/.cometmind/mcp-oauth/{serverId}.client.json` |
 
 At connect time, CometMind refreshes the token with no browser. This refresh is **headless**. The browser opens again only if refresh fails.
+
+Scope selection prefers an explicit override. If that override is empty, it uses the scopes from protected-resource metadata. `offline_access` is added only when the authorization server advertises it and the request does not already include it. Some OIDC servers omit the refresh token unless that scope is requested.
+
+The Connector row can start the same OAuth flow without opening the editor. The button is shown for a remote server that has a URL. A `stdio` server has no row OAuth button. A signed-in row says Re-auth. An unsigned row says Connect. Both call `POST .../oauth-flows`.
 
 Some servers do not support dynamic client registration. Google MCP hosts are one example. For those hosts, the release build can stamp a shared Google OAuth client id and secret. A local build can set `COMETLINE_GOOGLE_OAUTH_CLIENT_ID` and `COMETLINE_GOOGLE_OAUTH_CLIENT_SECRET` instead. A server can also store its own client id, secret, and scopes. Dynamic registration is still used when the server supports it and no manual client id is set.
 

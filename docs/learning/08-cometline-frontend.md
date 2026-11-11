@@ -384,13 +384,19 @@ Each session has its own Wiki, Workspace, Changes, Web, and Terminal surfaces. T
 
 The pure transition model is `workspace/workspace-panel-state.ts`. Pure means this module does not touch the screen. `shellStore` adapts it to reactive session maps, panel history, focus, and Electron visibility.
 
-`WorkspacePanel.svelte` is the toolbar and the interaction host. It passes webview lifecycle and page capture to `WorkspaceWebSurface.svelte`. Lifecycle means how that part starts, updates, and closes. It passes editor layers to `WorkspaceFileSurface.svelte`. It passes Git selection and diff rendering to `GitChangesBrowser.svelte` and `GitDiffView.svelte`. It passes terminal lifecycle to `TerminalPanel.svelte`.
+`WorkspacePanel.svelte` is the toolbar and the interaction host. It passes webview lifecycle and page capture to `WorkspaceWebSurface.svelte`. Lifecycle means how that part starts, updates, and closes. It passes editor layers to `WorkspaceFileSurface.svelte`. It passes the Git surface to `GitChangesBrowser.svelte`. That browser has a Changes tab and a Graph tab. Changes still uses `GitDiffView.svelte` for a selected diff. Graph uses `GitGraphView.svelte`. It passes terminal lifecycle to `TerminalPanel.svelte`.
 
 Before a different file is selected, the shell waits for the active editor's leave guard. A leave guard asks you to confirm before you leave unsaved work. If you cancel, the current path stays the same. The draft also stays unchanged.
 
 Electron watches the active workspace. It emits coalesced file and Git changes through preload. Coalesced means several changes are joined into one signal. The layout routes those signals to workspace refresh state.
 
 A file preview can reload. It can keep a dirty draft. Dirty means the draft has edits that are not saved. It can also open a full-page diff. It does not drop an external change without showing it.
+
+#### Git graph
+
+The Graph tab is a second view of the same Git surface. It is not a new workspace-panel mode. `createGitGraphViewController` in `git-graph-view.svelte.ts` loads `GET /api/v1/workspaces/git/graph` in pages of 80. Scroll loads the next page. Refresh calls `POST /api/v1/workspaces/git/fetch`, then reloads the graph. If fetch fails, the local graph still reloads.
+
+A commit click loads `GET /api/v1/workspaces/git/commit-detail` with that SHA. A file in that detail can open that commit's diff. Branch and tag menus call the git mutation endpoints: checkout, create, rename, delete, push, and push-tags. Push is not a force push. The Changes tab is unchanged: it still stages, unstages, discards, and reviews working-tree diffs.
 
 ### Conversation orchestration
 
@@ -418,6 +424,8 @@ This is why background turns work with the retained route component. Retained me
 
 The commands do not all use one dispatch path. A dispatch path is the code that runs the command. `/change`, `/model`, and `/job` open picker flows. The client handles `/clear` locally. `/compact` shortens the current session. `/create-skill` expands into an agent prompt. A discovered skill uses the normal conversation path.
 
+`/change`, `/clear`, `/compact`, `/model`, and `/job` are local slash commands. `isLocalSlashCommand` in `slash-commands.ts` marks them. After they run, the composer clears. Session restore must not bring that text back as an unsent draft. `/create-skill` and a discovered skill are not local commands. A normal unsent prompt is still restored.
+
 The Skills page is `/skills`. Search matches name, description, path, and tag. Tag chips filter the list. A skill written by the hidden review can show a recent badge until you open the page. Self-improvement skills can also show an expiry label, such as "archives in N days". A pinned skill does not expire.
 
 ## Settings UI
@@ -428,7 +436,7 @@ There are three persistence modes. See [../SETTINGS_AND_PERSISTENCE.md](../SETTI
 
 1. **Pending-save.** The UI keeps a draft until you choose "Save changes".
 2. **Instant-save.** These save at once: shortcuts, `openAtLogin`, and the Discord toggle.
-3. **Action-based.** These run an action: fetch models, Codex or xAI sign-in, and memory compaction. They also include job operations, and connector tests, reconnect, OAuth, or import.
+3. **Action-based.** These run an action: fetch models, Codex or xAI sign-in, and memory compaction. They also include job operations, and connector tests, reconnect, OAuth, or import. A remote connector row can start OAuth, or re-auth, without opening the editor.
 
 The Connector section is not a second settings file. It edits `cometmind.mcp`. On open, it shows the last connector catalog from local storage. It then fetches the remote catalog and replaces that cache. Generation and embedding model choices live in the Models section. They are not in a separate provider form.
 
