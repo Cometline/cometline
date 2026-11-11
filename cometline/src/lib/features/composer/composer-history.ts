@@ -1,3 +1,5 @@
+import { isLocalSlashCommand } from '#lib/features/skills/slash-commands.js';
+
 /** Pure helpers for Claude Code–style composer ↑/↓ history recall. */
 
 export const COMPOSER_HISTORY_MAX_ENTRIES = 2000;
@@ -16,6 +18,16 @@ export type ComposerHistoryEntry = {
 	workspacePath: string;
 	sessionId: string;
 };
+
+/**
+ * Decide what to do with composer text when the box clears or the session changes.
+ * Local slash commands are not unsent drafts.
+ */
+export function unsentDraftAction(text: string): 'clear' | 'stash' | 'ignore' {
+	if (isLocalSlashCommand(text)) return 'clear';
+	if (text.trim()) return 'stash';
+	return 'ignore';
+}
 
 export type PendingUnsentDraft = {
 	text: string;

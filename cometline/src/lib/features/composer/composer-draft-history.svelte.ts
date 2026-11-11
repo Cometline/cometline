@@ -5,7 +5,11 @@ import { shellStore } from '#lib/stores/shell.svelte.js';
 import { composerHistoryStore } from '#lib/stores/composer-history.svelte.js';
 import type { ImageAttachment } from '#lib/types.js';
 import type { ComposerInputRef } from '#lib/features/composer/composer-input-ref.js';
-import { stepHistoryIndex, type ComposerRecall } from '#lib/features/composer/composer-history.js';
+import {
+	stepHistoryIndex,
+	unsentDraftAction,
+	type ComposerRecall
+} from '#lib/features/composer/composer-history.js';
 
 /** Up/Down history recall plus unsent-draft stashing for the composer. */
 export function createComposerDraftHistoryController(deps: {
@@ -83,13 +87,19 @@ export function createComposerDraftHistoryController(deps: {
 		lastNonEmptyDraft = text;
 	}
 
-	function stashUnsentNow() {
-		if (deps.getValue().trim() || deps.getImages().length > 0) {
-			composerHistoryStore.stashUnsent(deps.getSessionId(), {
-				text: deps.getValue(),
-				images: deps.getImages()
-			});
+	function rememberLeavingDraft(sessionId: string, text: string, images: ImageAttachment[]) {
+		const action = unsentDraftAction(text);
+		if (action === 'clear') {
+			composerHistoryStore.clearPending(sessionId);
+			return;
 		}
+		if (action === 'stash' || images.length > 0) {
+			composerHistoryStore.stashUnsent(sessionId, { text, images });
+		}
+	}
+
+	function stashUnsentNow() {
+		rememberLeavingDraft(deps.getSessionId(), deps.getValue(), deps.getImages());
 	}
 
 	function trackSessionChange() {
@@ -101,12 +111,7 @@ export function createComposerDraftHistoryController(deps: {
 		if (trackedSessionId === nextSessionId) return;
 
 		const prev = trackedSessionId;
-		if (deps.getValue().trim() || deps.getImages().length > 0) {
-			composerHistoryStore.stashUnsent(prev, {
-				text: deps.getValue(),
-				images: deps.getImages()
-			});
-		}
+		rememberLeavingDraft(prev, deps.getValue(), deps.getImages());
 		trackedSessionId = nextSessionId;
 		deps.onSessionChanged();
 		resetHistoryBrowse();
@@ -133,6 +138,13 @@ export function createComposerDraftHistoryController(deps: {
 			return;
 		}
 		if (skippingEmptyStash) return;
+		// Local slash commands clear the box when they finish. That text is
+		// not an unsent draft, so session restore must not bring it back.
+		if (unsentDraftAction(lastNonEmptyDraft) === 'clear') {
+			lastNonEmptyDraft = '';
+			composerHistoryStore.clearPending(deps.getSessionId());
+			return;
+		}
 		if (!lastNonEmptyDraft.trim()) return;
 		const images = deps.getImages();
 		composerHistoryStore.stashUnsent(deps.getSessionId(), {

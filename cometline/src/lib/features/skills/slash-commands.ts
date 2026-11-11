@@ -120,6 +120,22 @@ export function isJobCommand(text: string): boolean {
 	return /^\s*\/job(?:\s.*)?$/i.test(text);
 }
 
+/**
+ * Slash commands that run in the composer and then clear the input.
+ * They are not chat drafts, so session restore must not bring them back.
+ */
+export function isLocalSlashCommand(text: string): boolean {
+	const trimmed = text.trim();
+	if (!trimmed) return false;
+	return (
+		isChangeWorkspaceCommand(trimmed) ||
+		parseClearCommand(trimmed) ||
+		parseCompactCommand(trimmed) ||
+		isModelCommand(trimmed) ||
+		isJobCommand(trimmed)
+	);
+}
+
 export type WorkspaceMenuOption =
 	| { kind: 'workspace'; path: string; label: string; description: string; deletable: boolean }
 	| { kind: 'browse'; path: ''; label: string; description: string };

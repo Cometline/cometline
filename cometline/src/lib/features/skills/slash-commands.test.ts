@@ -5,6 +5,7 @@ import {
 	filterSlashMenuOptions,
 	isChangeWorkspaceCommand,
 	isJobCommand,
+	isLocalSlashCommand,
 	isModelCommand,
 	parseChangeCommand,
 	parseCompactCommand,
@@ -76,6 +77,18 @@ describe('parseChangeCommand', () => {
 		expect(parseChangeCommand('/change ~/code')).toEqual({ query: '~/code' });
 		expect(isChangeWorkspaceCommand('/change')).toBe(true);
 		expect(isChangeWorkspaceCommand('/change ')).toBe(true);
+	});
+});
+
+describe('isLocalSlashCommand', () => {
+	it('marks composer-local commands so they are not restored as drafts', () => {
+		expect(isLocalSlashCommand('/clear')).toBe(true);
+		expect(isLocalSlashCommand('/compact')).toBe(true);
+		expect(isLocalSlashCommand('/model gpt')).toBe(true);
+		expect(isLocalSlashCommand('/change ~/code')).toBe(true);
+		expect(isLocalSlashCommand('/job ')).toBe(true);
+		expect(isLocalSlashCommand('/create-skill helper')).toBe(false);
+		expect(isLocalSlashCommand('hello')).toBe(false);
 	});
 });
 

@@ -7,6 +7,7 @@ import {
 	serializeHistoryEntry,
 	stepHistoryIndex,
 	trimHistoryEntries,
+	unsentDraftAction,
 	type ComposerHistoryEntry
 } from './composer-history';
 
@@ -112,6 +113,22 @@ describe('listUserMessageTexts', () => {
 				{ type: 'user', text: '  ' }
 			])
 		).toEqual(['two', 'one']);
+	});
+});
+
+describe('unsentDraftAction', () => {
+	it('does not treat local slash commands as unsent drafts', () => {
+		expect(unsentDraftAction('/clear')).toBe('clear');
+		expect(unsentDraftAction('/model gpt')).toBe('clear');
+		expect(unsentDraftAction('/compact')).toBe('clear');
+		expect(unsentDraftAction('/change ~/code')).toBe('clear');
+		expect(unsentDraftAction('/job ')).toBe('clear');
+	});
+
+	it('still keeps a normal draft', () => {
+		expect(unsentDraftAction('keep this')).toBe('stash');
+		expect(unsentDraftAction('/create-skill helper')).toBe('stash');
+		expect(unsentDraftAction('   ')).toBe('ignore');
 	});
 });
 
