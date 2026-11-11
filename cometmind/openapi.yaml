@@ -410,6 +410,34 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/workspaces/git/fetch:
+    post:
+      tags: [Files]
+      summary: Fetch remotes for a workspace repository
+      description: |
+        Runs `git fetch --all --prune` in the workspace. Read-only with respect
+        to the worktree; updates remote-tracking refs only.
+      operationId: fetchWorkspaceGit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceGitFetchRequest'
+      responses:
+        '200':
+          description: Fetch completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceGitMutationResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/workspaces/git/checkout:
     post:
       tags: [Files]
@@ -3445,6 +3473,16 @@ components:
           type: string
           minLength: 1
           description: Local branch name or commit SHA.
+      description: Provide either workspace_id or workspace_path.
+
+    WorkspaceGitFetchRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        workspace_id:
+          type: string
+        workspace_path:
+          type: string
       description: Provide either workspace_id or workspace_path.
 
     WorkspaceGitBranchCreateRequest:

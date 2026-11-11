@@ -101,6 +101,11 @@ func (s *strictServer) GetWorkspaceGitCommitDetail(ctx context.Context, _ apigen
 	return nil, nil
 }
 
+func (s *strictServer) FetchWorkspaceGit(ctx context.Context, _ apigen.FetchWorkspaceGitRequestObject) (apigen.FetchWorkspaceGitResponseObject, error) {
+	delegateGin(ctx, s.app.handleWorkspaceGitFetch)
+	return nil, nil
+}
+
 func (s *strictServer) CheckoutWorkspaceGit(ctx context.Context, _ apigen.CheckoutWorkspaceGitRequestObject) (apigen.CheckoutWorkspaceGitResponseObject, error) {
 	delegateGin(ctx, s.app.handleWorkspaceGitCheckout)
 	return nil, nil

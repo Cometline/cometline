@@ -4,6 +4,7 @@ import {
 	createWorkspaceGitTag,
 	deleteWorkspaceGitBranch,
 	deleteWorkspaceGitTag,
+	fetchWorkspaceGit,
 	getWorkspaceGitGraph,
 	getWorkspaceGitCommitDetail,
 	getWorkspaceGitStatus,
@@ -61,6 +62,16 @@ export function createGitGraphViewController(deps: { getWorkspacePath: () => str
 		graph?.head_branch || (graph?.head_sha ? graph.head_sha.slice(0, 7) : '')
 	);
 
+	async function reloadGraph(seq: number) {
+		const [result, status] = await Promise.all([
+			getWorkspaceGitGraph(normalizedWorkspace, { limit: pageSize, offset: 0 }),
+			getWorkspaceGitStatus(normalizedWorkspace, 'all').catch(() => null)
+		]);
+		if (seq !== loadSeq) return;
+		graph = result;
+		uncommittedCount = status?.files?.length ?? 0;
+	}
+
 	async function load() {
 		const seq = ++loadSeq;
 		if (!workspaceAvailable) {
@@ -72,17 +83,37 @@ export function createGitGraphViewController(deps: { getWorkspacePath: () => str
 		loading = true;
 		error = null;
 		try {
-			const [result, status] = await Promise.all([
-				getWorkspaceGitGraph(normalizedWorkspace, { limit: pageSize, offset: 0 }),
-				getWorkspaceGitStatus(normalizedWorkspace, 'all').catch(() => null)
-			]);
-			if (seq !== loadSeq) return;
-			graph = result;
-			uncommittedCount = status?.files?.length ?? 0;
+			await reloadGraph(seq);
 		} catch (err) {
 			if (seq !== loadSeq) return;
 			graph = null;
 			error = apiErrorMessage(err, 'Failed to load git graph');
+		} finally {
+			if (seq === loadSeq) loading = false;
+		}
+	}
+
+	async function refresh() {
+		if (!workspaceAvailable || loading || mutating) return;
+		const seq = ++loadSeq;
+		loading = true;
+		error = null;
+		actionError = null;
+		try {
+			try {
+				await fetchWorkspaceGit(normalizedWorkspace);
+			} catch (err) {
+				if (seq !== loadSeq) return;
+				actionError = apiErrorMessage(err, 'Git fetch failed');
+			}
+			if (seq !== loadSeq) return;
+			try {
+				await reloadGraph(seq);
+			} catch (err) {
+				if (seq !== loadSeq) return;
+				graph = null;
+				error = apiErrorMessage(err, 'Failed to load git graph');
+			}
 		} finally {
 			if (seq === loadSeq) loading = false;
 		}
@@ -297,6 +328,7 @@ export function createGitGraphViewController(deps: { getWorkspacePath: () => str
 			return workspaceAvailable;
 		},
 		load,
+		refresh,
 		loadMore,
 		selectCommit,
 		closeDetail,

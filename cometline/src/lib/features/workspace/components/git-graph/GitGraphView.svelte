@@ -121,8 +121,9 @@
 			type="button"
 			class="refresh"
 			aria-label="Refresh git graph"
+			title="Fetch remotes and refresh"
 			disabled={graph.loading || graph.mutating || !graph.workspaceAvailable}
-			onclick={() => void graph.load()}
+			onclick={() => void graph.refresh()}
 		>
 			<RefreshCw size={14} class={graph.loading ? 'spin' : ''} />
 		</button>

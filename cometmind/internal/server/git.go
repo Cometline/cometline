@@ -135,6 +135,23 @@ func (a *App) handleWorkspaceGitCommitDetail(c *gin.Context) {
 	c.JSON(http.StatusOK, detail)
 }
 
+func (a *App) handleWorkspaceGitFetch(c *gin.Context) {
+	var req apigen.WorkspaceGitFetchRequest
+	if !bindGitJSON(c, &req) {
+		return
+	}
+	ws, ok := a.resolveCreateWorkspace(c, derefString(req.WorkspaceId), derefString(req.WorkspacePath))
+	if !ok {
+		return
+	}
+	result, err := workspacegit.Fetch(c.Request.Context(), ws.Path)
+	if err != nil {
+		writeGitClientOrServerError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
 func (a *App) handleWorkspaceGitCheckout(c *gin.Context) {
 	var req apigen.WorkspaceGitCheckoutRequest
 	if !bindGitJSON(c, &req) {

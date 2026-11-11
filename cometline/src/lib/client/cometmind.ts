@@ -36,6 +36,7 @@ import {
 	getWorkspaceGitCommitDetail as getWorkspaceGitCommitDetailApi,
 	getWorkspaceGitDiff as getWorkspaceGitDiffApi,
 	checkoutWorkspaceGit as checkoutWorkspaceGitApi,
+	fetchWorkspaceGit as fetchWorkspaceGitApi,
 	createWorkspaceGitBranch as createWorkspaceGitBranchApi,
 	renameWorkspaceGitBranch as renameWorkspaceGitBranchApi,
 	deleteWorkspaceGitBranch as deleteWorkspaceGitBranchApi,
@@ -434,6 +435,16 @@ export async function checkoutWorkspaceGit(
 ): Promise<WorkspaceGitMutationResult> {
 	const { data } = await checkoutWorkspaceGitApi({
 		body: { workspace_path: workspacePath, ref },
+		throwOnError: true
+	});
+	return data;
+}
+
+export async function fetchWorkspaceGit(
+	workspacePath: string
+): Promise<WorkspaceGitMutationResult> {
+	const { data } = await fetchWorkspaceGitApi({
+		body: { workspace_path: workspacePath },
 		throwOnError: true
 	});
 	return data;

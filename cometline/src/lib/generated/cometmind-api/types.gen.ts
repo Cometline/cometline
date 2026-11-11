@@ -243,6 +243,14 @@ export type WorkspaceGitCheckoutRequest = {
 /**
  * Provide either workspace_id or workspace_path.
  */
+export type WorkspaceGitFetchRequest = {
+    workspace_id?: string;
+    workspace_path?: string;
+};
+
+/**
+ * Provide either workspace_id or workspace_path.
+ */
 export type WorkspaceGitBranchCreateRequest = {
     workspace_id?: string;
     workspace_path?: string;
@@ -2026,6 +2034,39 @@ export type GetWorkspaceGitCommitDetailResponses = {
 };
 
 export type GetWorkspaceGitCommitDetailResponse = GetWorkspaceGitCommitDetailResponses[keyof GetWorkspaceGitCommitDetailResponses];
+
+export type FetchWorkspaceGitData = {
+    body: WorkspaceGitFetchRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/workspaces/git/fetch';
+};
+
+export type FetchWorkspaceGitErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type FetchWorkspaceGitError = FetchWorkspaceGitErrors[keyof FetchWorkspaceGitErrors];
+
+export type FetchWorkspaceGitResponses = {
+    /**
+     * Fetch completed
+     */
+    200: WorkspaceGitMutationResult;
+};
+
+export type FetchWorkspaceGitResponse = FetchWorkspaceGitResponses[keyof FetchWorkspaceGitResponses];
 
 export type CheckoutWorkspaceGitData = {
     body: WorkspaceGitCheckoutRequest;

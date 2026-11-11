@@ -2666,6 +2666,12 @@ type WorkspaceGitDiff struct {
 	Truncated *bool  `json:"truncated,omitempty"`
 }
 
+// WorkspaceGitFetchRequest Provide either workspace_id or workspace_path.
+type WorkspaceGitFetchRequest struct {
+	WorkspaceId   *string `json:"workspace_id,omitempty"`
+	WorkspacePath *string `json:"workspace_path,omitempty"`
+}
+
 // WorkspaceGitFileStatus defines model for WorkspaceGitFileStatus.
 type WorkspaceGitFileStatus struct {
 	// Path Workspace-relative file path.
@@ -3183,6 +3189,9 @@ type CommitWorkspaceGitJSONRequestBody = WorkspaceGitCommitRequest
 
 // DiscardWorkspaceGitPathsJSONRequestBody defines body for DiscardWorkspaceGitPaths for application/json ContentType.
 type DiscardWorkspaceGitPathsJSONRequestBody = WorkspaceGitPathsRequest
+
+// FetchWorkspaceGitJSONRequestBody defines body for FetchWorkspaceGit for application/json ContentType.
+type FetchWorkspaceGitJSONRequestBody = WorkspaceGitFetchRequest
 
 // StageWorkspaceGitPathsJSONRequestBody defines body for StageWorkspaceGitPaths for application/json ContentType.
 type StageWorkspaceGitPathsJSONRequestBody = WorkspaceGitPathsRequest
