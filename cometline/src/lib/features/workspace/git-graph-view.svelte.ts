@@ -32,7 +32,13 @@ export type GitGraphPushAction = 'push-branch' | 'push-all-tags' | 'push-tag';
 export type GitGraphDialog =
 	| { kind: 'create-branch'; sha: string; name: string }
 	| { kind: 'create-tag'; sha: string; name: string; message: string }
-	| { kind: 'pick-remote'; action: GitGraphPushAction; tag?: string; remote: string; remotes: string[] }
+	| {
+			kind: 'pick-remote';
+			action: GitGraphPushAction;
+			tag?: string;
+			remote: string;
+			remotes: string[];
+	  }
 	| { kind: 'rename-branch'; name: string; next: string }
 	| { kind: 'rename-tag'; name: string; next: string }
 	| { kind: 'delete-branch'; name: string }

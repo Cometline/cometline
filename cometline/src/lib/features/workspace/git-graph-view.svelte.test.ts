@@ -13,12 +13,12 @@ vi.mock('#lib/client/cometmind.js', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('#lib/client/cometmind.js')>();
 	return {
 		...actual,
-	fetchWorkspaceGit: vi.fn(),
-	listWorkspaceGitRemotes: vi.fn(),
-	pushWorkspaceGit: vi.fn(),
-	pushWorkspaceGitTags: vi.fn(),
-	getWorkspaceGitGraph: vi.fn(),
-	getWorkspaceGitStatus: vi.fn()
+		fetchWorkspaceGit: vi.fn(),
+		listWorkspaceGitRemotes: vi.fn(),
+		pushWorkspaceGit: vi.fn(),
+		pushWorkspaceGitTags: vi.fn(),
+		getWorkspaceGitGraph: vi.fn(),
+		getWorkspaceGitStatus: vi.fn()
 	};
 });
 

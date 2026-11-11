@@ -52,6 +52,8 @@ func TestPushBranchRejectsNonFastForward(t *testing.T) {
 	parent := t.TempDir()
 	clone := filepath.Join(parent, "clone")
 	run(t, parent, "git", "clone", bare, clone)
+	run(t, clone, "git", "config", "user.email", "test@example.com")
+	run(t, clone, "git", "config", "user.name", "Test")
 	if err := os.WriteFile(filepath.Join(clone, "readme.txt"), []byte("remote\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
