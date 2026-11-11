@@ -99,8 +99,9 @@ func DeleteBranch(ctx context.Context, workspace, name string) (MutationResult, 
 	return MutationResult{OK: true, Message: "deleted branch " + name}, nil
 }
 
-// CreateTag creates a lightweight tag. sha defaults to HEAD.
-func CreateTag(ctx context.Context, workspace, name, sha string) (MutationResult, error) {
+// CreateTag creates a lightweight or annotated tag. sha defaults to HEAD.
+// When message is non-empty, an annotated tag is created.
+func CreateTag(ctx context.Context, workspace, name, sha, message string) (MutationResult, error) {
 	workspace, err := requireRepo(ctx, workspace)
 	if err != nil {
 		return MutationResult{}, err
@@ -108,18 +109,31 @@ func CreateTag(ctx context.Context, workspace, name, sha string) (MutationResult
 	if err := validateTagName(ctx, workspace, name); err != nil {
 		return MutationResult{}, err
 	}
-	args := []string{"tag", name}
 	sha = strings.TrimSpace(sha)
-	if sha != "" {
-		if !isSafeRevision(sha) {
-			return MutationResult{}, fmt.Errorf("invalid commit: %q", sha)
+	if sha != "" && !isSafeRevision(sha) {
+		return MutationResult{}, fmt.Errorf("invalid commit: %q", sha)
+	}
+	message = strings.TrimSpace(message)
+	var args []string
+	if message != "" {
+		args = []string{"tag", "-a", name, "-m", message}
+		if sha != "" {
+			args = append(args, sha)
 		}
-		args = append(args, sha)
+	} else {
+		args = []string{"tag", name}
+		if sha != "" {
+			args = append(args, sha)
+		}
 	}
 	if _, err := runGit(ctx, workspace, args...); err != nil {
 		return MutationResult{}, err
 	}
-	return MutationResult{OK: true, Message: "created tag " + name}, nil
+	kind := "lightweight tag"
+	if message != "" {
+		kind = "annotated tag"
+	}
+	return MutationResult{OK: true, Message: fmt.Sprintf("created %s %s", kind, name)}, nil
 }
 
 // RenameTag creates the new tag on the old target, then deletes the old name.

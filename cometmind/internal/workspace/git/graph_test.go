@@ -169,7 +169,7 @@ func TestBranchAndTagCRUD(t *testing.T) {
 	}
 
 	sha := strings.TrimSpace(string(mustGit(t, dir, "rev-parse", "HEAD")))
-	if _, err := CreateTag(ctx, dir, "v1", sha); err != nil {
+	if _, err := CreateTag(ctx, dir, "v1", sha, ""); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := RenameTag(ctx, dir, "v1", "v2"); err != nil {
@@ -264,10 +264,10 @@ func TestRejectUnsafeRefNames(t *testing.T) {
 			t.Fatalf("accepted rename to %q", name)
 		}
 	}
-	if _, err := CreateTag(ctx, dir, "HEAD", ""); err == nil {
+	if _, err := CreateTag(ctx, dir, "HEAD", "", ""); err == nil {
 		t.Fatal("accepted tag HEAD")
 	}
-	if _, err := CreateTag(ctx, dir, "refs/tags/evil", ""); err == nil {
+	if _, err := CreateTag(ctx, dir, "refs/tags/evil", "", ""); err == nil {
 		t.Fatal("accepted tag refs/tags/evil")
 	}
 }

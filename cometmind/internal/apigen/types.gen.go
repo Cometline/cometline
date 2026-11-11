@@ -2755,6 +2755,28 @@ type WorkspaceGitPathsRequest struct {
 	WorkspacePath *string  `json:"workspace_path,omitempty"`
 }
 
+// WorkspaceGitPushRequest Provide either workspace_id or workspace_path.
+type WorkspaceGitPushRequest struct {
+	// Branch Local branch to push. Defaults to the current branch.
+	Branch *string `json:"branch,omitempty"`
+
+	// Remote Remote name. Defaults to origin when present.
+	Remote        *string `json:"remote,omitempty"`
+	WorkspaceId   *string `json:"workspace_id,omitempty"`
+	WorkspacePath *string `json:"workspace_path,omitempty"`
+}
+
+// WorkspaceGitPushTagsRequest Provide either workspace_id or workspace_path.
+type WorkspaceGitPushTagsRequest struct {
+	// Remote Remote name. Defaults to origin when present.
+	Remote *string `json:"remote,omitempty"`
+
+	// Tag Tag to push. Omit to push all local tags.
+	Tag           *string `json:"tag,omitempty"`
+	WorkspaceId   *string `json:"workspace_id,omitempty"`
+	WorkspacePath *string `json:"workspace_path,omitempty"`
+}
+
 // WorkspaceGitRefDeleteRequest Provide either workspace_id or workspace_path.
 type WorkspaceGitRefDeleteRequest struct {
 	Name          string  `json:"name"`
@@ -2768,6 +2790,11 @@ type WorkspaceGitRefRenameRequest struct {
 	NewName       string  `json:"new_name"`
 	WorkspaceId   *string `json:"workspace_id,omitempty"`
 	WorkspacePath *string `json:"workspace_path,omitempty"`
+}
+
+// WorkspaceGitRemotes defines model for WorkspaceGitRemotes.
+type WorkspaceGitRemotes struct {
+	Remotes []string `json:"remotes"`
 }
 
 // WorkspaceGitStatus defines model for WorkspaceGitStatus.
@@ -2791,7 +2818,9 @@ type WorkspaceGitStatus struct {
 
 // WorkspaceGitTagCreateRequest Provide either workspace_id or workspace_path.
 type WorkspaceGitTagCreateRequest struct {
-	Name string `json:"name"`
+	// Message When set, creates an annotated tag with this message.
+	Message *string `json:"message,omitempty"`
+	Name    string  `json:"name"`
 
 	// Sha Commit to tag. Defaults to HEAD.
 	Sha           *string `json:"sha,omitempty"`
@@ -3071,6 +3100,12 @@ type GetWorkspaceGitGraphParams struct {
 	Offset        *int    `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
+// ListWorkspaceGitRemotesParams defines parameters for ListWorkspaceGitRemotes.
+type ListWorkspaceGitRemotesParams struct {
+	WorkspaceId   *string `form:"workspace_id,omitempty" json:"workspace_id,omitempty"`
+	WorkspacePath *string `form:"workspace_path,omitempty" json:"workspace_path,omitempty"`
+}
+
 // GetWorkspaceGitStatusParams defines parameters for GetWorkspaceGitStatus.
 type GetWorkspaceGitStatusParams struct {
 	// WorkspaceId Registered workspace identifier.
@@ -3192,6 +3227,12 @@ type DiscardWorkspaceGitPathsJSONRequestBody = WorkspaceGitPathsRequest
 
 // FetchWorkspaceGitJSONRequestBody defines body for FetchWorkspaceGit for application/json ContentType.
 type FetchWorkspaceGitJSONRequestBody = WorkspaceGitFetchRequest
+
+// PushWorkspaceGitJSONRequestBody defines body for PushWorkspaceGit for application/json ContentType.
+type PushWorkspaceGitJSONRequestBody = WorkspaceGitPushRequest
+
+// PushWorkspaceGitTagsJSONRequestBody defines body for PushWorkspaceGitTags for application/json ContentType.
+type PushWorkspaceGitTagsJSONRequestBody = WorkspaceGitPushTagsRequest
 
 // StageWorkspaceGitPathsJSONRequestBody defines body for StageWorkspaceGitPaths for application/json ContentType.
 type StageWorkspaceGitPathsJSONRequestBody = WorkspaceGitPathsRequest

@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { Loader, RefreshCw } from '@lucide/svelte';
+	import { Loader, RefreshCw, Tags, Upload } from '@lucide/svelte';
+	import GitGraphRemoteDialog from '#lib/features/workspace/components/git-graph/GitGraphRemoteDialog.svelte';
 	import ConfirmActionModal from '#lib/components/ConfirmActionModal.svelte';
 	import GitGraphDetail from '#lib/features/workspace/components/git-graph/GitGraphDetail.svelte';
 	import GitGraphMenu from '#lib/features/workspace/components/git-graph/GitGraphMenu.svelte';
@@ -75,9 +76,13 @@
 			? `Delete local branch “${dialog.name}”? Unmerged branches are refused.`
 			: dialog?.kind === 'delete-tag'
 				? `Delete tag “${dialog.name}”? This does not delete a remote tag.`
-				: 'Local only. Nothing is pushed.'
+				: dialog?.kind === 'create-tag'
+					? 'Leave the message blank for a lightweight tag, or add text for an annotated tag. Nothing is pushed until you use Push tag.'
+					: 'Local only. Nothing is pushed.'
 	);
 	const dialogInput = $derived(dialogInputValue(dialog));
+	const tagMessage = $derived(dialog?.kind === 'create-tag' ? dialog.message : '');
+	const pickRemote = $derived(dialog?.kind === 'pick-remote' ? dialog : null);
 
 	$effect(() => {
 		void [workspacePath, workspaceChangeVersion(workspacePath)];
@@ -117,16 +122,41 @@
 				Graph
 			{/if}
 		</span>
-		<button
-			type="button"
-			class="refresh"
-			aria-label="Refresh git graph"
-			title="Fetch remotes and refresh"
-			disabled={graph.loading || graph.mutating || !graph.workspaceAvailable}
-			onclick={() => void graph.refresh()}
-		>
-			<RefreshCw size={14} class={graph.loading ? 'spin' : ''} />
-		</button>
+		<div class="meta-actions">
+			<button
+				type="button"
+				class="icon-btn"
+				aria-label="Push current branch"
+				title="Push branch to remote"
+				disabled={graph.loading ||
+					graph.mutating ||
+					!graph.workspaceAvailable ||
+					!graph.graph?.head_branch}
+				onclick={() => void graph.beginPush('push-branch')}
+			>
+				<Upload size={14} />
+			</button>
+			<button
+				type="button"
+				class="icon-btn"
+				aria-label="Push all tags"
+				title="Push all tags to remote"
+				disabled={graph.loading || graph.mutating || !graph.workspaceAvailable}
+				onclick={() => void graph.beginPush('push-all-tags')}
+			>
+				<Tags size={14} />
+			</button>
+			<button
+				type="button"
+				class="icon-btn"
+				aria-label="Refresh git graph"
+				title="Fetch remotes and refresh"
+				disabled={graph.loading || graph.mutating || !graph.workspaceAvailable}
+				onclick={() => void graph.refresh()}
+			>
+				<RefreshCw size={14} class={graph.loading ? 'spin' : ''} />
+			</button>
+		</div>
 	</div>
 
 	{#if !graph.workspaceAvailable}
@@ -227,16 +257,33 @@
 {/if}
 
 <ConfirmActionModal
-	open={Boolean(dialog)}
+	open={Boolean(dialog && dialog.kind !== 'pick-remote')}
 	title={dialogTitle}
 	description={dialogDescription}
 	confirmLabel={dialog?.kind.startsWith('delete') ? 'Delete' : 'Save'}
 	confirmTone={dialog?.kind.startsWith('delete') ? 'danger' : 'accent'}
 	showInput={Boolean(dialog) && !dialog?.kind.startsWith('delete')}
+	showMessageInput={dialog?.kind === 'create-tag'}
 	bind:inputValue={() => dialogInput, (value) => graph.setDialogName(value)}
+	bind:messageValue={() => tagMessage, (value) => graph.setDialogMessage(value)}
 	inputPlaceholder="Name"
 	onCancel={graph.cancelDialog}
 	onConfirm={() => void graph.confirmDialog()}
+/>
+
+<GitGraphRemoteDialog
+	open={Boolean(pickRemote)}
+	title={pickRemote?.action === 'push-branch'
+		? 'Push branch'
+		: pickRemote?.action === 'push-tag'
+			? 'Push tag'
+			: 'Push tags'}
+	description="Choose which remote should receive this push."
+	remotes={pickRemote?.remotes ?? []}
+	remote={pickRemote?.remote ?? ''}
+	onRemoteChange={graph.setPickRemote}
+	onCancel={graph.cancelDialog}
+	onConfirm={() => void graph.confirmPickRemote()}
 />
 
 <style>
@@ -275,7 +322,13 @@
 		box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 	}
 
-	.refresh {
+	.meta-actions {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+	}
+
+	.icon-btn {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
@@ -286,6 +339,11 @@
 		background: var(--surface-elevated, var(--panel-bg));
 		color: var(--text-muted);
 		cursor: pointer;
+	}
+
+	.icon-btn:disabled {
+		opacity: 0.45;
+		cursor: not-allowed;
 	}
 
 	.rows {

@@ -3,16 +3,22 @@ import { createGitGraphViewController } from './git-graph-view.svelte.js';
 import {
 	fetchWorkspaceGit,
 	getWorkspaceGitGraph,
-	getWorkspaceGitStatus
+	getWorkspaceGitStatus,
+	listWorkspaceGitRemotes,
+	pushWorkspaceGit,
+	pushWorkspaceGitTags
 } from '#lib/client/cometmind.js';
 
 vi.mock('#lib/client/cometmind.js', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('#lib/client/cometmind.js')>();
 	return {
 		...actual,
-		fetchWorkspaceGit: vi.fn(),
-		getWorkspaceGitGraph: vi.fn(),
-		getWorkspaceGitStatus: vi.fn()
+	fetchWorkspaceGit: vi.fn(),
+	listWorkspaceGitRemotes: vi.fn(),
+	pushWorkspaceGit: vi.fn(),
+	pushWorkspaceGitTags: vi.fn(),
+	getWorkspaceGitGraph: vi.fn(),
+	getWorkspaceGitStatus: vi.fn()
 	};
 });
 
@@ -34,6 +40,9 @@ describe('createGitGraphViewController refresh', () => {
 			files: []
 		});
 		vi.mocked(fetchWorkspaceGit).mockResolvedValue({ ok: true });
+		vi.mocked(listWorkspaceGitRemotes).mockResolvedValue(['origin']);
+		vi.mocked(pushWorkspaceGit).mockResolvedValue({ ok: true });
+		vi.mocked(pushWorkspaceGitTags).mockResolvedValue({ ok: true });
 	});
 
 	it('fetches remotes then reloads the graph', async () => {
@@ -55,6 +64,24 @@ describe('createGitGraphViewController refresh', () => {
 		expect(ctrl.actionError).toContain('offline');
 		expect(getWorkspaceGitGraph).toHaveBeenCalled();
 		expect(ctrl.graph).toEqual(graphPayload);
+	});
+
+	it('pushes the current branch then refreshes remotes', async () => {
+		const ctrl = createGitGraphViewController({
+			getWorkspacePath: () => '/tmp/project'
+		});
+		await ctrl.beginPush('push-branch');
+		expect(pushWorkspaceGit).toHaveBeenCalledWith('/tmp/project', { remote: 'origin' });
+		expect(fetchWorkspaceGit).toHaveBeenCalled();
+	});
+
+	it('surfaces push errors without refreshing when push fails', async () => {
+		vi.mocked(pushWorkspaceGit).mockRejectedValue(new Error('push rejected'));
+		const ctrl = createGitGraphViewController({
+			getWorkspacePath: () => '/tmp/project'
+		});
+		await ctrl.beginPush('push-branch');
+		expect(ctrl.actionError).toContain('push rejected');
 	});
 
 	it('ignores overlapping refresh clicks while loading', async () => {

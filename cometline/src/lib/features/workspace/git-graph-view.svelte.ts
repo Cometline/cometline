@@ -8,12 +8,16 @@ import {
 	getWorkspaceGitGraph,
 	getWorkspaceGitCommitDetail,
 	getWorkspaceGitStatus,
+	listWorkspaceGitRemotes,
+	pushWorkspaceGit,
+	pushWorkspaceGitTags,
 	renameWorkspaceGitBranch,
 	renameWorkspaceGitTag,
 	type WorkspaceGitGraph
 } from '#lib/client/cometmind.js';
 import { normalizeWorkspacePath } from '#lib/features/workspace/file-index.js';
 import {
+	defaultRemoteChoice,
 	isUnsafeRefName,
 	type GitGraphCommitDetail,
 	type GitGraphMenuAction,
@@ -23,9 +27,12 @@ import { apiErrorMessage } from '#lib/client/cometmind.js';
 
 const pageSize = 80;
 
+export type GitGraphPushAction = 'push-branch' | 'push-all-tags' | 'push-tag';
+
 export type GitGraphDialog =
 	| { kind: 'create-branch'; sha: string; name: string }
-	| { kind: 'create-tag'; sha: string; name: string }
+	| { kind: 'create-tag'; sha: string; name: string; message: string }
+	| { kind: 'pick-remote'; action: GitGraphPushAction; tag?: string; remote: string; remotes: string[] }
 	| { kind: 'rename-branch'; name: string; next: string }
 	| { kind: 'rename-tag'; name: string; next: string }
 	| { kind: 'delete-branch'; name: string }
@@ -201,10 +208,12 @@ export function createGitGraphViewController(deps: { getWorkspacePath: () => str
 			if (action === 'create-branch')
 				dialog = { kind: 'create-branch', sha: current.sha, name: '' };
 			if (action === 'create-tag')
-				dialog = { kind: 'create-tag', sha: current.sha, name: '' };
+				dialog = { kind: 'create-tag', sha: current.sha, name: '', message: '' };
 			return;
 		}
 		const ref = current.ref;
+		if (action === 'push-branch') void beginPush('push-branch');
+		if (action === 'push-tag') void beginPush('push-tag', ref.name);
 		if (action === 'checkout')
 			void run(() => checkoutWorkspaceGit(normalizedWorkspace, ref.name));
 		if (action === 'rename' && ref.kind === 'branch') {
@@ -225,6 +234,68 @@ export function createGitGraphViewController(deps: { getWorkspacePath: () => str
 			dialog = { ...dialog, name: value };
 		if (dialog.kind === 'rename-branch' || dialog.kind === 'rename-tag')
 			dialog = { ...dialog, next: value };
+	}
+
+	function setDialogMessage(value: string) {
+		if (dialog?.kind !== 'create-tag') return;
+		dialog = { ...dialog, message: value };
+	}
+
+	function setPickRemote(remote: string) {
+		if (dialog?.kind !== 'pick-remote') return;
+		dialog = { ...dialog, remote };
+	}
+
+	async function beginPush(action: GitGraphPushAction, tag?: string) {
+		if (!workspaceAvailable || loading || mutating) return;
+		actionError = null;
+		try {
+			const remotes = await listWorkspaceGitRemotes(normalizedWorkspace);
+			if (remotes.length === 0) {
+				actionError = 'No git remotes configured.';
+				return;
+			}
+			if (remotes.length === 1) {
+				await executePush(action, remotes[0], tag);
+				return;
+			}
+			dialog = {
+				kind: 'pick-remote',
+				action,
+				tag,
+				remotes,
+				remote: defaultRemoteChoice(remotes)
+			};
+		} catch (err) {
+			actionError = apiErrorMessage(err, 'Failed to read git remotes');
+		}
+	}
+
+	async function confirmPickRemote() {
+		const current = dialog;
+		if (!current || current.kind !== 'pick-remote') return;
+		dialog = null;
+		await executePush(current.action, current.remote, current.tag);
+	}
+
+	async function executePush(action: GitGraphPushAction, remote: string, tag?: string) {
+		if (mutating) return;
+		mutating = true;
+		actionError = null;
+		try {
+			if (action === 'push-branch') {
+				await pushWorkspaceGit(normalizedWorkspace, { remote });
+			} else {
+				await pushWorkspaceGitTags(normalizedWorkspace, { remote, tag });
+			}
+			mutating = false;
+			await refresh();
+			return;
+		} catch (err) {
+			actionError = apiErrorMessage(err, 'Git push failed');
+		} finally {
+			mutating = false;
+		}
 	}
 
 	async function confirmDialog() {
@@ -251,7 +322,12 @@ export function createGitGraphViewController(deps: { getWorkspacePath: () => str
 			);
 		} else if (current.kind === 'create-tag') {
 			await run(() =>
-				createWorkspaceGitTag(normalizedWorkspace, current.name.trim(), current.sha)
+				createWorkspaceGitTag(
+					normalizedWorkspace,
+					current.name.trim(),
+					current.sha,
+					current.message.trim()
+				)
 			);
 		} else if (current.kind === 'rename-branch') {
 			await run(() =>
@@ -329,6 +405,8 @@ export function createGitGraphViewController(deps: { getWorkspacePath: () => str
 		},
 		load,
 		refresh,
+		beginPush,
+		confirmPickRemote,
 		loadMore,
 		selectCommit,
 		closeDetail,
@@ -338,6 +416,8 @@ export function createGitGraphViewController(deps: { getWorkspacePath: () => str
 		cancelDialog,
 		choose,
 		setDialogName,
+		setDialogMessage,
+		setPickRemote,
 		confirmDialog
 	};
 }

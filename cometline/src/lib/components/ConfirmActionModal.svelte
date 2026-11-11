@@ -9,6 +9,9 @@
 		showInput = false,
 		inputValue = $bindable(''),
 		inputPlaceholder,
+		showMessageInput = false,
+		messageValue = $bindable(''),
+		messagePlaceholder = 'Optional tag message (annotated tag)',
 		inputMaxLength = 200,
 		onCancel,
 		onConfirm,
@@ -23,6 +26,9 @@
 		showInput?: boolean;
 		inputValue?: string;
 		inputPlaceholder?: string;
+		showMessageInput?: boolean;
+		messageValue?: string;
+		messagePlaceholder?: string;
 		inputMaxLength?: number;
 		onCancel: () => void;
 		onConfirm: () => void;
@@ -97,6 +103,16 @@
 				maxlength={inputMaxLength}
 				aria-label={title}
 			/>
+		{/if}
+		{#if showMessageInput}
+			<textarea
+				class="confirm-input confirm-message"
+				bind:value={messageValue}
+				placeholder={messagePlaceholder}
+				maxlength={500}
+				rows="3"
+				aria-label="Tag message"
+			></textarea>
 		{/if}
 		<div class="actions">
 			{#if secondaryLabel}

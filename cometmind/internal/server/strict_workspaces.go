@@ -106,6 +106,21 @@ func (s *strictServer) FetchWorkspaceGit(ctx context.Context, _ apigen.FetchWork
 	return nil, nil
 }
 
+func (s *strictServer) ListWorkspaceGitRemotes(ctx context.Context, _ apigen.ListWorkspaceGitRemotesRequestObject) (apigen.ListWorkspaceGitRemotesResponseObject, error) {
+	delegateGin(ctx, s.app.handleWorkspaceGitRemotes)
+	return nil, nil
+}
+
+func (s *strictServer) PushWorkspaceGit(ctx context.Context, _ apigen.PushWorkspaceGitRequestObject) (apigen.PushWorkspaceGitResponseObject, error) {
+	delegateGin(ctx, s.app.handleWorkspaceGitPush)
+	return nil, nil
+}
+
+func (s *strictServer) PushWorkspaceGitTags(ctx context.Context, _ apigen.PushWorkspaceGitTagsRequestObject) (apigen.PushWorkspaceGitTagsResponseObject, error) {
+	delegateGin(ctx, s.app.handleWorkspaceGitPushTags)
+	return nil, nil
+}
+
 func (s *strictServer) CheckoutWorkspaceGit(ctx context.Context, _ apigen.CheckoutWorkspaceGitRequestObject) (apigen.CheckoutWorkspaceGitResponseObject, error) {
 	delegateGin(ctx, s.app.handleWorkspaceGitCheckout)
 	return nil, nil
