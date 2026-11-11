@@ -117,20 +117,21 @@
 		position: relative;
 		isolation: isolate;
 		display: grid;
-		grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr) 24px;
-		grid-template-areas: 'info files close';
+		grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+		grid-template-areas: 'info files';
 		gap: 12px;
 		margin: 0 8px 8px;
-		padding: 10px 8px 10px 12px;
+		padding: 10px 28px 10px 12px;
 		border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
 		border-radius: 8px;
 		background: color-mix(in srgb, var(--text-main) 3%, var(--panel-bg));
 	}
 
 	.close {
-		grid-area: close;
-		align-self: start;
-		justify-self: end;
+		position: absolute;
+		top: 8px;
+		right: 8px;
+		z-index: 2;
 		display: inline-flex;
 		border: none;
 		background: transparent;
@@ -266,10 +267,10 @@
 
 	@media (max-width: 720px) {
 		.detail {
-			grid-template-columns: minmax(0, 1fr) 24px;
+			grid-template-columns: minmax(0, 1fr);
 			grid-template-areas:
-				'info close'
-				'files files';
+				'info'
+				'files';
 		}
 	}
 </style>
