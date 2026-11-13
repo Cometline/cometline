@@ -56,6 +56,7 @@ The tables below use a few technical words.
 | Change the API or SSE contract | [09-contracts-codegen.md](./09-contracts-codegen.md) |
 | Understand MCP OAuth | [06-cometmind-features.md](./06-cometmind-features.md) → MCP section |
 | Follow the Git graph in the workspace panel | [08-cometline-frontend.md](./08-cometline-frontend.md) → Workspace panel, and [03-data-flows.md](./03-data-flows.md) → Flow 14 |
+| Search an open file or workspace content | [08-cometline-frontend.md](./08-cometline-frontend.md) → Workspace panel |
 | Connect a catalog connector, or see why MCP tools are searched | [06-cometmind-features.md](./06-cometmind-features.md) → MCP section, and [08-cometline-frontend.md](./08-cometline-frontend.md) → Settings UI |
 | Understand skill review, the wiki, or skill expiry | [06-cometmind-features.md](./06-cometmind-features.md) → Agent Skills |
 | Understand coding-harness delegation | [06-cometmind-features.md](./06-cometmind-features.md) → Coding task delegation |

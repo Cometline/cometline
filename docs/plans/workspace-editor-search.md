@@ -2,7 +2,7 @@
 
 ## Goal
 
-When the workspace file editor has focus, `Cmd+F` searches the open file and `Cmd+Shift+F` searches the current workspace. Chat search keeps both shortcuts when the editor does not have focus.
+When the workspace file editor has focus, `Cmd+F` searches the open file. `Cmd+P` cycles Wiki, Workspace, and Content. Content searches workspace text. `Cmd+Shift+F` remains chat search.
 
 This is not go-to-definition. Do not add `Cmd+Click` navigation in this change.
 

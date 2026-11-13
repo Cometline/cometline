@@ -117,6 +117,8 @@ Default bindings (rebindable in Settings → Shortcuts):
 | Send message           | Enter         |
 | Insert newline         | ⇧Enter        |
 | Focus search           | ⌘F            |
+| Find in open file      | ⌘F in editor  |
+| Quick open             | ⌘P            |
 | Previous / next chat   | ⌃⌘↑ / ⌃⌘↓     |
 | Toggle workspace panel | ⌘⌥B           |
 | Open web search        | ⌘O            |
