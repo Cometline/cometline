@@ -27,6 +27,8 @@ describe('runContentSearch', () => {
 
 	it('keeps a failed search from returning matches', async () => {
 		searchWorkspaceContent.mockRejectedValue(new Error('search failed'));
-		await expect(runContentSearch('workspace', 'match', '/repo')).rejects.toThrow('search failed');
+		await expect(runContentSearch('workspace', 'match', '/repo')).rejects.toThrow(
+			'search failed'
+		);
 	});
 });
