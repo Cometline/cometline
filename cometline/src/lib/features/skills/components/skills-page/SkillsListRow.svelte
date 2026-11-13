@@ -73,6 +73,11 @@
 		font-size: 11px;
 		line-height: 1.45;
 		color: var(--text-muted);
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 4;
+		line-clamp: 4;
+		overflow: hidden;
 	}
 
 	.unseen-dot {
