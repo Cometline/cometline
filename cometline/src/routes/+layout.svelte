@@ -105,7 +105,7 @@
 				}
 				if (event.type === 'inbox_message_created') {
 					inboxStore.applyCreated(event.id, event.open_count);
-					if (!isMiniRoute && !isSettingsRoute) void notifyNewInboxMessage(event.id);
+					if (!isSettingsRoute) void notifyNewInboxMessage(event.id);
 				}
 				if (event.type === 'inbox_message_archived') {
 					inboxStore.applyArchived(event.id, event.open_count);

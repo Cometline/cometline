@@ -245,6 +245,8 @@ The idle deadline is 1.5 seconds. Mount means the component has been added to th
 
 If Workspace Panel or Inbox fails to load, the promise is reset. The UI then shows a retry control. If the intro fails, the intro closes. The user is not left on an overlay that cannot load. An overlay is a layer that covers the page.
 
+A new inbox note also raises an in-app toast in the main window and the mini window. It does not send a desktop notification. Settings does not toast. The toast is skipped when the inbox drawer is already open.
+
 The preload callback is cancelled if the shell unmounts. Unmount means the shell component is removed.
 
 This is deferral, not permanent removal. Deferral means the work happens later. The feature is not deleted.
