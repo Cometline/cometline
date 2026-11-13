@@ -252,13 +252,6 @@ export function createAppShellShortcuts(deps: {
 		}
 	}
 
-	function eventTargetSource(event: KeyboardEvent) {
-		const target = event.target;
-		if (!(target instanceof Element)) return 'workspace';
-		const path = target.closest('[data-file-path]')?.getAttribute('data-file-path') ?? '';
-		return path.startsWith('@runtime/wiki/') ? 'wiki' : 'workspace';
-	}
-
 	function isWorkspaceEditorFind(event: KeyboardEvent) {
 		const target = event.target;
 		return target instanceof Element && Boolean(target.closest('.cm-editor'));
