@@ -112,21 +112,23 @@
 				{:else}
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					<div class="file-preview-source-wrap" onmouseup={panel.onSourceMouseUp}>
-						<FileEditor
-							bind:this={panel.s.fileEditor}
-							value={panel.s.draftContent}
-							language={panel.s.language}
-							readOnly={panel.s.saving || panel.readOnly}
-							{revealRange}
-							onChange={(value) => {
-								panel.s.draftContent = value;
-								if (panel.s.saveError) panel.s.saveError = null;
-							}}
-							onSave={() => {
-								void panel.save();
-							}}
-							onRevealApplied={() => shellStore.clearFileRevealForActive()}
-						/>
+						<div data-file-path={filePath}>
+							<FileEditor
+								bind:this={panel.s.fileEditor}
+								value={panel.s.draftContent}
+								language={panel.s.language}
+								readOnly={panel.s.saving || panel.readOnly}
+								{revealRange}
+								onChange={(value) => {
+									panel.s.draftContent = value;
+									if (panel.s.saveError) panel.s.saveError = null;
+								}}
+								onSave={() => {
+									void panel.save();
+								}}
+								onRevealApplied={() => shellStore.clearFileRevealForActive()}
+							/>
+						</div>
 						{#if panel.showBacklinks && !panel.showMarkdownToggle}
 							<FilePreviewBacklinks {panel} inSource />
 						{/if}
@@ -148,9 +150,11 @@
 <style>
 	.file-preview {
 		position: relative;
+		display: flex;
+		flex-direction: column;
 		width: 100%;
 		height: 100%;
-		overflow: auto;
+		overflow: hidden;
 		background: var(--panel-bg);
 	}
 
@@ -239,6 +243,12 @@
 	.file-preview-source-wrap {
 		display: flex;
 		flex-direction: column;
+		flex: 1;
+		min-height: 0;
+	}
+
+	.file-preview-source-wrap > :global(div) {
+		display: flex;
 		flex: 1;
 		min-height: 0;
 	}

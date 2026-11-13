@@ -357,8 +357,8 @@ function createSettingsStore() {
 		}
 	}
 
-	async function saveFileSearchSource(source: 'wiki' | 'workspace') {
-		const next = source === 'workspace' ? 'workspace' : 'wiki';
+	async function saveFileSearchSource(source: 'wiki' | 'workspace' | 'content') {
+		const next = source === 'workspace' || source === 'content' ? source : 'wiki';
 		if (settings.app.fileSearchSource === next) return;
 		error = '';
 		const normalized = normalizeSettings({

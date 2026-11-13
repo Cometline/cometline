@@ -128,6 +128,12 @@ describe('settings schema', () => {
 		expect(
 			normalizeSettings({
 				...base,
+				app: { ...base.app, fileSearchSource: 'content' }
+			}).app.fileSearchSource
+		).toBe('content');
+		expect(
+			normalizeSettings({
+				...base,
 				app: { ...base.app, fileSearchSource: 'changes' as never }
 			}).app.fileSearchSource
 		).toBe('wiki');

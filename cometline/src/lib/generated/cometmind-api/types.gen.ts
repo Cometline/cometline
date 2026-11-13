@@ -414,6 +414,30 @@ export type WorkspaceFileImageContent = {
     data_url: string;
 };
 
+export type WorkspaceContentMatch = {
+    /**
+     * Workspace-relative file path.
+     */
+    path: string;
+    /**
+     * 1-based line number.
+     */
+    line: number;
+    /**
+     * 1-based column of the first match.
+     */
+    column: number;
+    /**
+     * A short slice of the matched line.
+     */
+    preview: string;
+};
+
+export type WorkspaceContentSearch = {
+    matches: Array<WorkspaceContentMatch>;
+    truncated: boolean;
+};
+
 export type WorkspaceFileContent = WorkspaceFileTextContent | WorkspaceFileImageContent;
 
 /**
@@ -2613,6 +2637,46 @@ export type WriteWorkspaceFileContentResponses = {
 
 export type WriteWorkspaceFileContentResponse = WriteWorkspaceFileContentResponses[keyof WriteWorkspaceFileContentResponses];
 
+export type SearchWorkspaceFilesData = {
+    body?: never;
+    path?: never;
+    query: {
+        workspace_id?: string;
+        workspace_path?: string;
+        /**
+         * Literal text to find.
+         */
+        q: string;
+        /**
+         * Maximum matches to return. Defaults to 100.
+         */
+        limit?: number;
+    };
+    url: '/api/v1/workspaces/files/search';
+};
+
+export type SearchWorkspaceFilesErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type SearchWorkspaceFilesError = SearchWorkspaceFilesErrors[keyof SearchWorkspaceFilesErrors];
+
+export type SearchWorkspaceFilesResponses = {
+    /**
+     * Workspace content matches
+     */
+    200: WorkspaceContentSearch;
+};
+
+export type SearchWorkspaceFilesResponse = SearchWorkspaceFilesResponses[keyof SearchWorkspaceFilesResponses];
+
 export type ListWikiFilesData = {
     body?: never;
     path?: never;
@@ -2718,6 +2782,38 @@ export type ListWikiFileBacklinksResponses = {
 };
 
 export type ListWikiFileBacklinksResponse = ListWikiFileBacklinksResponses[keyof ListWikiFileBacklinksResponses];
+
+export type SearchWikiFilesData = {
+    body?: never;
+    path?: never;
+    query: {
+        q: string;
+        limit?: number;
+    };
+    url: '/api/v1/wiki/files/search';
+};
+
+export type SearchWikiFilesErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type SearchWikiFilesError = SearchWikiFilesErrors[keyof SearchWikiFilesErrors];
+
+export type SearchWikiFilesResponses = {
+    /**
+     * Wiki content matches
+     */
+    200: WorkspaceContentSearch;
+};
+
+export type SearchWikiFilesResponse = SearchWikiFilesResponses[keyof SearchWikiFilesResponses];
 
 export type ReadWikiFileContentData = {
     body?: never;

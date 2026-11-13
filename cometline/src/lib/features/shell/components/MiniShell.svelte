@@ -59,6 +59,13 @@
 			miniShellStore.toggleSidebar();
 			return;
 		}
+		if (
+			event.target instanceof Element &&
+			event.target.closest('.cm-editor') &&
+			matchesShortcut(event, settingsStore.settings.shortcuts.findInSession)
+		) {
+			return;
+		}
 		if (matchesShortcut(event, settingsStore.settings.shortcuts.focusSearch)) {
 			event.preventDefault();
 			void focusSearch();

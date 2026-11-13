@@ -1027,7 +1027,7 @@ function defaultAppSettings(): AppSettings {
 export type FileSearchSource = AppSettings['fileSearchSource'];
 
 export function normalizeFileSearchSource(value: unknown): FileSearchSource {
-	return value === 'workspace' ? 'workspace' : 'wiki';
+	return value === 'workspace' || value === 'content' ? value : 'wiki';
 }
 
 function normalizeWorkspacePanelWidth(value: unknown): number {
@@ -1363,7 +1363,7 @@ const providerSettingsSchema = z.object({
 		confirmCloseOnCmdW: z.boolean(),
 		confirmBeforeDeletingChats: z.boolean(),
 		confirmBeforeDeletingMedia: z.boolean(),
-		fileSearchSource: z.enum(['wiki', 'workspace']),
+		fileSearchSource: z.enum(['wiki', 'workspace', 'content']),
 		screenCapturePreferred: z.boolean()
 	}),
 	cometmind: z.object({

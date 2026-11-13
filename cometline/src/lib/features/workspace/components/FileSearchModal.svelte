@@ -5,10 +5,8 @@
 	import { shellStore } from '#lib/stores/shell.svelte.js';
 	import { settingsStore } from '#lib/stores/settings.svelte.js';
 	import { toWikiUiPath } from '#lib/wiki/paths.js';
-	import {
-		loadFileSearchOptions,
-		type FileSearchSource
-	} from '#lib/features/workspace/file-search.js';
+	import { loadFileSearchOptions } from '#lib/features/workspace/file-search.js';
+	import { runContentSearch } from '#lib/features/workspace/content-search.js';
 	import { normalizeWorkspacePath } from '#lib/features/workspace/file-index.js';
 
 	let {
@@ -30,7 +28,8 @@
 	let loadSeq = 0;
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-	const source = $derived(settingsStore.settings.app.fileSearchSource);
+	const savedSource = $derived(settingsStore.settings.app.fileSearchSource);
+	let mode = $state<'wiki' | 'workspace' | 'content'>(savedSource);
 	const workspacePath = $derived(normalizeWorkspacePath(shellStore.workspacePath));
 	const workspaceAvailable = $derived(Boolean(workspacePath && workspacePath !== '/'));
 
@@ -50,8 +49,17 @@
 		};
 	}
 
-	function setSource(next: FileSearchSource) {
+	const modes = ['wiki', 'workspace', 'content'] as const;
+
+	function cycleMode() {
+		const current = modes.indexOf(mode);
+		const next = modes[(current + 1) % modes.length];
+		mode = next === 'workspace' && !workspaceAvailable ? 'wiki' : next;
+	}
+
+	function setMode(next: 'wiki' | 'workspace' | 'content') {
 		if (next === 'workspace' && !workspaceAvailable) return;
+		mode = next;
 		void settingsStore.saveFileSearchSource(next);
 	}
 
@@ -72,10 +80,22 @@
 	}
 
 	async function selectPath(path: string, options: { keepOpen?: boolean } = {}) {
-		const openPath = source === 'wiki' ? toWikiUiPath(path) : path;
+		const separator = mode === 'content' ? path.lastIndexOf(':') : -1;
+		const filePath = separator > 0 ? path.slice(0, separator) : path;
+		const lineText = separator > 0 ? path.slice(separator + 1) : '';
+		const openPath = mode === 'wiki' ? toWikiUiPath(filePath) : filePath;
+		const line = Number(lineText);
+		const reveal =
+			mode === 'content' && Number.isInteger(line) && line > 0
+				? { startLine: line, endLine: line }
+				: null;
 		// Older renderer mocks expose this action as void; only an explicit false
 		// means the editor's leave guard rejected the requested navigation.
-		if ((await shellStore.openFilePreviewForActive(openPath)) === false) return;
+		const opened =
+			reveal === null
+				? await shellStore.openFilePreviewForActive(openPath)
+				: await shellStore.openFilePreviewForActive(openPath, reveal);
+		if (opened === false) return;
 		if (!options.keepOpen) close();
 	}
 
@@ -136,12 +156,17 @@
 		loading = true;
 		error = null;
 		try {
-			if (source === 'workspace' && !workspaceAvailable) {
+			if (mode === 'workspace' && !workspaceAvailable) {
 				if (seq !== loadSeq) return;
 				results = [];
 				return;
 			}
-			const files = await loadFileSearchOptions(source, workspacePath, debouncedQuery, 50);
+			const files =
+				mode === 'content'
+					? (await runContentSearch('workspace', debouncedQuery, workspacePath)).map(
+							(match) => `${match.path}:${match.line}`
+						)
+					: await loadFileSearchOptions(mode, workspacePath, debouncedQuery, 50);
 			if (seq !== loadSeq) return;
 			results = files;
 			activeIndex = 0;
@@ -155,8 +180,14 @@
 	}
 
 	$effect(() => {
+		const onCycle = () => cycleMode();
+		window.addEventListener('cometline:cycle-file-search', onCycle);
+		return () => window.removeEventListener('cometline:cycle-file-search', onCycle);
+	});
+
+	$effect(() => {
 		if (!open) return;
-		void [source, workspacePath, debouncedQuery];
+		void [mode, workspacePath, debouncedQuery];
 		void loadResults();
 	});
 
@@ -193,22 +224,30 @@
 					<button
 						type="button"
 						class="source-toggle-btn"
-						class:active={source === 'wiki'}
-						onclick={() => setSource('wiki')}
+						class:active={mode === 'wiki'}
+						onclick={() => setMode('wiki')}
 					>
 						Wiki
 					</button>
 					<button
 						type="button"
 						class="source-toggle-btn"
-						class:active={source === 'workspace'}
+						class:active={mode === 'workspace'}
 						disabled={!workspaceAvailable}
 						title={workspaceAvailable
 							? 'Workspace files'
 							: 'Select a workspace to search files'}
-						onclick={() => setSource('workspace')}
+						onclick={() => setMode('workspace')}
 					>
 						Workspace
+					</button>
+					<button
+						type="button"
+						class="source-toggle-btn"
+						class:active={mode === 'content'}
+						onclick={() => setMode('content')}
+					>
+						Content
 					</button>
 				</div>
 			</div>
@@ -217,7 +256,11 @@
 				{@attach focusInput}
 				class="file-search-input"
 				type="text"
-				placeholder={source === 'wiki' ? 'Search wiki files…' : 'Search workspace files…'}
+				placeholder={mode === 'wiki'
+					? 'Search wiki files…'
+					: mode === 'content'
+						? 'Search file content…'
+						: 'Search workspace files…'}
 				bind:value={query}
 				aria-label="Search files"
 				autocomplete="off"
@@ -231,11 +274,15 @@
 					<Loader size={16} stroke-width={2} class="file-search-spinner" />
 					<span>Searching…</span>
 				</div>
-			{:else if source === 'workspace' && !workspaceAvailable}
+			{:else if mode === 'workspace' && !workspaceAvailable}
 				<div class="file-search-state">Select a workspace to search its files.</div>
 			{:else if results.length === 0}
 				<div class="file-search-state">
-					{debouncedQuery.trim() ? 'No matching files.' : 'Start typing to search files.'}
+					{debouncedQuery.trim()
+						? 'No matches.'
+						: mode === 'content'
+							? 'Start typing to search content.'
+							: 'Start typing to search files.'}
 				</div>
 			{:else}
 				<FileSearchResults

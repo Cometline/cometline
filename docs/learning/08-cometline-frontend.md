@@ -394,6 +394,8 @@ Electron watches the active workspace. It emits coalesced file and Git changes t
 
 A file preview can reload. It can keep a dirty draft. Dirty means the draft has edits that are not saved. It can also open a full-page diff. It does not drop an external change without showing it.
 
+`Cmd+F` inside the CodeMirror editor opens its find panel at the top. Outside the editor, `Cmd+F` still searches the current chat. `Cmd+P` opens quick open. Repeat `Cmd+P` to cycle Wiki, Workspace, and Content. Content searches file text and opens the matched line. Settings can save Content as the default. `Cmd+Shift+F` still searches chats.
+
 #### Git graph
 
 The Graph tab is a second view of the same Git surface. It is not a new workspace-panel mode. `createGitGraphViewController` in `git-graph-view.svelte.ts` loads `GET /api/v1/workspaces/git/graph` in pages of 80. Scroll loads the next page. Refresh calls `POST /api/v1/workspaces/git/fetch`, then reloads the graph. If fetch fails, the local graph still reloads.

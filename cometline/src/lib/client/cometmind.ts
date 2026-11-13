@@ -31,6 +31,8 @@ import {
 	pruneWorkspaces as pruneWorkspacesApi,
 	listWorkspaceFiles as listWorkspaceFilesApi,
 	listWorkspaceFileChildren as listWorkspaceFileChildrenApi,
+	searchWorkspaceFiles as searchWorkspaceFilesApi,
+	searchWikiFiles as searchWikiFilesApi,
 	getWorkspaceGitStatus as getWorkspaceGitStatusApi,
 	getWorkspaceGitGraph as getWorkspaceGitGraphApi,
 	getWorkspaceGitCommitDetail as getWorkspaceGitCommitDetailApi,
@@ -375,6 +377,50 @@ export function listWorkspaceFiles(
 		},
 		throwOnError: true
 	}).then(({ data }) => ({ files: data.files ?? [], truncated: Boolean(data.truncated) }));
+}
+
+export interface WorkspaceContentMatch {
+	path: string;
+	line: number;
+	column: number;
+	preview: string;
+}
+
+export function searchWikiContent(
+	query: string,
+	limit = 100
+): Promise<{ matches: WorkspaceContentMatch[]; truncated: boolean }> {
+	return searchWikiFilesApi({
+		query: { q: query, limit },
+		throwOnError: true
+	}).then(({ data }) => ({
+		matches: (data.matches ?? []).map((match) => ({
+			path: match.path,
+			line: match.line,
+			column: match.column,
+			preview: match.preview
+		})),
+		truncated: Boolean(data.truncated)
+	}));
+}
+
+export function searchWorkspaceContent(
+	workspacePath: string,
+	query: string,
+	limit = 100
+): Promise<{ matches: WorkspaceContentMatch[]; truncated: boolean }> {
+	return searchWorkspaceFilesApi({
+		query: { workspace_path: workspacePath, q: query, limit },
+		throwOnError: true
+	}).then(({ data }) => ({
+		matches: (data.matches ?? []).map((match) => ({
+			path: match.path,
+			line: match.line,
+			column: match.column,
+			preview: match.preview
+		})),
+		truncated: Boolean(data.truncated)
+	}));
 }
 
 export function listWorkspaceFileChildren(

@@ -55,7 +55,11 @@ export function cloneSettings(settings: ProviderSettings): ProviderSettings {
 			confirmCloseOnCmdW: settings.app?.confirmCloseOnCmdW ?? true,
 			confirmBeforeDeletingChats: settings.app?.confirmBeforeDeletingChats ?? true,
 			confirmBeforeDeletingMedia: settings.app?.confirmBeforeDeletingMedia ?? true,
-			fileSearchSource: settings.app?.fileSearchSource === 'workspace' ? 'workspace' : 'wiki'
+			fileSearchSource:
+				settings.app?.fileSearchSource === 'workspace' ||
+				settings.app?.fileSearchSource === 'content'
+					? settings.app.fileSearchSource
+					: 'wiki'
 		},
 		cometmind: cloneCometMindSettings(normalizeCometMindSettings(settings.cometmind))
 	};

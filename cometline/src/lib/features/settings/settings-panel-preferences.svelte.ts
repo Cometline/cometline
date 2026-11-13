@@ -172,8 +172,8 @@ export function createSettingsPanelPreferences(
 		}
 	}
 
-	async function setFileSearchSource(source: 'wiki' | 'workspace') {
-		const next = source === 'workspace' ? 'workspace' : 'wiki';
+	async function setFileSearchSource(source: 'wiki' | 'workspace' | 'content') {
+		const next = source === 'workspace' || source === 'content' ? source : 'wiki';
 		const draft = deps.getDraft();
 		deps.setDraft({ ...draft, app: { ...draft.app, fileSearchSource: next } });
 		try {

@@ -39,7 +39,7 @@
 				title={path}
 			>
 				<span class="file-search-icon" aria-hidden="true">
-					<FileTypeIcon {path} size={16} />
+					<FileTypeIcon path={path.replace(/:\d+$/, '')} size={16} />
 				</span>
 				<span class="file-search-labels">
 					<span class="file-search-name">{fileName(path)}</span>

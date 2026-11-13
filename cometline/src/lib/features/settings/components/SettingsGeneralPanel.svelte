@@ -151,6 +151,17 @@
 				>
 					Workspace
 				</button>
+				<button
+					type="button"
+					class="source-toggle-btn"
+					class:active={fileSearchSource === 'content'}
+					onclick={() => {
+						fileSearchSource = 'content';
+						void onFileSearchSourceChange?.('content');
+					}}
+				>
+					Content
+				</button>
 			</div>
 		</div>
 
