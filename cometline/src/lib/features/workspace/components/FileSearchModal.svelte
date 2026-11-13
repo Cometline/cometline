@@ -80,13 +80,22 @@
 	}
 
 	async function selectPath(path: string, options: { keepOpen?: boolean } = {}) {
-		const [filePath, lineText] = mode === 'content' ? path.split(':') : [path, ''];
+		const separator = mode === 'content' ? path.lastIndexOf(':') : -1;
+		const filePath = separator > 0 ? path.slice(0, separator) : path;
+		const lineText = separator > 0 ? path.slice(separator + 1) : '';
 		const openPath = mode === 'wiki' ? toWikiUiPath(filePath) : filePath;
 		const line = Number(lineText);
-		const reveal = Number.isInteger(line) ? { startLine: line, endLine: line } : null;
+		const reveal =
+			mode === 'content' && Number.isInteger(line) && line > 0
+				? { startLine: line, endLine: line }
+				: null;
 		// Older renderer mocks expose this action as void; only an explicit false
 		// means the editor's leave guard rejected the requested navigation.
-		if ((await shellStore.openFilePreviewForActive(openPath, reveal)) === false) return;
+		const opened =
+			reveal === null
+				? await shellStore.openFilePreviewForActive(openPath)
+				: await shellStore.openFilePreviewForActive(openPath, reveal);
+		if (opened === false) return;
 		if (!options.keepOpen) close();
 	}
 
