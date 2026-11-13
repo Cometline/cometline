@@ -160,6 +160,10 @@ export function createAppShellShortcuts(deps: {
 				return;
 			case 'openFileSearch':
 				if (shellStore.settingsOpen) return;
+				if (fileSearchOpen) {
+					window.dispatchEvent(new CustomEvent('cometline:cycle-file-search'));
+					return;
+				}
 				fileSearchOpen = true;
 				return;
 			case 'openTerminal':
@@ -248,6 +252,18 @@ export function createAppShellShortcuts(deps: {
 		}
 	}
 
+	function eventTargetSource(event: KeyboardEvent) {
+		const target = event.target;
+		if (!(target instanceof Element)) return 'workspace';
+		const path = target.closest('[data-file-path]')?.getAttribute('data-file-path') ?? '';
+		return path.startsWith('@runtime/wiki/') ? 'wiki' : 'workspace';
+	}
+
+	function isWorkspaceEditorFind(event: KeyboardEvent) {
+		const target = event.target;
+		return target instanceof Element && Boolean(target.closest('.cm-editor'));
+	}
+
 	function handleKeydown(event: KeyboardEvent) {
 		const shortcuts = settingsStore.settings.shortcuts;
 		if (closeConfirmOpen && event.key === 'Escape') {
@@ -298,6 +314,7 @@ export function createAppShellShortcuts(deps: {
 
 		for (const action of PRIMARY_SHORTCUTS) {
 			if (!matchesShortcut(event, shortcuts[action])) continue;
+			if (action === 'findInSession' && isWorkspaceEditorFind(event)) return;
 			if (action === 'findInSession' && !deps.canFindInSession()) return;
 			event.preventDefault();
 			runShortcutAction(action);

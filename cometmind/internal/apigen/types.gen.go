@@ -2555,6 +2555,27 @@ type Workspace struct {
 	SessionCount int `json:"session_count"`
 }
 
+// WorkspaceContentMatch defines model for WorkspaceContentMatch.
+type WorkspaceContentMatch struct {
+	// Column 1-based column of the first match.
+	Column int `json:"column"`
+
+	// Line 1-based line number.
+	Line int `json:"line"`
+
+	// Path Workspace-relative file path.
+	Path string `json:"path"`
+
+	// Preview A short slice of the matched line.
+	Preview string `json:"preview"`
+}
+
+// WorkspaceContentSearch defines model for WorkspaceContentSearch.
+type WorkspaceContentSearch struct {
+	Matches   []WorkspaceContentMatch `json:"matches"`
+	Truncated bool                    `json:"truncated"`
+}
+
 // WorkspaceFileContent defines model for WorkspaceFileContent.
 type WorkspaceFileContent struct {
 	union json.RawMessage
@@ -3018,6 +3039,12 @@ type ReadWikiFileContentParams struct {
 	Path string `form:"path" json:"path"`
 }
 
+// SearchWikiFilesParams defines parameters for SearchWikiFiles.
+type SearchWikiFilesParams struct {
+	Q     string `form:"q" json:"q"`
+	Limit *int   `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // DeleteWorkspaceParams defines parameters for DeleteWorkspace.
 type DeleteWorkspaceParams struct {
 	// WorkspacePath Absolute workspace path to remove from CometMind registrations.
@@ -3065,6 +3092,18 @@ type ReadWorkspaceFileContentParams struct {
 
 	// Path Workspace-relative file path.
 	Path string `form:"path" json:"path"`
+}
+
+// SearchWorkspaceFilesParams defines parameters for SearchWorkspaceFiles.
+type SearchWorkspaceFilesParams struct {
+	WorkspaceId   *string `form:"workspace_id,omitempty" json:"workspace_id,omitempty"`
+	WorkspacePath *string `form:"workspace_path,omitempty" json:"workspace_path,omitempty"`
+
+	// Q Literal text to find.
+	Q string `form:"q" json:"q"`
+
+	// Limit Maximum matches to return. Defaults to 100.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // GetWorkspaceGitCommitDetailParams defines parameters for GetWorkspaceGitCommitDetail.

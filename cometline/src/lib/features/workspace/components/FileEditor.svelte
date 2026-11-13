@@ -3,6 +3,7 @@
 	import { basicSetup, EditorView } from 'codemirror';
 	import { Compartment, EditorState, EditorSelection } from '@codemirror/state';
 	import { keymap } from '@codemirror/view';
+	import { search, searchKeymap } from '@codemirror/search';
 	import type { Extension } from '@codemirror/state';
 	import { codemirrorLanguageSupport } from '#lib/features/workspace/codemirror-language.js';
 	import type { FileRevealRange } from '#lib/features/workspace/workspace-panel-state.js';
@@ -92,6 +93,28 @@
 			},
 			'.cm-selectionBackground, ::selection': {
 				backgroundColor: 'rgba(59, 130, 246, 0.18)'
+			},
+			'& .cm-panels-top': {
+				position: 'sticky',
+				top: 0,
+				zIndex: 20,
+				backgroundColor: 'var(--panel-bg)'
+			},
+			'& .cm-panel.cm-search': {
+				display: 'flex',
+				alignItems: 'center',
+				flexWrap: 'wrap'
+			},
+			'& .cm-panel.cm-search button': {
+				display: 'inline-flex',
+				alignItems: 'center',
+				justifyContent: 'center',
+				textAlign: 'center'
+			},
+			'& .cm-panel.cm-search label': {
+				display: 'inline-flex',
+				alignItems: 'center',
+				gap: '4px'
 			}
 		});
 	}
@@ -118,6 +141,8 @@
 					doc: value,
 					extensions: [
 						basicSetup,
+						search({ top: true }),
+						keymap.of(searchKeymap),
 						EditorView.lineWrapping,
 						editorTheme(),
 						saveKeymap,
@@ -190,5 +215,9 @@
 		width: 100%;
 		height: 100%;
 		min-height: 0;
+	}
+
+	.file-editor :global(.cm-editor) {
+		height: 100%;
 	}
 </style>

@@ -143,7 +143,7 @@ export interface AppSettings {
 	/** When true, deleting Gallery media requires confirmation. */
 	confirmBeforeDeletingMedia: boolean;
 	/** Default source for the ⌘P file search modal. */
-	fileSearchSource: 'wiki' | 'workspace';
+	fileSearchSource: 'wiki' | 'workspace' | 'content';
 	/** User preference to enable screen / system-audio capture for presenting screenshots. */
 	screenCapturePreferred: boolean;
 }

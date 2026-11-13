@@ -31,6 +31,11 @@ func (s *strictServer) GetUsageSummary(ctx context.Context, _ apigen.GetUsageSum
 	return nil, nil
 }
 
+func (s *strictServer) SearchWikiFiles(ctx context.Context, _ apigen.SearchWikiFilesRequestObject) (apigen.SearchWikiFilesResponseObject, error) {
+	delegateGin(ctx, s.app.handleSearchWikiFiles)
+	return nil, nil
+}
+
 func (s *strictServer) ListWikiFiles(ctx context.Context, _ apigen.ListWikiFilesRequestObject) (apigen.ListWikiFilesResponseObject, error) {
 	delegateGin(ctx, s.app.handleListWikiFiles)
 	return nil, nil
@@ -78,6 +83,11 @@ func (s *strictServer) ListWorkspaceFiles(ctx context.Context, _ apigen.ListWork
 
 func (s *strictServer) ListWorkspaceFileChildren(ctx context.Context, _ apigen.ListWorkspaceFileChildrenRequestObject) (apigen.ListWorkspaceFileChildrenResponseObject, error) {
 	delegateGin(ctx, s.app.handleListWorkspaceFileChildren)
+	return nil, nil
+}
+
+func (s *strictServer) SearchWorkspaceFiles(ctx context.Context, _ apigen.SearchWorkspaceFilesRequestObject) (apigen.SearchWorkspaceFilesResponseObject, error) {
+	delegateGin(ctx, s.app.handleSearchWorkspaceFiles)
 	return nil, nil
 }
 

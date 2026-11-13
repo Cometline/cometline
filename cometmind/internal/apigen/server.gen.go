@@ -253,6 +253,9 @@ type ServerInterface interface {
 	// Write a wiki file for preview editing
 	// (PUT /api/v1/wiki/files/content)
 	WriteWikiFileContent(c *gin.Context)
+	// Search text in wiki files
+	// (GET /api/v1/wiki/files/search)
+	SearchWikiFiles(c *gin.Context, params SearchWikiFilesParams)
 	// Remove an unused workspace registration
 	// (DELETE /api/v1/workspaces)
 	DeleteWorkspace(c *gin.Context, params DeleteWorkspaceParams)
@@ -274,6 +277,9 @@ type ServerInterface interface {
 	// Write a workspace file for preview editing
 	// (PUT /api/v1/workspaces/files/content)
 	WriteWorkspaceFileContent(c *gin.Context)
+	// Search text in workspace files
+	// (GET /api/v1/workspaces/files/search)
+	SearchWorkspaceFiles(c *gin.Context, params SearchWorkspaceFilesParams)
 	// Create a local branch
 	// (POST /api/v1/workspaces/git/branches)
 	CreateWorkspaceGitBranch(c *gin.Context)
@@ -2226,6 +2232,41 @@ func (siw *ServerInterfaceWrapper) WriteWikiFileContent(c *gin.Context) {
 	siw.Handler.WriteWikiFileContent(c)
 }
 
+// SearchWikiFiles operation middleware
+func (siw *ServerInterfaceWrapper) SearchWikiFiles(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SearchWikiFilesParams
+
+	// ------------- Required query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "q", c.Request.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter q: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", c.Request.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter limit: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.SearchWikiFiles(c, params)
+}
+
 // DeleteWorkspace operation middleware
 func (siw *ServerInterfaceWrapper) DeleteWorkspace(c *gin.Context) {
 
@@ -2443,6 +2484,57 @@ func (siw *ServerInterfaceWrapper) WriteWorkspaceFileContent(c *gin.Context) {
 	}
 
 	siw.Handler.WriteWorkspaceFileContent(c)
+}
+
+// SearchWorkspaceFiles operation middleware
+func (siw *ServerInterfaceWrapper) SearchWorkspaceFiles(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SearchWorkspaceFilesParams
+
+	// ------------- Optional query parameter "workspace_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "workspace_id", c.Request.URL.Query(), &params.WorkspaceId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter workspace_id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "workspace_path" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "workspace_path", c.Request.URL.Query(), &params.WorkspacePath, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter workspace_path: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Required query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "q", c.Request.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter q: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", c.Request.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter limit: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.SearchWorkspaceFiles(c, params)
 }
 
 // CreateWorkspaceGitBranch operation middleware
@@ -2977,6 +3069,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/api/v1/wiki/files/children", wrapper.ListWikiFileChildren)
 	router.GET(options.BaseURL+"/api/v1/wiki/files/content", wrapper.ReadWikiFileContent)
 	router.PUT(options.BaseURL+"/api/v1/wiki/files/content", wrapper.WriteWikiFileContent)
+	router.GET(options.BaseURL+"/api/v1/wiki/files/search", wrapper.SearchWikiFiles)
 	router.DELETE(options.BaseURL+"/api/v1/workspaces", wrapper.DeleteWorkspace)
 	router.GET(options.BaseURL+"/api/v1/workspaces", wrapper.ListWorkspaces)
 	router.POST(options.BaseURL+"/api/v1/workspaces", wrapper.CreateWorkspace)
@@ -2984,6 +3077,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/api/v1/workspaces/files/children", wrapper.ListWorkspaceFileChildren)
 	router.GET(options.BaseURL+"/api/v1/workspaces/files/content", wrapper.ReadWorkspaceFileContent)
 	router.PUT(options.BaseURL+"/api/v1/workspaces/files/content", wrapper.WriteWorkspaceFileContent)
+	router.GET(options.BaseURL+"/api/v1/workspaces/files/search", wrapper.SearchWorkspaceFiles)
 	router.POST(options.BaseURL+"/api/v1/workspaces/git/branches", wrapper.CreateWorkspaceGitBranch)
 	router.POST(options.BaseURL+"/api/v1/workspaces/git/branches/delete", wrapper.DeleteWorkspaceGitBranch)
 	router.POST(options.BaseURL+"/api/v1/workspaces/git/branches/rename", wrapper.RenameWorkspaceGitBranch)
@@ -7236,6 +7330,56 @@ func (response WriteWikiFileContent500JSONResponse) VisitWriteWikiFileContentRes
 	return err
 }
 
+type SearchWikiFilesRequestObject struct {
+	Params SearchWikiFilesParams
+}
+
+type SearchWikiFilesResponseObject interface {
+	VisitSearchWikiFilesResponse(w http.ResponseWriter) error
+}
+
+type SearchWikiFiles200JSONResponse WorkspaceContentSearch
+
+func (response SearchWikiFiles200JSONResponse) VisitSearchWikiFilesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SearchWikiFiles400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response SearchWikiFiles400JSONResponse) VisitSearchWikiFilesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SearchWikiFiles500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response SearchWikiFiles500JSONResponse) VisitSearchWikiFilesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type DeleteWorkspaceRequestObject struct {
 	Params DeleteWorkspaceParams
 }
@@ -7598,6 +7742,56 @@ func (response WriteWorkspaceFileContent400JSONResponse) VisitWriteWorkspaceFile
 type WriteWorkspaceFileContent500JSONResponse struct{ InternalErrorJSONResponse }
 
 func (response WriteWorkspaceFileContent500JSONResponse) VisitWriteWorkspaceFileContentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SearchWorkspaceFilesRequestObject struct {
+	Params SearchWorkspaceFilesParams
+}
+
+type SearchWorkspaceFilesResponseObject interface {
+	VisitSearchWorkspaceFilesResponse(w http.ResponseWriter) error
+}
+
+type SearchWorkspaceFiles200JSONResponse WorkspaceContentSearch
+
+func (response SearchWorkspaceFiles200JSONResponse) VisitSearchWorkspaceFilesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SearchWorkspaceFiles400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response SearchWorkspaceFiles400JSONResponse) VisitSearchWorkspaceFilesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SearchWorkspaceFiles500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response SearchWorkspaceFiles500JSONResponse) VisitSearchWorkspaceFilesResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -8945,6 +9139,9 @@ type StrictServerInterface interface {
 	// Write a wiki file for preview editing
 	// (PUT /api/v1/wiki/files/content)
 	WriteWikiFileContent(ctx context.Context, request WriteWikiFileContentRequestObject) (WriteWikiFileContentResponseObject, error)
+	// Search text in wiki files
+	// (GET /api/v1/wiki/files/search)
+	SearchWikiFiles(ctx context.Context, request SearchWikiFilesRequestObject) (SearchWikiFilesResponseObject, error)
 	// Remove an unused workspace registration
 	// (DELETE /api/v1/workspaces)
 	DeleteWorkspace(ctx context.Context, request DeleteWorkspaceRequestObject) (DeleteWorkspaceResponseObject, error)
@@ -8966,6 +9163,9 @@ type StrictServerInterface interface {
 	// Write a workspace file for preview editing
 	// (PUT /api/v1/workspaces/files/content)
 	WriteWorkspaceFileContent(ctx context.Context, request WriteWorkspaceFileContentRequestObject) (WriteWorkspaceFileContentResponseObject, error)
+	// Search text in workspace files
+	// (GET /api/v1/workspaces/files/search)
+	SearchWorkspaceFiles(ctx context.Context, request SearchWorkspaceFilesRequestObject) (SearchWorkspaceFilesResponseObject, error)
 	// Create a local branch
 	// (POST /api/v1/workspaces/git/branches)
 	CreateWorkspaceGitBranch(ctx context.Context, request CreateWorkspaceGitBranchRequestObject) (CreateWorkspaceGitBranchResponseObject, error)
@@ -11264,6 +11464,32 @@ func (sh *strictHandler) WriteWikiFileContent(ctx *gin.Context) {
 	}
 }
 
+// SearchWikiFiles operation middleware
+func (sh *strictHandler) SearchWikiFiles(ctx *gin.Context, params SearchWikiFilesParams) {
+	var request SearchWikiFilesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.SearchWikiFiles(ctx, request.(SearchWikiFilesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SearchWikiFiles")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(SearchWikiFilesResponseObject); ok {
+		if err := validResponse.VisitSearchWikiFilesResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // DeleteWorkspace operation middleware
 func (sh *strictHandler) DeleteWorkspace(ctx *gin.Context, params DeleteWorkspaceParams) {
 	var request DeleteWorkspaceRequestObject
@@ -11447,6 +11673,32 @@ func (sh *strictHandler) WriteWorkspaceFileContent(ctx *gin.Context) {
 		sh.options.HandlerErrorFunc(ctx, err)
 	} else if validResponse, ok := response.(WriteWorkspaceFileContentResponseObject); ok {
 		if err := validResponse.VisitWriteWorkspaceFileContentResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SearchWorkspaceFiles operation middleware
+func (sh *strictHandler) SearchWorkspaceFiles(ctx *gin.Context, params SearchWorkspaceFilesParams) {
+	var request SearchWorkspaceFilesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.SearchWorkspaceFiles(ctx, request.(SearchWorkspaceFilesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SearchWorkspaceFiles")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(SearchWorkspaceFilesResponseObject); ok {
+		if err := validResponse.VisitSearchWorkspaceFilesResponse(ctx.Writer); err != nil {
 			sh.options.ResponseErrorHandlerFunc(ctx, err)
 		}
 	} else if response != nil {

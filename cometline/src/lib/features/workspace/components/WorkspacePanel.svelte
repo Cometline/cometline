@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
 	import ConfirmActionModal from '#lib/components/ConfirmActionModal.svelte';
+	import WorkspaceContentSearch from '#lib/features/workspace/components/WorkspaceContentSearch.svelte';
 	import WorkspacePanelSurfaces from '#lib/features/workspace/components/workspace-panel/WorkspacePanelSurfaces.svelte';
 	import WorkspacePanelToolbar from '#lib/features/workspace/components/workspace-panel/WorkspacePanelToolbar.svelte';
 	import WorkspacePanelWebSearch from '#lib/features/workspace/components/workspace-panel/WorkspacePanelWebSearch.svelte';
@@ -110,6 +111,8 @@
 	onCancel={() => panel.resolveLeaveEditor(false)}
 	onConfirm={() => panel.resolveLeaveEditor(true)}
 />
+
+<WorkspaceContentSearch />
 
 <style>
 	.workspace-panel {

@@ -889,6 +889,51 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/workspaces/files/search:
+    get:
+      tags: [Files]
+      summary: Search text in workspace files
+      description: |
+        Searches workspace file contents and returns capped line matches.
+        Respects the workspace `.gitignore` and skips binary files.
+      operationId: searchWorkspaceFiles
+      parameters:
+        - name: workspace_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: workspace_path
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Literal text to find.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+          description: Maximum matches to return. Defaults to 100.
+      responses:
+        '200':
+          description: Workspace content matches
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceContentSearch'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/wiki/files:
     get:
       tags: [Files]
@@ -980,6 +1025,37 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WikiFileBacklinks'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/wiki/files/search:
+    get:
+      tags: [Files]
+      summary: Search text in wiki files
+      description: Searches wiki file contents and returns capped line matches.
+      operationId: searchWikiFiles
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+      responses:
+        '200':
+          description: Wiki content matches
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceContentSearch'
         '400':
           $ref: '#/components/responses/BadRequest'
         '500':
@@ -3810,6 +3886,38 @@ components:
           type: string
         data_url:
           type: string
+
+    WorkspaceContentMatch:
+      type: object
+      additionalProperties: false
+      required: [path, line, column, preview]
+      properties:
+        path:
+          type: string
+          description: Workspace-relative file path.
+        line:
+          type: integer
+          minimum: 1
+          description: 1-based line number.
+        column:
+          type: integer
+          minimum: 1
+          description: 1-based column of the first match.
+        preview:
+          type: string
+          description: A short slice of the matched line.
+
+    WorkspaceContentSearch:
+      type: object
+      additionalProperties: false
+      required: [matches, truncated]
+      properties:
+        matches:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkspaceContentMatch'
+        truncated:
+          type: boolean
 
     WorkspaceFileContent:
       oneOf:
