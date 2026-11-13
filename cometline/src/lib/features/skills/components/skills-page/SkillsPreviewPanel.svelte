@@ -29,15 +29,17 @@
 		<p class="page-muted">{loadingLabel}</p>
 	{:else if item}
 		<header class="preview-header">
-			<div>
+			<div class="preview-summary">
 				<h2>{item.name}</h2>
-				<p>{item.description}</p>
-				{#if path !== undefined}
-					<p class="skill-path">{path}</p>
-				{/if}
-				{#if notice}
-					<p>{notice}</p>
-				{/if}
+				<div class="preview-meta">
+					<p>{item.description}</p>
+					{#if path !== undefined}
+						<p class="skill-path">{path}</p>
+					{/if}
+					{#if notice}
+						<p>{notice}</p>
+					{/if}
+				</div>
 			</div>
 			<div class="preview-actions">
 				{@render actions()}
@@ -50,8 +52,13 @@
 </section>
 
 <style>
-	.preview-header > div:first-child {
+	.preview-summary {
 		min-width: 0;
+	}
+
+	.preview-meta {
+		max-height: 7.5rem;
+		overflow: auto;
 	}
 
 	.preview-header h2 {
