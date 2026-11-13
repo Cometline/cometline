@@ -12,6 +12,7 @@
 		createMiniWindowSession,
 		navigateMiniToSession
 	} from '#lib/features/shell/mini-window-session.js';
+	import AppToast from '#lib/features/shell/components/AppToast.svelte';
 	import MiniSessionSidebar from '#lib/features/sidebar/components/MiniSessionSidebar.svelte';
 	import type { Session } from '#lib/types.js';
 
@@ -88,6 +89,7 @@
 
 <svelte:window onkeydown={onKeydown} />
 
+<AppToast />
 <div class="mini-shell">
 	{@render children()}
 	{#if miniShellStore.opening}
