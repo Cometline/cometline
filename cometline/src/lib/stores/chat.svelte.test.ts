@@ -349,9 +349,10 @@ describe('chatStore session switching', () => {
 
 		const newChat = startNewChat();
 
-		expect(chatStore.sessionID).toBe(null);
+		expect(chatStore.sessionID).toBe('sess-a');
 		resolveSession?.({ id: 'sess-b' });
 		await newChat;
+		expect(chatStore.sessionID).toBe(null);
 	});
 
 	it('surfaces an error item when the model fails before any output (e.g. 401)', async () => {
