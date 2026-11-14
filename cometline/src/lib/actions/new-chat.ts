@@ -30,8 +30,8 @@ export async function startNewChat(workspacePath?: string) {
 	}
 	// Creating the next persisted session may wait on the sidecar. Unbind now so
 	// the current turn queue can keep draining without the old view staying active.
-	chatStore.detachActiveSession();
 	const session = await createNewSession(workspacePath);
+	chatStore.detachActiveSession();
 	await goto(resolve('/session/[id]', { id: session.id }));
 	shellStore.requestComposerFocus(session.id);
 }

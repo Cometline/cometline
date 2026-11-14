@@ -81,7 +81,7 @@ WHERE s.origin = 'user'
 ORDER BY s.created_at ASC;
 
 -- name: ListSessionsByWorkspaceAsc :many
-SELECT id, updated_at, delegation_status, parent_session_id
+SELECT id, updated_at, delegation_status, parent_session_id, pinned
 FROM sessions
 WHERE workspace_id = ?
 ORDER BY updated_at ASC;

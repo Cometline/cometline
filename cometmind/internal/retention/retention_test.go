@@ -273,6 +273,44 @@ func TestRunner_MaxSessionsPerWorkspace(t *testing.T) {
 	}
 }
 
+func TestRunner_MaxSessionsKeepsPinned(t *testing.T) {
+	ctx := context.Background()
+	conn, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	if err := db.EnsureSchema(ctx, conn); err != nil {
+		t.Fatal(err)
+	}
+	q := db.New(conn)
+	ws, err := q.CreateWorkspace(ctx, db.CreateWorkspaceParams{ID: "ws1", Name: "demo", Path: "/tmp/demo"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UnixMilli()
+	for i, id := range []string{"pinned-old", "s2", "s3"} {
+		if _, err := q.CreateSession(ctx, db.CreateSessionParams{
+			ID: id, WorkspaceID: ws.ID, Title: id, ModelID: "m", ProviderID: "p", Status: "active", Origin: "user", AgentMode: "auto",
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := conn.ExecContext(ctx, `UPDATE sessions SET updated_at = ?, pinned = ? WHERE id = ?`, now+int64(i), i == 0, id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rr := &Runner{
+		DB: conn, Sessions: session.New(conn),
+		Config: config.StorageConfig{MaxSessionsPerWorkspace: 2},
+	}
+	if _, err := rr.Run(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := q.GetSession(ctx, "pinned-old"); err != nil {
+		t.Fatal("pinned session was deleted")
+	}
+}
+
 func TestRunner_PurgesUsageOlderThanOneYear(t *testing.T) {
 	ctx := context.Background()
 	conn, err := sql.Open("sqlite", ":memory:")

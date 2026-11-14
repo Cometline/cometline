@@ -190,7 +190,7 @@ func (r *Runner) purgeWorkspaceSessions(ctx context.Context, q *db.Queries, work
 			if _, ok := deleted[row.ID]; ok {
 				continue
 			}
-			if protectedDelegation(session.DelegationStatus(row.DelegationStatus)) {
+			if row.Pinned != 0 || protectedDelegation(session.DelegationStatus(row.DelegationStatus)) {
 				continue
 			}
 			if r.skipSession(row.ID) {
