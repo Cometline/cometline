@@ -3,7 +3,7 @@
 	import { flip } from 'svelte/animate';
 	import type { Session } from '#lib/types.js';
 	import { sessionStore } from '#lib/stores/session.svelte.js';
-	import { startNewChat } from '#lib/actions/new-chat.js';
+	import { reportNewChatStartError, startNewChat } from '#lib/actions/new-chat.js';
 	import { navigateToSession } from '#lib/actions/navigate-to-session.js';
 	import { sessionDisplayTitle } from '#lib/sessions/session-title.js';
 	import { shellStore } from '#lib/stores/shell.svelte.js';
@@ -49,9 +49,13 @@
 		}
 	}
 
-	function newChat(workspacePath?: string) {
-		void startNewChat(workspacePath);
-		closeSidebarIfNarrow();
+	async function newChat(workspacePath?: string) {
+		try {
+			await startNewChat(workspacePath);
+			closeSidebarIfNarrow();
+		} catch (error) {
+			reportNewChatStartError(error);
+		}
 	}
 
 	function selectSession(session: Session) {

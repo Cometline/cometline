@@ -22,9 +22,13 @@ vi.mock('#lib/stores/session.svelte.js', () => ({
 vi.mock('#lib/stores/shell.svelte.js', () => ({
 	shellStore: { requestComposerFocus: mocks.requestComposerFocus }
 }));
+vi.mock('#lib/stores/app-toasts.svelte.js', () => ({
+	appToastStore: { error: vi.fn() }
+}));
 vi.mock('#lib/actions/create-new-session.js', () => ({ createNewSession: mocks.createNewSession }));
 
-import { startNewChat } from './new-chat';
+import { appToastStore } from '#lib/stores/app-toasts.svelte.js';
+import { reportNewChatStartError, startNewChat } from './new-chat';
 
 describe('startNewChat', () => {
 	beforeEach(() => {
@@ -47,5 +51,17 @@ describe('startNewChat', () => {
 		await startNewChat('/group/workspace');
 
 		expect(mocks.createNewSession).toHaveBeenCalledWith('/group/workspace');
+	});
+
+	it('surfaces create-session failures via toast', () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		reportNewChatStartError(new Error('invalid workspace'));
+
+		expect(consoleError).toHaveBeenCalled();
+		expect(appToastStore.error).toHaveBeenCalledWith(
+			'Could not start new chat',
+			'invalid workspace'
+		);
+		consoleError.mockRestore();
 	});
 });
