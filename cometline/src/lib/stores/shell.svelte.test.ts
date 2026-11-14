@@ -192,6 +192,25 @@ describe('shellStore workspace panel focus behavior', () => {
 		shellStore.clearWorkspacePanelForSession('sess-1');
 	});
 
+	it('cycles git changes only after the Changes surface is already showing', () => {
+		const before = shellStore.gitChangesOpenRequestId;
+
+		shellStore.openGitChangesPanel();
+		expect(shellStore.contentSurface).toBe('changes');
+		expect(shellStore.workspacePanelBrowseOpen).toBe(true);
+		expect(shellStore.gitChangesOpenRequestId).toBe(before);
+
+		shellStore.openGitChangesPanel();
+		expect(shellStore.gitChangesOpenRequestId).toBe(before + 1);
+
+		shellStore.openGitDiffForActive('src/app.ts');
+		shellStore.openGitChangesPanel();
+		expect(shellStore.workspacePanelMode).toBe('git-diff');
+		expect(shellStore.gitChangesOpenRequestId).toBe(before + 1);
+
+		shellStore.clearWorkspacePanelForSession('sess-1');
+	});
+
 	it('requests file-tree filter focus when opening an empty workspace panel', () => {
 		const addressBefore = shellStore.addressBarFocusRequestId;
 		const filterBefore = shellStore.fileTreeFilterFocusRequestId;
