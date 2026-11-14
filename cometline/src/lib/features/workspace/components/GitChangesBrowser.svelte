@@ -27,10 +27,20 @@
 	let stagedOpen = $state(true);
 	let changesOpen = $state(true);
 	let tab = $state<'changes' | 'graph'>('changes');
+	let seenGitOpenRequestId = $state(0);
 
 	$effect(() => {
 		void [changes.normalizedWorkspace, workspaceChangeVersion(changes.normalizedWorkspace)];
 		void changes.load();
+	});
+
+	$effect(() => {
+		const requestId = shellStore.gitChangesOpenRequestId;
+		if (!requestId || requestId === seenGitOpenRequestId) return;
+		seenGitOpenRequestId = requestId;
+		// The store only bumps this once Changes is already showing, so a repeat
+		// ⌘⇧G toggles Changes / Graph the way ⌘P cycles search modes.
+		tab = tab === 'changes' ? 'graph' : 'changes';
 	});
 </script>
 

@@ -204,10 +204,19 @@ export function createPanelNavigation({
 		panelHistoryForward() {
 			return stepHistory('forward');
 		},
-		/** Open the workspace panel browse surface on the Git Changes tab (⌘⇧G). */
+		/**
+		 * Open the Git Changes browse surface (⌘⇧G).
+		 * A repeat while that surface is already showing cycles Changes / Graph.
+		 */
 		openGitChangesPanel() {
+			const sessionId = getActiveSessionId();
+			const alreadyShowing =
+				!!sessionId &&
+				panel.isVisible(sessionId) &&
+				panel.contentSurfaceFor(sessionId) === 'changes' &&
+				panel.contentFor(sessionId, 'changes') === null;
 			setWorkspacePanelBrowseSource('changes');
-			focus.bumpGitChangesOpen();
+			if (alreadyShowing) focus.bumpGitChangesOpen();
 		},
 		/**
 		 * Toggle the right workspace panel.
