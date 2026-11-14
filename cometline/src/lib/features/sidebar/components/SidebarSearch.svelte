@@ -30,7 +30,7 @@
 		</label>
 		<div class="search-divider" aria-hidden="true"></div>
 		<Tooltip label="New chat" action="newChat">
-			<button class="new-chat-button" onclick={onNewChat} aria-label="New chat">
+			<button class="new-chat-button" onclick={() => onNewChat()} aria-label="New chat">
 				<SquarePen size={16} stroke-width={1.8} />
 			</button>
 		</Tooltip>

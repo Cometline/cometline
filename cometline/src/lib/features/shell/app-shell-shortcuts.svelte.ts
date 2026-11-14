@@ -1,7 +1,7 @@
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
 import { navigateToSession } from '#lib/actions/navigate-to-session.js';
-import { startNewChat } from '#lib/actions/new-chat.js';
+import { reportNewChatStartError, startNewChat } from '#lib/actions/new-chat.js';
 import { navigateAdjacentSession } from '#lib/actions/navigate-adjacent-session.js';
 import {
 	navigateSessionHistory,
@@ -197,7 +197,7 @@ export function createAppShellShortcuts(deps: {
 				openSettings();
 				return;
 			case 'newChat':
-				startNewChat();
+				void startNewChat().catch(reportNewChatStartError);
 				return;
 			case 'findInSession':
 				if (!deps.canFindInSession()) return;
