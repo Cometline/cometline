@@ -38,8 +38,8 @@ describe('startNewChat', () => {
 		expect(mocks.detachActiveSession).toHaveBeenCalledOnce();
 		expect(mocks.requestComposerFocus).toHaveBeenCalledWith('new-session');
 		expect(mocks.goto).toHaveBeenCalledWith('/session/new-session');
-		expect(mocks.goto.mock.invocationCallOrder[0]).toBeLessThan(
-			mocks.requestComposerFocus.mock.invocationCallOrder[0]
+		expect(mocks.createNewSession.mock.invocationCallOrder[0]).toBeLessThan(
+			mocks.detachActiveSession.mock.invocationCallOrder[0]
 		);
 	});
 

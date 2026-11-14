@@ -552,7 +552,7 @@ func (q *Queries) ListSessionsByWorkspace(ctx context.Context, workspaceID strin
 }
 
 const listSessionsByWorkspaceAsc = `-- name: ListSessionsByWorkspaceAsc :many
-SELECT id, updated_at, delegation_status, parent_session_id
+SELECT id, updated_at, delegation_status, parent_session_id, pinned
 FROM sessions
 WHERE workspace_id = ?
 ORDER BY updated_at ASC
@@ -563,6 +563,7 @@ type ListSessionsByWorkspaceAscRow struct {
 	UpdatedAt        int64          `json:"updated_at"`
 	DelegationStatus string         `json:"delegation_status"`
 	ParentSessionID  sql.NullString `json:"parent_session_id"`
+	Pinned           int64          `json:"pinned"`
 }
 
 func (q *Queries) ListSessionsByWorkspaceAsc(ctx context.Context, workspaceID string) ([]ListSessionsByWorkspaceAscRow, error) {
@@ -579,6 +580,7 @@ func (q *Queries) ListSessionsByWorkspaceAsc(ctx context.Context, workspaceID st
 			&i.UpdatedAt,
 			&i.DelegationStatus,
 			&i.ParentSessionID,
+			&i.Pinned,
 		); err != nil {
 			return nil, err
 		}
