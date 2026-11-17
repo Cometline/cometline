@@ -73,7 +73,7 @@ func writeScheduledJobError(c *gin.Context, err error) {
 		writeError(c, http.StatusNotFound, "scheduled_job_not_found", err.Error())
 	case errors.Is(err, scheduler.ErrInvalidInput):
 		writeError(c, http.StatusBadRequest, "bad_request", err.Error())
-	case errors.Is(err, scheduler.ErrConflict):
+	case errors.Is(err, scheduler.ErrConflict), errors.Is(err, scheduler.ErrDisabled):
 		writeError(c, http.StatusConflict, "scheduled_job_conflict", err.Error())
 	default:
 		writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
@@ -164,6 +164,19 @@ func (a *App) handlePatchScheduledJob(c *gin.Context) {
 		RunAt:            runAt,
 		Enabled:          enabled,
 	})
+	if err != nil {
+		writeScheduledJobError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, scheduledJobToResource(item))
+}
+
+func (a *App) handleRunScheduledJobNow(c *gin.Context) {
+	if a.scheduler == nil || a.jobs == nil {
+		writeError(c, http.StatusInternalServerError, "internal_error", "scheduler service unavailable")
+		return
+	}
+	item, err := a.scheduler.RunNow(c.Request.Context(), a.jobs, c.Param("id"))
 	if err != nil {
 		writeScheduledJobError(c, err)
 		return

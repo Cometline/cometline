@@ -33,6 +33,13 @@ SELECT EXISTS (
       AND deleted_at IS NULL
 ) AS has_open_job;
 
+-- name: ListOpenJobIDsForScheduledJob :many
+SELECT id
+FROM jobs
+WHERE scheduled_job_id = ?
+  AND status IN ('todo', 'ongoing', 'blocked')
+  AND deleted_at IS NULL;
+
 -- name: GetJob :one
 SELECT *
 FROM jobs

@@ -48,5 +48,11 @@ export function scheduleLabel(job: ScheduledJobResource): string {
 
 export function nextRunLabel(job: ScheduledJobResource, nowMs: number): string {
 	if (!job.enabled) return 'disabled';
+	if (!job.next_run_at) return 'unknown';
+	if (job.next_run_at <= nowMs) {
+		const overdue = formatRelativeTime(nowMs, job.next_run_at);
+		if (overdue === 'just now') return 'due now';
+		return overdue.replace(/ ago$/, ' overdue');
+	}
 	return formatRelativeTime(nowMs, job.next_run_at);
 }

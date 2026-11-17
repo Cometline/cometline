@@ -5,7 +5,9 @@ import (
 	"errors"
 	"path/filepath"
 	"testing"
+	"time"
 
+	"github.com/Cometline/cometline/cometmind/internal/db"
 	"github.com/Cometline/cometline/cometmind/internal/jobs"
 	"github.com/Cometline/cometline/cometmind/internal/sqlite"
 )
@@ -359,6 +361,125 @@ func TestRecurringScheduleDoesNotDuplicateJobWhileOutstanding(t *testing.T) {
 	}
 	if jobsList[0].ScheduledJobID != created.ID {
 		t.Fatalf("new job.ScheduledJobID=%q want %q", jobsList[0].ScheduledJobID, created.ID)
+	}
+}
+
+func TestMaterializeDueCatchesMissedOccurrenceAfterOffline(t *testing.T) {
+	ctx := context.Background()
+	svc, jobSvc := newSchedulerTestServices(t)
+	created, err := svc.Create(ctx, CreateInput{
+		Description: "weekly harvest",
+		CronExpr:    "0 9 * * 6",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.MaterializeDue(ctx, jobSvc, created.NextRunAt); err != nil {
+		t.Fatal(err)
+	}
+	// The app was closed across the following occurrence, leaving that next
+	// run in the past and the previous job unfinished.
+	stuckAt := time.Now().Add(-2 * time.Hour).UnixMilli()
+	if err := svc.q.SetScheduledJobNextRunForTest(ctx, db.SetScheduledJobNextRunForTestParams{
+		NextRunAt: stuckAt,
+		ID:        created.ID,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	count, err := svc.MaterializeDue(ctx, jobSvc, time.Now().UnixMilli())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("catch-up count=%d want 1", count)
+	}
+	after, err := svc.Get(ctx, created.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.NextRunAt <= time.Now().UnixMilli() {
+		t.Fatalf("next_run_at=%d want a future slot", after.NextRunAt)
+	}
+	open, err := jobSvc.List(ctx, jobs.ListFilter{Status: jobs.StatusTodo})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(open) != 1 {
+		t.Fatalf("expected the stale job cleared and one fresh todo, got %+v", open)
+	}
+}
+
+func TestMaterializeDueKeepsRecentOpenJob(t *testing.T) {
+	ctx := context.Background()
+	svc, jobSvc := newSchedulerTestServices(t)
+	created, err := svc.Create(ctx, CreateInput{
+		Description: "hourly digest",
+		CronExpr:    "0 * * * *",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.MaterializeDue(ctx, jobSvc, created.NextRunAt); err != nil {
+		t.Fatal(err)
+	}
+	count, err := svc.MaterializeDue(ctx, jobSvc, created.NextRunAt+5_000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Fatalf("recent open job should block a second materialize, count=%d", count)
+	}
+}
+
+func TestRunNowClearsOutstandingJobAndAdvances(t *testing.T) {
+	ctx := context.Background()
+	svc, jobSvc := newSchedulerTestServices(t)
+
+	created, err := svc.Create(ctx, CreateInput{
+		Description: "hourly digest",
+		CronExpr:    "0 * * * *",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.MaterializeDue(ctx, jobSvc, created.NextRunAt); err != nil {
+		t.Fatal(err)
+	}
+	rerun, err := svc.RunNow(ctx, jobSvc, created.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rerun.NextRunAt <= time.Now().UnixMilli() {
+		t.Fatalf("next_run_at is not in the future: %d", rerun.NextRunAt)
+	}
+	if rerun.LastRunAt == nil {
+		t.Fatal("last_run_at should be set")
+	}
+	open, err := jobSvc.List(ctx, jobs.ListFilter{Status: jobs.StatusTodo})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(open) != 1 || open[0].ScheduledJobID != created.ID {
+		t.Fatalf("expected one fresh todo job, got %+v", open)
+	}
+}
+
+func TestRunNowRejectsDisabledSchedule(t *testing.T) {
+	ctx := context.Background()
+	svc, jobSvc := newSchedulerTestServices(t)
+	created, err := svc.Create(ctx, CreateInput{Description: "later", RunAt: 3_000_000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Update(ctx, created.ID, UpdateInput{
+		Description: created.Description,
+		RunAt:       *created.RunAt,
+		Enabled:     false,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.RunNow(ctx, jobSvc, created.ID); !errors.Is(err, ErrDisabled) {
+		t.Fatalf("expected ErrDisabled, got %v", err)
 	}
 }
 

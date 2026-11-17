@@ -54,6 +54,10 @@ describe('scheduled job labels', () => {
 		expect(scheduleLabel(scheduled())).toBe('unscheduled');
 		expect(nextRunLabel(scheduled({ enabled: false }), NOW)).toBe('disabled');
 		expect(nextRunLabel(scheduled({ next_run_at: NOW + 3_600_000 }), NOW)).toBe('1h left');
+		expect(nextRunLabel(scheduled({ next_run_at: NOW - 3 * 86_400_000 }), NOW)).toBe(
+			'3d overdue'
+		);
+		expect(nextRunLabel(scheduled({ next_run_at: NOW - 1_000 }), NOW)).toBe('due now');
 	});
 
 	it('formats a missing clock time as Never', () => {

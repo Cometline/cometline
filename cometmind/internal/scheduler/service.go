@@ -18,6 +18,7 @@ var (
 	ErrNotFound     = errors.New("scheduled job not found")
 	ErrConflict     = errors.New("scheduled job conflict")
 	ErrInvalidInput = errors.New("invalid scheduled job")
+	ErrDisabled     = errors.New("scheduled job is disabled")
 )
 
 type Service struct {
@@ -329,10 +330,18 @@ func (s *Service) MaterializeDue(ctx context.Context, jobSvc *jobs.Service, atMi
 		if err != nil {
 			return created, err
 		}
-		if hasOpen {
-			// Previous firing's job hasn't been completed/cancelled yet;
-			// leave the schedule due and try again next tick.
+		if hasOpen && !missedWhileOffline(item, atMillis) {
+			// A recent firing is still open. Leave it due so the same
+			// occurrence is not queued twice while the app is running.
 			continue
+		}
+		if hasOpen {
+			// The previous occurrence was missed while the app was off, and
+			// its job never finished. Clear it so this startup catch-up can
+			// queue the occurrence the user actually expects.
+			if err := jobSvc.ClearOpenJobsForScheduledJob(ctx, item.ID); err != nil {
+				return created, err
+			}
 		}
 
 		if _, err := jobSvc.Create(ctx, jobs.CreateInput{
@@ -364,4 +373,64 @@ func (s *Service) MaterializeDue(ctx context.Context, jobSvc *jobs.Service, atMi
 		}
 	}
 	return created, nil
+}
+
+// missedWhileOffline reports that a due schedule's stored next run is older
+// than one poll interval. That is the local-app case: the machine was off, so
+// the tick that should have fired never ran. A firing that is only a few
+// seconds late is still the same occurrence and must not clear an open job.
+func missedWhileOffline(item ScheduledJob, atMillis int64) bool {
+	const pollGrace = int64(time.Minute / time.Millisecond)
+	return item.NextRunAt > 0 && item.NextRunAt+pollGrace < atMillis
+}
+
+// RunNow materializes one enabled schedule immediately. An outstanding job
+// from a previous firing is cleared first, otherwise the schedule stays due
+// and overdue forever. Recurring schedules then advance to their next cron
+// time; one-shot schedules are marked fired.
+func (s *Service) RunNow(ctx context.Context, jobSvc *jobs.Service, scheduleID string) (ScheduledJob, error) {
+	if jobSvc == nil {
+		return ScheduledJob{}, fmt.Errorf("jobs service is required")
+	}
+	item, err := s.Get(ctx, scheduleID)
+	if err != nil {
+		return ScheduledJob{}, err
+	}
+	if !item.Enabled {
+		return ScheduledJob{}, fmt.Errorf("%w", ErrDisabled)
+	}
+	if err := jobSvc.ClearOpenJobsForScheduledJob(ctx, item.ID); err != nil {
+		return ScheduledJob{}, err
+	}
+	atMillis := nowMillis()
+	if _, err := jobSvc.Create(ctx, jobs.CreateInput{
+		Description:      item.Description,
+		DefinitionOfDone: item.DefinitionOfDone,
+		WorkspacePath:    item.WorkspacePath,
+		CreatedBy:        item.CreatedBy,
+		SourceSessionID:  item.SourceSessionID,
+		SourcePlatform:   item.SourcePlatform,
+		SourceChannelID:  item.SourceChannelID,
+		ScheduledJobID:   item.ID,
+	}); err != nil {
+		return ScheduledJob{}, err
+	}
+	if item.CronExpr != "" {
+		// A stuck overdue next_run_at can be later than one cron step from now.
+		// Keep whichever future slot is later so Run now never moves the
+		// schedule backward.
+		nextRun, err := nextCronRun(item.CronExpr, time.UnixMilli(atMillis))
+		if err != nil {
+			return ScheduledJob{}, err
+		}
+		if item.NextRunAt > atMillis && item.NextRunAt > nextRun {
+			nextRun = item.NextRunAt
+		}
+		if err := s.AdvanceRecurring(ctx, item.ID, atMillis, nextRun); err != nil && !errors.Is(err, ErrConflict) {
+			return ScheduledJob{}, err
+		}
+	} else if err := s.MarkFired(ctx, item.ID, atMillis); err != nil && !errors.Is(err, ErrConflict) {
+		return ScheduledJob{}, err
+	}
+	return s.Get(ctx, item.ID)
 }

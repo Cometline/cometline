@@ -48,6 +48,11 @@ SET last_run_at = ?,
     updated_at = ?
 WHERE id = ? AND enabled = 1;
 
+-- name: SetScheduledJobNextRunForTest :exec
+UPDATE scheduled_jobs
+SET next_run_at = ?
+WHERE id = ?;
+
 -- name: AdvanceScheduledJob :execrows
 UPDATE scheduled_jobs
 SET last_run_at = ?,

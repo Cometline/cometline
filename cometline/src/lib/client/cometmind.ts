@@ -85,6 +85,7 @@ import {
 	listScheduledJobs as listScheduledJobsApi,
 	createScheduledJob as createScheduledJobApi,
 	updateScheduledJob as updateScheduledJobApi,
+	runScheduledJobNow as runScheduledJobNowApi,
 	deleteScheduledJob as deleteScheduledJobApi,
 	listInboxMessages as listInboxMessagesApi,
 	getInboxSummary as getInboxSummaryApi,
@@ -1442,6 +1443,10 @@ export function updateScheduledJob(
 	return updateScheduledJobApi({ path: { id }, body, throwOnError: true }).then(
 		({ data }) => data
 	);
+}
+
+export function runScheduledJobNow(id: string): Promise<ScheduledJobResource> {
+	return runScheduledJobNowApi({ path: { id }, throwOnError: true }).then(({ data }) => data);
 }
 
 export function deleteScheduledJob(id: string): Promise<void> {

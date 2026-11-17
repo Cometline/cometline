@@ -112,6 +112,44 @@ func TestScheduledJobHandlersCRUD(t *testing.T) {
 	}
 }
 
+func TestScheduledJobRunNowClearsOverdueSchedule(t *testing.T) {
+	engine := newScheduledJobTestServer(t)
+	createBody := `{"description":"weekly harvest","cron_expr":"0 9 * * 6"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/scheduled-jobs", bytes.NewBufferString(createBody))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	engine.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var created struct {
+		ID        string `json:"id"`
+		NextRunAt int64  `json:"next_run_at"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/api/v1/scheduled-jobs/"+created.ID+"/runs", nil)
+	rec = httptest.NewRecorder()
+	engine.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("run status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var ran map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &ran); err != nil {
+		t.Fatal(err)
+	}
+	next, _ := ran["next_run_at"].(float64)
+	if int64(next) < created.NextRunAt {
+		t.Fatalf("next_run_at moved backward: before=%d after=%v", created.NextRunAt, ran["next_run_at"])
+	}
+	last, ok := ran["last_run_at"].(float64)
+	if !ok || last <= 0 {
+		t.Fatalf("last_run_at was not set: %v", ran["last_run_at"])
+	}
+}
+
 func TestScheduledJobHandlersRejectBothCronAndRunAt(t *testing.T) {
 	engine := newScheduledJobTestServer(t)
 	body := `{"description":"repeat","cron_expr":"* * * * *","run_at":3000000}`

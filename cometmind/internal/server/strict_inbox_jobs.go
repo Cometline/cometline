@@ -130,3 +130,8 @@ func (s *strictServer) UpdateScheduledJob(ctx context.Context, _ apigen.UpdateSc
 	delegateGin(ctx, s.app.handlePatchScheduledJob)
 	return nil, nil
 }
+
+func (s *strictServer) RunScheduledJobNow(ctx context.Context, _ apigen.RunScheduledJobNowRequestObject) (apigen.RunScheduledJobNowResponseObject, error) {
+	delegateGin(ctx, s.app.handleRunScheduledJobNow)
+	return nil, nil
+}
