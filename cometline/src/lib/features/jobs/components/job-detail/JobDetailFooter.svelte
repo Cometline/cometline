@@ -1,14 +1,12 @@
 <script lang="ts">
-	import { Archive, RotateCcw, Trash2, ExternalLink, RefreshCw } from '@lucide/svelte';
+	import { Archive, RotateCcw, Trash2, RefreshCw } from '@lucide/svelte';
 	import type { JobResource } from '#lib/client/cometmind.js';
 
 	let {
 		job,
 		saving = false,
-		openingSession,
 		isArchived,
 		isBlocked,
-		onOpenSession,
 		onDelete,
 		onArchive,
 		onUnarchive,
@@ -16,10 +14,8 @@
 	}: {
 		job: JobResource;
 		saving?: boolean;
-		openingSession: boolean;
 		isArchived: boolean;
 		isBlocked: boolean;
-		onOpenSession: () => void;
 		onDelete?: (job: JobResource) => void | Promise<void>;
 		onArchive?: (job: JobResource) => void | Promise<void>;
 		onUnarchive?: (job: JobResource) => void | Promise<void>;
@@ -28,25 +24,8 @@
 </script>
 
 <footer class="drawer-footer">
-	{#if job.assigned_session_id && job.status === 'done'}
-		<button
-			type="button"
-			class="secondary"
-			title="Open the completed session transcript."
-			disabled={openingSession || saving}
-			onclick={onOpenSession}
-		>
-			<ExternalLink size={14} />
-			{openingSession ? 'Opening…' : 'Open session'}
-		</button>
-	{/if}
 	{#if isBlocked && !isArchived}
-		<button
-			type="button"
-			class="primary"
-			disabled={saving || openingSession}
-			onclick={() => void onRetry?.(job)}
-		>
+		<button type="button" class="primary" disabled={saving} onclick={() => void onRetry?.(job)}>
 			<RefreshCw size={14} />
 			Retry now
 		</button>
@@ -55,7 +34,7 @@
 		<button
 			type="button"
 			class="secondary"
-			disabled={saving || openingSession}
+			disabled={saving}
 			onclick={() => void onArchive?.(job)}
 		>
 			<Archive size={14} />
@@ -66,7 +45,7 @@
 		<button
 			type="button"
 			class="secondary"
-			disabled={saving || openingSession}
+			disabled={saving}
 			onclick={() => void onUnarchive?.(job)}
 		>
 			<RotateCcw size={14} />
@@ -77,7 +56,7 @@
 		<button
 			type="button"
 			class="secondary danger"
-			disabled={saving || openingSession}
+			disabled={saving}
 			onclick={() => void onDelete?.(job)}
 		>
 			<Trash2 size={14} />

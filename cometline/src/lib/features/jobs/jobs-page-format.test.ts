@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { nextJobsView } from './jobs-page.svelte.js';
 import type { JobResource, ScheduledJobResource } from '#lib/client/cometmind.js';
 import {
 	formatClock,
@@ -24,6 +25,14 @@ function scheduled(overrides: Partial<ScheduledJobResource> = {}): ScheduledJobR
 		...overrides
 	} as ScheduledJobResource;
 }
+
+describe('nextJobsView', () => {
+	it('cycles active, archived, then scheduled', () => {
+		expect(nextJobsView('active')).toBe('archived');
+		expect(nextJobsView('archived')).toBe('scheduled');
+		expect(nextJobsView('scheduled')).toBe('active');
+	});
+});
 
 describe('formatRelativeTime', () => {
 	it('formats past and future offsets', () => {
