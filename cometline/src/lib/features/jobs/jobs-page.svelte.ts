@@ -25,6 +25,13 @@ export type JobsDrawerMode = 'detail' | 'create' | null;
 export type JobsStatusFilter = 'all' | JobColumn;
 export type JobsView = 'active' | 'archived' | 'scheduled';
 
+const JOBS_VIEWS: JobsView[] = ['active', 'archived', 'scheduled'];
+
+export function nextJobsView(view: JobsView): JobsView {
+	const index = JOBS_VIEWS.indexOf(view);
+	return JOBS_VIEWS[(index + 1) % JOBS_VIEWS.length] ?? 'active';
+}
+
 export const OBSERVER_REFRESH_MS = 5_000;
 
 export function createJobsPageController(deps: { getWorkspacePath: () => string | undefined }) {

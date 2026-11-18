@@ -1,5 +1,6 @@
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
+import { page } from '$app/state';
 import { navigateToSession } from '#lib/actions/navigate-to-session.js';
 import { reportNewChatStartError, startNewChat } from '#lib/actions/new-chat.js';
 import { navigateAdjacentSession } from '#lib/actions/navigate-adjacent-session.js';
@@ -218,11 +219,19 @@ export function createAppShellShortcuts(deps: {
 			case 'openJobs':
 				if (shellStore.settingsOpen) shellStore.closeSettings();
 				inboxStore.closeDrawer();
+				if (page.url.pathname === '/jobs') {
+					window.dispatchEvent(new CustomEvent('cometline:cycle-jobs-view'));
+					return;
+				}
 				void goto(resolve('jobs'));
 				return;
 			case 'openSkillDrafts': {
 				if (shellStore.settingsOpen) shellStore.closeSettings();
 				inboxStore.closeDrawer();
+				if (page.url.pathname === '/skills') {
+					window.dispatchEvent(new CustomEvent('cometline:cycle-skills-tab'));
+					return;
+				}
 				const recent = skillUpdatesStore.hasUnseen;
 				skillUpdatesStore.markSeen();
 				void goto(resolve(recent ? 'skills?tab=skills' : 'skills'));

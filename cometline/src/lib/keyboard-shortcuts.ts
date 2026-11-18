@@ -206,13 +206,13 @@ export const SHORTCUT_DEFINITIONS: KeyboardShortcutDefinition[] = [
 	},
 	{
 		id: 'openJobs',
-		label: 'Open jobs',
+		label: 'Open jobs (repeat to cycle views)',
 		category: 'panels',
 		defaultBinding: { command: true, key: '1' }
 	},
 	{
 		id: 'openSkillDrafts',
-		label: 'Open skills',
+		label: 'Open skills (repeat to cycle tabs)',
 		category: 'panels',
 		defaultBinding: { command: true, key: '2' }
 	},

@@ -93,6 +93,7 @@
 <style>
 	.gallery-card {
 		display: grid;
+		container-type: inline-size;
 		gap: 10px;
 		padding: 10px;
 		border: 1px solid var(--border-soft);
@@ -156,14 +157,16 @@
 
 	.gallery-actions {
 		display: flex;
-		flex-wrap: wrap;
+		flex-wrap: nowrap;
 		gap: 6px;
 	}
 
 	.gallery-actions button {
 		display: inline-flex;
 		align-items: center;
+		justify-content: center;
 		gap: 4px;
+		min-width: 0;
 		border: 1px solid var(--border-soft);
 		border-radius: 8px;
 		background: transparent;
@@ -171,6 +174,15 @@
 		font-size: 11px;
 		padding: 5px 8px;
 		cursor: pointer;
+	}
+
+	@container (max-width: 280px) {
+		.gallery-actions button {
+			flex: 1;
+			padding: 5px 0;
+			font-size: 0;
+			gap: 0;
+		}
 	}
 
 	.gallery-actions button.copied {

@@ -4,6 +4,7 @@
 	import { onMount } from 'svelte';
 	import {
 		createJobsPageController,
+		nextJobsView,
 		OBSERVER_REFRESH_MS
 	} from '#lib/features/jobs/jobs-page.svelte.js';
 	import { createJobsScheduleController } from '#lib/features/jobs/jobs-page-schedule.svelte.js';
@@ -24,6 +25,10 @@
 	});
 
 	onMount(() => {
+		function onCycleView() {
+			jobs.view = nextJobsView(jobs.view);
+		}
+		window.addEventListener('cometline:cycle-jobs-view', onCycleView);
 		void jobs.loadJobs();
 		void schedule.loadScheduledJobs({ silent: true });
 		const jobsTimer = setInterval(() => {
@@ -32,6 +37,7 @@
 		}, OBSERVER_REFRESH_MS);
 		const clockTimer = setInterval(() => (jobs.nowMs = Date.now()), 1_000);
 		return () => {
+			window.removeEventListener('cometline:cycle-jobs-view', onCycleView);
 			clearInterval(jobsTimer);
 			clearInterval(clockTimer);
 		};

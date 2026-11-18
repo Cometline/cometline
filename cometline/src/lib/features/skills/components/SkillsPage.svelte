@@ -23,7 +23,12 @@
 	});
 
 	onMount(() => {
+		function onCycleTab() {
+			setTab(tab === 'drafts' ? 'skills' : 'drafts');
+		}
+		window.addEventListener('cometline:cycle-skills-tab', onCycleTab);
 		void controller.load();
+		return () => window.removeEventListener('cometline:cycle-skills-tab', onCycleTab);
 	});
 
 	$effect(() => {

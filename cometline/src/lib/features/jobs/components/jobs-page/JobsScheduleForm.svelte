@@ -123,6 +123,8 @@
 		display: flex;
 		flex-direction: column;
 		gap: 10px;
+		min-height: 0;
+		overflow-y: auto;
 		padding: 12px;
 		border-radius: 10px;
 		background: var(--panel-bg);
@@ -204,6 +206,7 @@
 	.schedule-generated {
 		display: flex;
 		flex-direction: column;
+		flex-shrink: 0;
 		gap: 4px;
 		justify-content: center;
 		padding: 8px 10px;

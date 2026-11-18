@@ -4,7 +4,6 @@
 	import { X } from '@lucide/svelte';
 	import type { JobEventResource, JobResource } from '#lib/client/cometmind.js';
 	import { shellStore } from '#lib/stores/shell.svelte.js';
-	import { createJobDetailSessionController } from '#lib/features/jobs/job-detail-session.svelte.js';
 	import JobCreateForm from './JobCreateForm.svelte';
 	import JobDetailEditForm from './job-detail/JobDetailEditForm.svelte';
 	import JobDetailFooter from './job-detail/JobDetailFooter.svelte';
@@ -51,10 +50,6 @@
 		onCreate?: () => void | Promise<void>;
 	} = $props();
 
-	const runSession = createJobDetailSessionController({
-		getJob: () => job,
-		onClose: () => onClose()
-	});
 	const isArchived = $derived(job?.archived_at != null);
 	const isBlocked = $derived(job?.status === 'blocked');
 
@@ -191,10 +186,6 @@
 					</ul>
 				{/if}
 			</section>
-
-			{#if runSession.openSessionError}
-				<p class="drawer-error">{runSession.openSessionError}</p>
-			{/if}
 		{/if}
 	</div>
 
@@ -202,10 +193,8 @@
 		<JobDetailFooter
 			{job}
 			{saving}
-			openingSession={runSession.openingSession}
 			{isArchived}
 			{isBlocked}
-			onOpenSession={() => void runSession.handleOpenRunSession()}
 			{onDelete}
 			{onArchive}
 			{onUnarchive}

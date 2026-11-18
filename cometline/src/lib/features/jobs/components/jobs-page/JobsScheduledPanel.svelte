@@ -83,26 +83,24 @@
 							{#if job.enabled}
 								<button
 									type="button"
-									class="secondary"
 									title="Run now"
 									disabled={saving}
 									onclick={() => void schedule.handleRunScheduled(job)}
 								>
-									<Play size={12} />
-									Run now
+									<Play size={14} />
+									Run
 								</button>
 							{/if}
 							<button
 								type="button"
-								class="secondary icon-only"
 								title="Edit"
 								onclick={() => schedule.editScheduled(job)}
 							>
 								<Pencil size={14} />
+								Edit
 							</button>
 							<button
 								type="button"
-								class="secondary icon-only"
 								title={job.enabled ? 'Disable' : 'Enable'}
 								onclick={() => void schedule.handleToggleScheduled(job)}
 							>
@@ -110,11 +108,12 @@
 							</button>
 							<button
 								type="button"
-								class="danger icon-only"
+								class="danger"
 								title="Delete"
 								onclick={() => void schedule.handleDeleteScheduled(job)}
 							>
 								<Trash2 size={14} />
+								Delete
 							</button>
 						</div>
 					</div>
@@ -196,8 +195,8 @@
 
 	.scheduled-card {
 		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
+		flex-direction: column;
+		align-items: stretch;
 		gap: 10px;
 		border: 1px solid var(--border-soft);
 		border-radius: 10px;
@@ -254,13 +253,29 @@
 
 	.scheduled-card-actions {
 		display: flex;
-		flex-direction: column;
-		gap: 5px;
-		flex-shrink: 0;
+		flex-wrap: wrap;
+		gap: 6px;
 	}
 
 	.scheduled-card-actions button {
-		font-size: 10px;
-		padding: 4px 8px;
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		border: 1px solid var(--border-soft);
+		border-radius: 8px;
+		background: transparent;
+		color: var(--text-main);
+		font-size: 11px;
+		padding: 5px 8px;
+		cursor: pointer;
+	}
+
+	.scheduled-card-actions button.danger {
+		color: var(--danger, var(--status-error));
+	}
+
+	.scheduled-card-actions button:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
 	}
 </style>
