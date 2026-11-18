@@ -33,6 +33,14 @@ func (r *Runtime) StartScheduler(ctx context.Context) {
 		interval = time.Minute
 	}
 	r.workers.Go(ctx, func(ctx context.Context) {
+		// Catch schedules missed while the app was closed before waiting for
+		// the first poll. A laptop that was off does not get a tick at the
+		// cron time, so startup is the first chance to queue that run.
+		if count, err := r.Scheduler.MaterializeDue(ctx, r.Jobs, 0); err != nil {
+			logging.L().Warn("scheduler.materialize.failed", zap.Error(err))
+		} else if count > 0 {
+			logging.L().Info("scheduler.materialized", zap.Int("count", count))
+		}
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 		for {

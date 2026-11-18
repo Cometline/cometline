@@ -157,6 +157,9 @@ type ServerInterface interface {
 	// Update a scheduled job
 	// (PATCH /api/v1/scheduled-jobs/{id})
 	UpdateScheduledJob(c *gin.Context, id string)
+	// Run a scheduled job now
+	// (POST /api/v1/scheduled-jobs/{id}/runs)
+	RunScheduledJobNow(c *gin.Context, id string)
 	// List sessions for one workspace
 	// (GET /api/v1/sessions)
 	ListSessions(c *gin.Context, params ListSessionsParams)
@@ -1306,6 +1309,31 @@ func (siw *ServerInterfaceWrapper) UpdateScheduledJob(c *gin.Context) {
 	}
 
 	siw.Handler.UpdateScheduledJob(c, id)
+}
+
+// RunScheduledJobNow operation middleware
+func (siw *ServerInterfaceWrapper) RunScheduledJobNow(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RunScheduledJobNow(c, id)
 }
 
 // ListSessions operation middleware
@@ -3037,6 +3065,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.DELETE(options.BaseURL+"/api/v1/scheduled-jobs/:id", wrapper.DeleteScheduledJob)
 	router.GET(options.BaseURL+"/api/v1/scheduled-jobs/:id", wrapper.GetScheduledJob)
 	router.PATCH(options.BaseURL+"/api/v1/scheduled-jobs/:id", wrapper.UpdateScheduledJob)
+	router.POST(options.BaseURL+"/api/v1/scheduled-jobs/:id/runs", wrapper.RunScheduledJobNow)
 	router.GET(options.BaseURL+"/api/v1/sessions", wrapper.ListSessions)
 	router.POST(options.BaseURL+"/api/v1/sessions", wrapper.CreateSession)
 	router.DELETE(options.BaseURL+"/api/v1/sessions/:id", wrapper.DeleteSession)
@@ -5589,6 +5618,70 @@ func (response UpdateScheduledJob409JSONResponse) VisitUpdateScheduledJobRespons
 type UpdateScheduledJob500JSONResponse struct{ InternalErrorJSONResponse }
 
 func (response UpdateScheduledJob500JSONResponse) VisitUpdateScheduledJobResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RunScheduledJobNowRequestObject struct {
+	Id string `json:"id"`
+}
+
+type RunScheduledJobNowResponseObject interface {
+	VisitRunScheduledJobNowResponse(w http.ResponseWriter) error
+}
+
+type RunScheduledJobNow200JSONResponse ScheduledJobResource
+
+func (response RunScheduledJobNow200JSONResponse) VisitRunScheduledJobNowResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RunScheduledJobNow404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response RunScheduledJobNow404JSONResponse) VisitRunScheduledJobNowResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RunScheduledJobNow409JSONResponse struct{ ConflictJSONResponse }
+
+func (response RunScheduledJobNow409JSONResponse) VisitRunScheduledJobNowResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RunScheduledJobNow500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response RunScheduledJobNow500JSONResponse) VisitRunScheduledJobNowResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -9043,6 +9136,9 @@ type StrictServerInterface interface {
 	// Update a scheduled job
 	// (PATCH /api/v1/scheduled-jobs/{id})
 	UpdateScheduledJob(ctx context.Context, request UpdateScheduledJobRequestObject) (UpdateScheduledJobResponseObject, error)
+	// Run a scheduled job now
+	// (POST /api/v1/scheduled-jobs/{id}/runs)
+	RunScheduledJobNow(ctx context.Context, request RunScheduledJobNowRequestObject) (RunScheduledJobNowResponseObject, error)
 	// List sessions for one workspace
 	// (GET /api/v1/sessions)
 	ListSessions(ctx context.Context, request ListSessionsRequestObject) (ListSessionsResponseObject, error)
@@ -10582,6 +10678,32 @@ func (sh *strictHandler) UpdateScheduledJob(ctx *gin.Context, id string) {
 		sh.options.HandlerErrorFunc(ctx, err)
 	} else if validResponse, ok := response.(UpdateScheduledJobResponseObject); ok {
 		if err := validResponse.VisitUpdateScheduledJobResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RunScheduledJobNow operation middleware
+func (sh *strictHandler) RunScheduledJobNow(ctx *gin.Context, id string) {
+	var request RunScheduledJobNowRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.RunScheduledJobNow(ctx, request.(RunScheduledJobNowRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RunScheduledJobNow")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(RunScheduledJobNowResponseObject); ok {
+		if err := validResponse.VisitRunScheduledJobNowResponse(ctx.Writer); err != nil {
 			sh.options.ResponseErrorHandlerFunc(ctx, err)
 		}
 	} else if response != nil {

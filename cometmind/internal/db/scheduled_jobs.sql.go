@@ -247,6 +247,22 @@ func (q *Queries) MarkScheduledJobFired(ctx context.Context, arg MarkScheduledJo
 	return result.RowsAffected()
 }
 
+const setScheduledJobNextRunForTest = `-- name: SetScheduledJobNextRunForTest :exec
+UPDATE scheduled_jobs
+SET next_run_at = ?
+WHERE id = ?
+`
+
+type SetScheduledJobNextRunForTestParams struct {
+	NextRunAt int64  `json:"next_run_at"`
+	ID        string `json:"id"`
+}
+
+func (q *Queries) SetScheduledJobNextRunForTest(ctx context.Context, arg SetScheduledJobNextRunForTestParams) error {
+	_, err := q.db.ExecContext(ctx, setScheduledJobNextRunForTest, arg.NextRunAt, arg.ID)
+	return err
+}
+
 const updateScheduledJob = `-- name: UpdateScheduledJob :execrows
 UPDATE scheduled_jobs
 SET description = ?,

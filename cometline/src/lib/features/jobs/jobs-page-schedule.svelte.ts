@@ -2,6 +2,7 @@ import {
 	createScheduledJob,
 	deleteScheduledJob,
 	listScheduledJobs,
+	runScheduledJobNow,
 	updateScheduledJob,
 	type CreateScheduledJobRequest,
 	type ScheduledJobResource,
@@ -163,6 +164,25 @@ export function createJobsScheduleController(deps: {
 		}
 	}
 
+	async function handleRunScheduled(job: ScheduledJobResource) {
+		if (
+			!confirm(
+				`Run "${truncateJobLabel(job.description)}" now? An unfinished previous run will be cleared.`
+			)
+		) {
+			return;
+		}
+		deps.setSaving(true);
+		try {
+			await runScheduledJobNow(job.id);
+			await loadScheduledJobs({ silent: true });
+		} catch (e) {
+			deps.setError(e instanceof Error ? e.message : 'Failed to run scheduled job');
+		} finally {
+			deps.setSaving(false);
+		}
+	}
+
 	async function handleToggleScheduled(job: ScheduledJobResource) {
 		try {
 			await updateScheduledJob(job.id, { enabled: !job.enabled });
@@ -252,6 +272,7 @@ export function createJobsScheduleController(deps: {
 		editScheduled,
 		handleSaveScheduled,
 		handleDeleteScheduled,
+		handleRunScheduled,
 		handleToggleScheduled
 	};
 }

@@ -5223,6 +5223,41 @@ export type UpdateScheduledJobResponses = {
 
 export type UpdateScheduledJobResponse = UpdateScheduledJobResponses[keyof UpdateScheduledJobResponses];
 
+export type RunScheduledJobNowData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/scheduled-jobs/{id}/runs';
+};
+
+export type RunScheduledJobNowErrors = {
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * State conflict
+     */
+    409: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type RunScheduledJobNowError = RunScheduledJobNowErrors[keyof RunScheduledJobNowErrors];
+
+export type RunScheduledJobNowResponses = {
+    /**
+     * Schedule materialized and advanced
+     */
+    200: ScheduledJobResource;
+};
+
+export type RunScheduledJobNowResponse = RunScheduledJobNowResponses[keyof RunScheduledJobNowResponses];
+
 export type ListInboxMessagesData = {
     body?: never;
     path?: never;

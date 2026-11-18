@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CalendarClock, LoaderCircle, Pencil, Plus, Trash2, X } from '@lucide/svelte';
+	import { CalendarClock, LoaderCircle, Pencil, Play, Plus, Trash2, X } from '@lucide/svelte';
 	import {
 		formatClock,
 		nextRunLabel,
@@ -66,13 +66,32 @@
 									<CalendarClock size={11} />
 									{scheduleLabel(job)}
 								</span>
-								<span class="chip">Next: {nextRunLabel(job, nowMs)}</span>
+								<span
+									class="chip"
+									class:overdue={job.enabled && job.next_run_at <= nowMs}
+								>
+									{job.enabled && job.next_run_at <= nowMs
+										? ''
+										: 'Next: '}{nextRunLabel(job, nowMs)}
+								</span>
 								{#if job.last_run_at}
 									<span class="chip">Last: {formatClock(job.last_run_at)}</span>
 								{/if}
 							</div>
 						</div>
 						<div class="scheduled-card-actions">
+							{#if job.enabled}
+								<button
+									type="button"
+									class="secondary"
+									title="Run now"
+									disabled={saving}
+									onclick={() => void schedule.handleRunScheduled(job)}
+								>
+									<Play size={12} />
+									Run now
+								</button>
+							{/if}
 							<button
 								type="button"
 								class="secondary icon-only"
@@ -226,6 +245,11 @@
 		border-radius: 999px;
 		background: rgba(15, 23, 42, 0.06);
 		color: var(--text-muted);
+	}
+
+	.chip.overdue {
+		background: rgba(180, 83, 9, 0.12);
+		color: #9a3412;
 	}
 
 	.scheduled-card-actions {

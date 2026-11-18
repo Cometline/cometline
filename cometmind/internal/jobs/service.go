@@ -126,6 +126,26 @@ func (s *Service) HasOpenJobForScheduledJob(ctx context.Context, scheduledJobID 
 	return s.q.HasOpenJobForScheduledJob(ctx, optionalNullString(scheduledJobID))
 }
 
+// ClearOpenJobsForScheduledJob soft-deletes every outstanding job linked to a
+// schedule so a manual rerun is not blocked by a previous firing that never
+// finished. Done and already-deleted jobs are left alone.
+func (s *Service) ClearOpenJobsForScheduledJob(ctx context.Context, scheduledJobID string) error {
+	scheduledJobID = strings.TrimSpace(scheduledJobID)
+	if scheduledJobID == "" {
+		return nil
+	}
+	ids, err := s.q.ListOpenJobIDsForScheduledJob(ctx, optionalNullString(scheduledJobID))
+	if err != nil {
+		return err
+	}
+	for _, jobID := range ids {
+		if err := s.SoftDelete(ctx, jobID); err != nil && !errors.Is(err, ErrNotFound) {
+			return err
+		}
+	}
+	return nil
+}
+
 // Get returns one job by id.
 func (s *Service) Get(ctx context.Context, jobID string) (Job, error) {
 	row, err := s.q.GetJob(ctx, jobID)

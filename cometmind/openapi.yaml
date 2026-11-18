@@ -3036,6 +3036,32 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/scheduled-jobs/{id}/runs:
+    post:
+      tags: [Jobs]
+      summary: Run a scheduled job now
+      description: Materializes the schedule immediately. Clears any outstanding job from a previous firing so an overdue schedule can run again, then advances the next run.
+      operationId: runScheduledJobNow
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Schedule materialized and advanced
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledJobResource'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/inbox/messages:
     get:
       tags: [Inbox]

@@ -581,6 +581,37 @@ func (q *Queries) ListOngoingJobs(ctx context.Context) ([]Job, error) {
 	return items, nil
 }
 
+const listOpenJobIDsForScheduledJob = `-- name: ListOpenJobIDsForScheduledJob :many
+SELECT id
+FROM jobs
+WHERE scheduled_job_id = ?
+  AND status IN ('todo', 'ongoing', 'blocked')
+  AND deleted_at IS NULL
+`
+
+func (q *Queries) ListOpenJobIDsForScheduledJob(ctx context.Context, scheduledJobID sql.NullString) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listOpenJobIDsForScheduledJob, scheduledJobID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listReadyJobs = `-- name: ListReadyJobs :many
 SELECT id, description, definition_of_done, progress, status, workspace_path, assigned_session_id, lease_expires_at, created_by, source_session_id, source_platform, source_channel_id, archived_at, failure_count, next_retry_at, last_failure_reason, deleted_at, scheduled_job_id, created_at, updated_at
 FROM jobs
