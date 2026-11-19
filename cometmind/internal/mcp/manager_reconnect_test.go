@@ -45,6 +45,36 @@ func newInMemoryConnectedServer(t *testing.T, cfg ServerConfig) (*connectedServe
 // corrects the cached status from Connected to Error and records a
 // last-error message, instead of leaving the stale "connected" status in
 // place forever.
+func TestWakeRecoveryIDsSkipsAuthAndDisabled(t *testing.T) {
+	servers := map[string]*managedServer{
+		"protocol": {cfg: ServerConfig{Enabled: true}, status: StatusError, errorCode: CodeProtocol},
+		"timeout":  {cfg: ServerConfig{Enabled: true}, status: StatusError, errorCode: CodeHandshakeTimeout},
+		"auth":     {cfg: ServerConfig{Enabled: true}, status: StatusError, errorCode: CodeAuthExpired},
+		"missing":  {cfg: ServerConfig{Enabled: true}, status: StatusError, errorCode: CodeCommandNotFound},
+		"off":      {cfg: ServerConfig{Enabled: false}, status: StatusError, errorCode: CodeProtocol},
+		"stale":    {cfg: ServerConfig{Enabled: true}, status: StatusConnected},
+		"dialing":  {cfg: ServerConfig{Enabled: true}, status: StatusConnecting},
+	}
+	got := map[string]bool{}
+	for _, id := range wakeRecoveryIDs(servers) {
+		got[id] = true
+	}
+	if !got["protocol"] || !got["timeout"] || !got["stale"] || len(got) != 3 {
+		t.Fatalf("ids=%v", got)
+	}
+}
+
+func TestRecoverAfterWakeDoesNotStack(t *testing.T) {
+	mgr := NewManager(Config{Enabled: true})
+	mgr.wakeInFlight = true
+	mgr.servers["protocol"] = &managedServer{
+		cfg: ServerConfig{ID: "protocol", Enabled: true}, status: StatusError, errorCode: CodeProtocol,
+	}
+	if got := mgr.RecoverAfterWake(context.Background()); got != 0 {
+		t.Fatalf("stacked recovery recovered=%d", got)
+	}
+}
+
 func TestMonitorConnectionDetectsSessionDeathAndSetsError(t *testing.T) {
 	withFastBackoff(t, []time.Duration{time.Millisecond})
 

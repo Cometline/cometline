@@ -4098,6 +4098,33 @@ export type ReconnectMcpServerResponses = {
 
 export type ReconnectMcpServerResponse = ReconnectMcpServerResponses[keyof ReconnectMcpServerResponses];
 
+export type RecoverMcpAfterWakeData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/mcp/recovery-runs';
+};
+
+export type RecoverMcpAfterWakeErrors = {
+    /**
+     * Unexpected server error
+     */
+    503: ErrorResponse;
+};
+
+export type RecoverMcpAfterWakeError = RecoverMcpAfterWakeErrors[keyof RecoverMcpAfterWakeErrors];
+
+export type RecoverMcpAfterWakeResponses = {
+    /**
+     * Recovery started in the background
+     */
+    202: {
+        started: boolean;
+    };
+};
+
+export type RecoverMcpAfterWakeResponse = RecoverMcpAfterWakeResponses[keyof RecoverMcpAfterWakeResponses];
+
 export type StartMcpOAuthData = {
     body?: never;
     path: {

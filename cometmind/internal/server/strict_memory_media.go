@@ -21,6 +21,11 @@ func (s *strictServer) StartMcpOAuth(ctx context.Context, _ apigen.StartMcpOAuth
 	return nil, nil
 }
 
+func (s *strictServer) RecoverMcpAfterWake(ctx context.Context, _ apigen.RecoverMcpAfterWakeRequestObject) (apigen.RecoverMcpAfterWakeResponseObject, error) {
+	delegateGin(ctx, s.app.handleRecoverMCPAfterWake)
+	return nil, nil
+}
+
 func (s *strictServer) ReconnectMcpServer(ctx context.Context, _ apigen.ReconnectMcpServerRequestObject) (apigen.ReconnectMcpServerResponseObject, error) {
 	delegateGin(ctx, s.app.handleReconnectMCPServer)
 	return nil, nil
