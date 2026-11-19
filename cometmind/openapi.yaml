@@ -2183,6 +2183,25 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/mcp/recovery-runs:
+    post:
+      tags: [MCP]
+      summary: Reconnect MCP servers left in a transient error after wake
+      operationId: recoverMcpAfterWake
+      responses:
+        '202':
+          description: Recovery started in the background
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [started]
+                properties:
+                  started:
+                    type: boolean
+        '503':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/mcp/servers/{id}/oauth-flows:
     post:
       tags: [MCP]

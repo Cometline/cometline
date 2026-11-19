@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -36,6 +37,16 @@ func (a *App) handleTestMCPServer(c *gin.Context) {
 		status = http.StatusBadGateway
 	}
 	c.JSON(status, result)
+}
+
+func (a *App) handleRecoverMCPAfterWake(c *gin.Context) {
+	if a.mcpMgr == nil {
+		writeError(c, http.StatusServiceUnavailable, "mcp_unavailable", "MCP manager is not initialized")
+		return
+	}
+	// Return immediately. A lid-open hook must not wait out six remote handshakes.
+	go a.mcpMgr.RecoverAfterWake(context.Background())
+	c.JSON(http.StatusAccepted, gin.H{"started": true})
 }
 
 func (a *App) handleReconnectMCPServer(c *gin.Context) {

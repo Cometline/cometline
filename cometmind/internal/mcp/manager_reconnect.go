@@ -88,6 +88,90 @@ func (m *Manager) autoReconnect(serverID string) {
 	}
 }
 
+func wakeRecoveryIDs(servers map[string]*managedServer) []string {
+	ids := make([]string, 0)
+	for id, entry := range servers {
+		// StatusConnected is included because a lid close does not kill the
+		// process. At resume the transport is already dead, but the cached
+		// status stays connected until the next keepalive. Waiting for that
+		// ping misses the only wake pass.
+		if entry == nil || !entry.cfg.Enabled {
+			continue
+		}
+		if entry.status != StatusError && entry.status != StatusConnected {
+			continue
+		}
+		if skipAutoReconnect(entry.errorCode) {
+			continue
+		}
+		ids = append(ids, id)
+	}
+	return ids
+}
+
+const wakeReconnectSpacing = 2 * time.Second
+
+// wakeSpacing is a var so tests can collapse the gap between servers.
+var wakeSpacing = wakeReconnectSpacing
+
+// RecoverAfterWake reconnects enabled servers left in a transient error after
+// the machine slept. A lid close does not kill this process, so the session
+// can look connected until the next ping, and the short death-retry budget
+// often expires before the network is back. Auth, config, and missing-binary
+// errors are left for the user.
+func (m *Manager) RecoverAfterWake(parent context.Context) int {
+	if m == nil {
+		return 0
+	}
+	if parent == nil {
+		parent = context.Background()
+	}
+	m.mu.Lock()
+	if m.wakeInFlight || m.reloading || !m.cfg.Enabled {
+		m.mu.Unlock()
+		return 0
+	}
+	ids := wakeRecoveryIDs(m.servers)
+	if len(ids) == 0 {
+		m.mu.Unlock()
+		return 0
+	}
+	m.wakeInFlight = true
+	m.mu.Unlock()
+	defer func() {
+		m.mu.Lock()
+		m.wakeInFlight = false
+		m.mu.Unlock()
+	}()
+
+	recovered := 0
+	for i, id := range ids {
+		if i > 0 {
+			select {
+			case <-parent.Done():
+				return recovered
+			case <-time.After(wakeSpacing):
+			}
+		}
+		m.mu.RLock()
+		entry, ok := m.servers[id]
+		stillDue := ok &&
+			(entry.status == StatusError || entry.status == StatusConnected) &&
+			!skipAutoReconnect(entry.errorCode)
+		m.mu.RUnlock()
+		if !stillDue {
+			continue
+		}
+		if err := m.connectOneWithBudget(context.Background(), id); err != nil {
+			logging.L().Warn("mcp.wake_reconnect_failed", zap.String("server", id), zap.Error(err))
+			continue
+		}
+		recovered++
+		logging.L().Info("mcp.wake_reconnect_succeeded", zap.String("server", id))
+	}
+	return recovered
+}
+
 // Reconnect disconnects and reconnects one server. It refuses to run while a
 // full Reload is in flight: Reload's Start() rebuilds the servers map from
 // scratch, so a Reconnect racing that rebuild could write a stale connection

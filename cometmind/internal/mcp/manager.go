@@ -23,6 +23,9 @@ type Manager struct {
 	// review: a manual reconnect that grabs the pre-reload managedServer
 	// pointer would silently write into an entry Start() is about to discard).
 	reloading bool
+	// wakeInFlight keeps a sleep/wake recovery from stacking another pass
+	// while the previous one is still reconnecting.
+	wakeInFlight bool
 }
 
 type managedServer struct {

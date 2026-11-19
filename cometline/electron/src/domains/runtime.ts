@@ -2,6 +2,7 @@ import {
 	app,
 	BrowserWindow,
 	dialog,
+	powerMonitor,
 	nativeImage,
 	net,
 	Notification as ElectronNotification,
@@ -54,6 +55,21 @@ type Windows = ReturnType<typeof createWindows>;
 type CometMindLifecycle = ReturnType<typeof createCometMindLifecycle>;
 
 const MINI_WINDOW_PREWARM_DELAY_MS = 300;
+const MCP_WAKE_RECOVERY_URL = 'http://127.0.0.1:7700/api/v1/mcp/recovery-runs';
+
+function recoverMcpAfterWake() {
+	const request = http.request(
+		MCP_WAKE_RECOVERY_URL,
+		{ method: 'POST', timeout: 3_000 },
+		(response) => {
+			response.resume();
+		}
+	);
+	request.on('error', (error) => {
+		console.error('MCP wake recovery failed:', error);
+	});
+	request.end();
+}
 
 let initialized = false;
 
@@ -469,6 +485,9 @@ export function initializeRuntime() {
 		updater.configure();
 		app.on('second-instance', () => windows?.showMainWindow());
 		app.on('activate', () => windows?.handleAppActivate());
+		powerMonitor.on('resume', () => {
+			void recoverMcpAfterWake();
+		});
 	});
 
 	app.on('window-all-closed', () => {

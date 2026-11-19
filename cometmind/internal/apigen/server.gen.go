@@ -76,6 +76,9 @@ type ServerInterface interface {
 	// Reset a blocked job for retry
 	// (POST /api/v1/jobs/{id}/retry-runs)
 	UnblockJob(c *gin.Context, id string)
+	// Reconnect MCP servers left in a transient error after wake
+	// (POST /api/v1/mcp/recovery-runs)
+	RecoverMcpAfterWake(c *gin.Context)
 	// List configured MCP servers and runtime status
 	// (GET /api/v1/mcp/servers)
 	ListMcpServers(c *gin.Context)
@@ -820,6 +823,19 @@ func (siw *ServerInterfaceWrapper) UnblockJob(c *gin.Context) {
 	}
 
 	siw.Handler.UnblockJob(c, id)
+}
+
+// RecoverMcpAfterWake operation middleware
+func (siw *ServerInterfaceWrapper) RecoverMcpAfterWake(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RecoverMcpAfterWake(c)
 }
 
 // ListMcpServers operation middleware
@@ -3038,6 +3054,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.PATCH(options.BaseURL+"/api/v1/jobs/:id/lease", wrapper.HeartbeatJob)
 	router.PUT(options.BaseURL+"/api/v1/jobs/:id/lease", wrapper.ClaimJob)
 	router.POST(options.BaseURL+"/api/v1/jobs/:id/retry-runs", wrapper.UnblockJob)
+	router.POST(options.BaseURL+"/api/v1/mcp/recovery-runs", wrapper.RecoverMcpAfterWake)
 	router.GET(options.BaseURL+"/api/v1/mcp/servers", wrapper.ListMcpServers)
 	router.POST(options.BaseURL+"/api/v1/mcp/servers/:id/connection-tests", wrapper.TestMcpServer)
 	router.POST(options.BaseURL+"/api/v1/mcp/servers/:id/oauth-flows", wrapper.StartMcpOAuth)
@@ -4210,6 +4227,43 @@ func (response UnblockJob500JSONResponse) VisitUnblockJobResponse(w http.Respons
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RecoverMcpAfterWakeRequestObject struct {
+}
+
+type RecoverMcpAfterWakeResponseObject interface {
+	VisitRecoverMcpAfterWakeResponse(w http.ResponseWriter) error
+}
+
+type RecoverMcpAfterWake202JSONResponse struct {
+	Started bool `json:"started"`
+}
+
+func (response RecoverMcpAfterWake202JSONResponse) VisitRecoverMcpAfterWakeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RecoverMcpAfterWake503JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response RecoverMcpAfterWake503JSONResponse) VisitRecoverMcpAfterWakeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -9055,6 +9109,9 @@ type StrictServerInterface interface {
 	// Reset a blocked job for retry
 	// (POST /api/v1/jobs/{id}/retry-runs)
 	UnblockJob(ctx context.Context, request UnblockJobRequestObject) (UnblockJobResponseObject, error)
+	// Reconnect MCP servers left in a transient error after wake
+	// (POST /api/v1/mcp/recovery-runs)
+	RecoverMcpAfterWake(ctx context.Context, request RecoverMcpAfterWakeRequestObject) (RecoverMcpAfterWakeResponseObject, error)
 	// List configured MCP servers and runtime status
 	// (GET /api/v1/mcp/servers)
 	ListMcpServers(ctx context.Context, request ListMcpServersRequestObject) (ListMcpServersResponseObject, error)
@@ -9940,6 +9997,30 @@ func (sh *strictHandler) UnblockJob(ctx *gin.Context, id string) {
 		sh.options.HandlerErrorFunc(ctx, err)
 	} else if validResponse, ok := response.(UnblockJobResponseObject); ok {
 		if err := validResponse.VisitUnblockJobResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RecoverMcpAfterWake operation middleware
+func (sh *strictHandler) RecoverMcpAfterWake(ctx *gin.Context) {
+	var request RecoverMcpAfterWakeRequestObject
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.RecoverMcpAfterWake(ctx, request.(RecoverMcpAfterWakeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RecoverMcpAfterWake")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(RecoverMcpAfterWakeResponseObject); ok {
+		if err := validResponse.VisitRecoverMcpAfterWakeResponse(ctx.Writer); err != nil {
 			sh.options.ResponseErrorHandlerFunc(ctx, err)
 		}
 	} else if response != nil {
