@@ -1162,6 +1162,9 @@ func TestRunner_InjectsRecentTaskOutcomes(t *testing.T) {
 	if !strings.Contains(system, "## Relevant task outcomes") || !strings.Contains(system, "Completed the autonomous jobs retry policy.") {
 		t.Fatalf("system prompt missing task outcome recall: %q", system)
 	}
+	if !strings.Contains(system, "may be stale") || !strings.Contains(system, "Context sources:") {
+		t.Fatalf("system prompt missing context precedence: %q", system)
+	}
 	var injected []event.MemoryWire
 	for _, ev := range events {
 		if ev.Kind == event.KindMemoryInjected {

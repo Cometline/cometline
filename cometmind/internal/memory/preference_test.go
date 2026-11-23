@@ -209,6 +209,9 @@ func TestFormatPromptMemoriesSeparatesPreferencesAndDedupesRelevant(t *testing.T
 	if !strings.Contains(out, "## User preferences") || !strings.Contains(out, "## Relevant task outcomes") || !strings.Contains(out, "## Semantic memories") {
 		t.Fatalf("missing sections: %q", out)
 	}
+	if strings.Count(out, "may be stale") != 2 {
+		t.Fatalf("stale warning should mark outcomes and semantic memories only: %q", out)
+	}
 	if strings.Count(out, "User prefers Traditional Chinese replies.") != 1 {
 		t.Fatalf("preference should appear once: %q", out)
 	}

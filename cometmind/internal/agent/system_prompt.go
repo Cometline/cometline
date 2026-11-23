@@ -10,6 +10,8 @@ func (r *Runner) systemPrompt() string {
 	base := strings.TrimSpace(r.SystemPrompt)
 	if base == "" {
 		base = DefaultSystemPrompt()
+	} else if !strings.Contains(base, "Context sources:") {
+		base += "\n\n" + ContextSourcePrompt()
 	}
 	if strings.TrimSpace(r.SkillIndex) == "" && strings.TrimSpace(r.JobIndex) == "" {
 		return base

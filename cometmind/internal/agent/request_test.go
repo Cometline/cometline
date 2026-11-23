@@ -156,6 +156,28 @@ func TestFormatAgentModePrompt(t *testing.T) {
 	}
 }
 
+func TestDefaultSystemPrompt_IncludesContextSources(t *testing.T) {
+	t.Parallel()
+	got := DefaultSystemPrompt()
+	for _, want := range []string{"Context sources:", "may be stale", "query-wiki", "later correction"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %q in:\n%s", want, got)
+		}
+	}
+}
+
+func TestSystemPrompt_AppendsContextSourcesToCustomPersona(t *testing.T) {
+	t.Parallel()
+	got := (&Runner{SystemPrompt: "custom persona"}).systemPrompt()
+	if !strings.Contains(got, "custom persona") || !strings.Contains(got, "Context sources:") {
+		t.Fatalf("custom persona lost context sources:\n%s", got)
+	}
+	again := (&Runner{SystemPrompt: got}).systemPrompt()
+	if strings.Count(again, "Context sources:") != 1 {
+		t.Fatalf("context sources duplicated:\n%s", again)
+	}
+}
+
 func TestBuildSystemPrompt_AppendsAgentModeLast(t *testing.T) {
 	t.Parallel()
 	r := &Runner{SystemPrompt: "base", AgentMode: session.AgentModePlan}
