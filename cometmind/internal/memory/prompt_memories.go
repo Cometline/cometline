@@ -91,7 +91,7 @@ func FormatPromptMemories(mems PromptMemories) string {
 		}
 	}
 	if mems.Count(BucketTaskOutcome) > 0 {
-		b.WriteString("\n\n## Relevant task outcomes\n")
+		b.WriteString("\n\n## Relevant task outcomes\nThese are past records and may be stale. A file, command result, or later correction wins.\n")
 		i := 0
 		for _, m := range mems.Records {
 			if m.Bucket == BucketTaskOutcome {
@@ -101,7 +101,7 @@ func FormatPromptMemories(mems PromptMemories) string {
 		}
 	}
 	if mems.Count(BucketSemantic) > 0 {
-		b.WriteString("\n\n## Semantic memories\n")
+		b.WriteString("\n\n## Semantic memories\nThese are past records and may be stale. A file, command result, or later correction wins.\n")
 	}
 	i := 0
 	for _, m := range mems.Records {

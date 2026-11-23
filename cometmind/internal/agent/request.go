@@ -19,9 +19,20 @@ const (
 	maxIncompleteToolTruncationContinuations = 4
 )
 
+// ContextSourcePrompt tells the model which context layer wins. It is always
+// present, including turns that skip memory retrieval.
+func ContextSourcePrompt() string {
+	return `Context sources:
+- User preferences are binding unless the user contradicts them in this turn.
+- Task outcomes and semantic memories are past records. They may be stale.
+- If a memory conflicts with a file, a command result, or a later correction from the user, trust the live result and the later correction.
+- If the question may already be answered in the wiki, load query-wiki and read its pages. Do not use the shell to browse the wiki.
+- For how the code or workspace is now, read files or search with grep. A wiki page is not the current code.`
+}
+
 // DefaultSystemPrompt is persona + coding policy (shared mount docs via CodingPolicyPrompt).
 func DefaultSystemPrompt() string {
-	return DefaultPersonaPrompt + "\n\n" + CodingPolicyPrompt()
+	return DefaultPersonaPrompt + "\n\n" + CodingPolicyPrompt() + "\n\n" + ContextSourcePrompt()
 }
 
 // FormatOutputBudgetPromptBlock reminds the model of the per-step output cap.
