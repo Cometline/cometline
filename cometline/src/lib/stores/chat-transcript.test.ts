@@ -3,6 +3,18 @@ import { itemsFromTranscript } from './chat-transcript';
 import type { TranscriptItem } from '#lib/types.js';
 
 describe('itemsFromTranscript', () => {
+	it('keeps a paragraph between assistant steps from the same turn', () => {
+		const items = itemsFromTranscript([
+			{ type: 'assistant', text: '我先看 README。\n' },
+			{ type: 'tool', tool_name: 'read_file', tool_input: { path: 'README.md' } },
+			{ type: 'assistant', text: 'README 只看到開頭。' }
+		]);
+		expect(items[0]).toMatchObject({
+			type: 'assistant',
+			text: '我先看 README。\n\nREADME 只看到開頭。'
+		});
+	});
+
 	it('maps user messages from transcript rows', () => {
 		const items = itemsFromTranscript([
 			{ type: 'user', text: 'Hi' },

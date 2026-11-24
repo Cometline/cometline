@@ -2,6 +2,7 @@ import type { ChatItem, MediaAttachment, StreamEvent, SubagentProgressEntry } fr
 import type { ContextBudgetSnapshot } from '#lib/context-window.js';
 import { isSubagentStepLimit } from '../features/chat/subagent-display';
 import { turnStatusLabel } from '../features/chat/turn-status';
+import { joinAssistantText } from '../features/chat/assistant-text-join';
 import {
 	cloneReasoning as cloneReasoningSegments,
 	getReasoningSegments,
@@ -349,11 +350,11 @@ function applyEvent(
 			publishAssistant(next);
 		}
 		reasoning.current = null;
+		draft.needsTextSeparator = false;
 		return;
 	}
 
 	if (event.type === 'reasoning_start') {
-		if (assistant.current?.text.trim()) draft.needsTextSeparator = true;
 		reasoning.current = { text: '', pending: true };
 		let host = ensureReasoningHost();
 		host = clearAssistantActivity(host);
@@ -367,6 +368,7 @@ function applyEvent(
 	}
 
 	if (event.type === 'reasoning_delta') {
+		if (event.text.trim() && assistant.current?.text.trim()) draft.needsTextSeparator = true;
 		const turnReasoning = ensureTurnReasoning();
 		turnReasoning.text += event.text;
 		syncReasoningPreview();
@@ -375,21 +377,14 @@ function applyEvent(
 
 	if (event.type === 'text_delta') {
 		const host = ensureAssistantForText();
-		const separator =
-			draft.needsTextSeparator &&
-			host.text &&
-			event.delta &&
-			!/\s$/.test(host.text) &&
-			!/^\s/.test(event.delta)
-				? '\n\n'
-				: '';
+		const separate = draft.needsTextSeparator;
 		draft.needsTextSeparator = false;
 		if (reasoning.current) reasoning.current.pending = false;
 		reasoning.current = null;
 		const withReasoning = host.reasoning ? finalizeAllReasoningSegments(host) : host;
 		publishAssistant({
 			...clearAssistantActivity(withReasoning),
-			text: host.text + separator + event.delta,
+			text: separate ? joinAssistantText(host.text, event.delta) : host.text + event.delta,
 			pending: false
 		});
 		return;

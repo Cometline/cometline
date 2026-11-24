@@ -1,5 +1,6 @@
 import type { ChatItem, ImageAttachment, MemoryWire, Session, TranscriptItem } from '#lib/types.js';
 import { inferMemoryBucket } from '#lib/memory/buckets.js';
+import { joinAssistantText } from '#lib/features/chat/assistant-text-join.js';
 import { getReasoningSegments } from '#lib/features/chat/reasoning.js';
 import {
 	isSubagentStepLimit,
@@ -259,7 +260,7 @@ export function itemsFromTranscript(
 	function appendAssistantText(index: number, text: string) {
 		if (!text) return;
 		const assistant = ensureAssistant(index);
-		assistant.text += text;
+		assistant.text = joinAssistantText(assistant.text, text);
 	}
 
 	function appendReasoning(index: number, text: string) {
