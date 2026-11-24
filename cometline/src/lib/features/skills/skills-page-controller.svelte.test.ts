@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createSkillsPageController } from './skills-page-controller.svelte.js';
+import {
+	createSkillsPageController,
+	nextSkillsTab,
+	skillsTabFromQuery
+} from './skills-page-controller.svelte.js';
 import { skillUpdatesStore } from '#lib/stores/skill-updates.svelte.js';
 import {
+	getArchivedSkill,
 	getSkill,
 	listArchivedSkills,
 	listSkillDrafts,
@@ -11,6 +16,7 @@ import type { Skill } from '#lib/generated/cometmind-api/types.gen.js';
 
 vi.mock('#lib/client/cometmind.js', () => ({
 	deleteSkill: vi.fn(),
+	getArchivedSkill: vi.fn(),
 	getSkill: vi.fn(),
 	getSkillDraft: vi.fn(),
 	listArchivedSkills: vi.fn(),
@@ -37,6 +43,21 @@ function skill(name: string): Skill {
 		can_edit: true
 	};
 }
+
+describe('skills tabs', () => {
+	it('cycles drafts, skills, then archived', () => {
+		expect(nextSkillsTab('drafts')).toBe('skills');
+		expect(nextSkillsTab('skills')).toBe('archived');
+		expect(nextSkillsTab('archived')).toBe('drafts');
+	});
+
+	it('reads the archived query without treating an unknown tab as archived', () => {
+		expect(skillsTabFromQuery('archived')).toBe('archived');
+		expect(skillsTabFromQuery('skills')).toBe('skills');
+		expect(skillsTabFromQuery(null)).toBe('drafts');
+		expect(skillsTabFromQuery('nope')).toBe('drafts');
+	});
+});
 
 describe('createSkillsPageController', () => {
 	beforeEach(() => {
@@ -76,5 +97,23 @@ describe('createSkillsPageController', () => {
 			'trace-derived-field-header-source',
 			expect.any(String)
 		);
+	});
+
+	it('opens the first archived skill in the same preview shape as drafts', async () => {
+		const archived = skill('old-skill');
+		vi.mocked(listSkills).mockResolvedValue({ skills: [skill('live')] });
+		vi.mocked(listArchivedSkills).mockResolvedValue([archived]);
+		vi.mocked(getArchivedSkill).mockResolvedValue({
+			skill: archived,
+			content: '# old-skill'
+		});
+
+		const controller = createSkillsPageController({ getTab: () => 'archived' });
+		await controller.load();
+
+		expect(controller.archived.map((item) => item.name)).toEqual(['old-skill']);
+		expect(controller.selectedArchivedName).toBe('old-skill');
+		expect(controller.archivedContent).toBe('# old-skill');
+		expect(getArchivedSkill).toHaveBeenCalledWith('old-skill');
 	});
 });

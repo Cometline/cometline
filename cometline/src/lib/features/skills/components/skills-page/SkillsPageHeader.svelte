@@ -6,6 +6,7 @@
 		tab,
 		status,
 		busy,
+		archivedCount = 0,
 		onSelectTab,
 		onRefresh,
 		onSync
@@ -13,6 +14,7 @@
 		tab: SkillsTab;
 		status: string;
 		busy: boolean;
+		archivedCount?: number;
 		onSelectTab: (tab: SkillsTab) => void;
 		onRefresh: () => void;
 		onSync: () => void;
@@ -42,6 +44,18 @@
 		>
 			Skills
 		</button>
+		<button
+			type="button"
+			class="view-btn"
+			class:active={tab === 'archived'}
+			aria-pressed={tab === 'archived'}
+			onclick={() => onSelectTab('archived')}
+		>
+			Archived
+			{#if archivedCount > 0}
+				<span>{archivedCount}</span>
+			{/if}
+		</button>
 	</div>
 	{#if status}
 		<p class="page-status">{status}</p>
@@ -59,7 +73,13 @@
 			Sync symlinks
 		</button>
 		<button class="secondary" type="button" onclick={onRefresh} disabled={busy}>
-			{busy ? 'Loading...' : tab === 'drafts' ? 'Refresh drafts' : 'Refresh skills'}
+			{busy
+				? 'Loading...'
+				: tab === 'drafts'
+					? 'Refresh drafts'
+					: tab === 'archived'
+						? 'Refresh archived'
+						: 'Refresh skills'}
 		</button>
 	</div>
 </header>

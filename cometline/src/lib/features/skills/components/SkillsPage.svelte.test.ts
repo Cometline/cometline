@@ -5,6 +5,7 @@ import SkillsPage from './SkillsPage.svelte';
 
 const api = vi.hoisted(() => ({
 	deleteSkill: vi.fn(),
+	getArchivedSkill: vi.fn(),
 	getSkill: vi.fn(),
 	getSkillDraft: vi.fn(),
 	listArchivedSkills: vi.fn(),

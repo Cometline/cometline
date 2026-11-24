@@ -753,6 +753,15 @@ export function listArchivedSkills(): Promise<Skill[]> {
 	});
 }
 
+export function getArchivedSkill(name: string): Promise<SkillDetailResponse> {
+	return fetch(`${BASE_URL}/api/v1/skill-archive/${encodeURIComponent(name)}`).then(
+		async (response) => {
+			if (!response.ok) throw new Error('Failed to load archived skill');
+			return (await response.json()) as SkillDetailResponse;
+		}
+	);
+}
+
 export function pinSkill(name: string, pinned: boolean): Promise<void> {
 	return fetch(`${BASE_URL}/api/v1/skills/${encodeURIComponent(name)}/pin`, {
 		method: pinned ? 'POST' : 'DELETE'
