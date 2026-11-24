@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"strings"
 
 	skillpkg "github.com/Cometline/cometline/cometmind/internal/skills"
 	"github.com/gin-gonic/gin"
@@ -31,6 +32,25 @@ func (a *App) handleListArchivedSkills(c *gin.Context) {
 		items = append(items, resource)
 	}
 	c.JSON(http.StatusOK, gin.H{"skills": items})
+}
+
+func (a *App) handleGetArchivedSkill(c *gin.Context) {
+	name := strings.TrimSpace(c.Param("name"))
+	skill, content, err := skillpkg.ReadArchivedSkill(name)
+	if err != nil {
+		writeError(c, http.StatusNotFound, "skill_not_found", "unknown archived skill: "+name)
+		return
+	}
+	resource := a.skillResourceFromModel(skill)
+	resource.Status = skillpkg.CuratorStatusArchived
+	resource.CanEdit = false
+	resource.CanDelete = false
+	if a.curator != nil {
+		if life := a.curator.Lifecycle(c.Request.Context(), name); !life.ExpiresAt.IsZero() {
+			resource.ExpiresAt = life.ExpiresAt.UnixMilli()
+		}
+	}
+	c.JSON(http.StatusOK, skillDetailResponse{Skill: resource, Content: content})
 }
 
 func (a *App) handlePinSkill(c *gin.Context) {

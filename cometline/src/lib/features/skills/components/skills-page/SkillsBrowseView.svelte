@@ -138,59 +138,7 @@
 	{/snippet}
 </SkillsPreviewPanel>
 
-{#if controller.archived.length > 0}
-	<section class="archived-skills">
-		<h2>Archived</h2>
-		{#each controller.archived as skill (skill.name)}
-			{@const expiry = skillExpiryLabel(
-				skill.expires_at,
-				'archived',
-				Date.now(),
-				skill.pinned
-			)}
-			<div class="archived-row">
-				<span>
-					{skill.name}
-					{#if expiry}
-						<span class="expiry">{expiry}</span>
-					{/if}
-				</span>
-				<button
-					type="button"
-					class="secondary"
-					onclick={() => void controller.restoreArchived(skill.name)}
-				>
-					Restore
-				</button>
-			</div>
-		{/each}
-	</section>
-{/if}
-
 <style>
-	.archived-skills {
-		grid-column: 1 / -1;
-		min-height: 0;
-		max-height: 28%;
-		margin-top: 12px;
-		overflow: auto;
-	}
-
-	.expiry {
-		margin-left: 8px;
-		color: var(--text-muted);
-	}
-
-	.archived-row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 8px;
-		margin-top: 6px;
-		color: var(--text-muted);
-		font-size: 12px;
-	}
-
 	.page-muted {
 		margin: 6px 0 0;
 		font-size: 12px;

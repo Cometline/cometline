@@ -215,6 +215,35 @@ func TestSkillDraftHandlersPromoteAndReject(t *testing.T) {
 		t.Fatalf("reject status = %d, want %d body=%s", rejectRec.Code, http.StatusOK, rejectRec.Body.String())
 	}
 
+	archiveContent := "---\nname: archived-skill\ndescription: archived skill body\n---\n\n# Archived\n"
+	if err := skills.WriteSkill("archived-skill", archiveContent, false); err != nil {
+		t.Fatalf("WriteSkill(archived) error = %v", err)
+	}
+	if err := skills.ArchiveManagedSkill("archived-skill"); err != nil {
+		t.Fatalf("ArchiveManagedSkill() error = %v", err)
+	}
+	archivedRec := httptest.NewRecorder()
+	archivedReq := httptest.NewRequest(http.MethodGet, "/api/v1/skill-archive/archived-skill", nil)
+	engine.ServeHTTP(archivedRec, archivedReq)
+	if archivedRec.Code != http.StatusOK {
+		t.Fatalf("archived get status = %d, want %d body=%s", archivedRec.Code, http.StatusOK, archivedRec.Body.String())
+	}
+	var archived skillDetailResponse
+	decodeJSON(t, archivedRec.Body.Bytes(), &archived)
+	if archived.Skill.Name != "archived-skill" || archived.Skill.Status != skills.CuratorStatusArchived {
+		t.Fatalf("archived skill = %+v", archived.Skill)
+	}
+	if archived.Skill.CanEdit || !strings.Contains(archived.Content, "# Archived") {
+		t.Fatalf("archived detail = %+v content=%q", archived.Skill, archived.Content)
+	}
+
+	missingArchiveRec := httptest.NewRecorder()
+	missingArchiveReq := httptest.NewRequest(http.MethodGet, "/api/v1/skill-archive/missing-skill", nil)
+	engine.ServeHTTP(missingArchiveRec, missingArchiveReq)
+	if missingArchiveRec.Code != http.StatusNotFound {
+		t.Fatalf("missing archived status = %d, want %d body=%s", missingArchiveRec.Code, http.StatusNotFound, missingArchiveRec.Body.String())
+	}
+
 	missingRec := httptest.NewRecorder()
 	missingReq := httptest.NewRequest(http.MethodDelete, "/api/v1/skill-drafts/rejected-draft", nil)
 	engine.ServeHTTP(missingRec, missingReq)

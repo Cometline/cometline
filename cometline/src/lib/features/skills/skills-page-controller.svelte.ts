@@ -1,5 +1,6 @@
 import {
 	deleteSkill,
+	getArchivedSkill,
 	getSkill,
 	getSkillDraft,
 	listArchivedSkills,
@@ -26,7 +27,19 @@ import { skillDraftsStore } from '#lib/stores/skill-drafts.svelte.js';
 import { shellStore } from '#lib/stores/shell.svelte.js';
 import type { SkillResource } from '#lib/types.js';
 
-export type SkillsTab = 'skills' | 'drafts';
+export type SkillsTab = 'drafts' | 'skills' | 'archived';
+
+const SKILLS_TABS: SkillsTab[] = ['drafts', 'skills', 'archived'];
+
+export function nextSkillsTab(tab: SkillsTab): SkillsTab {
+	const index = SKILLS_TABS.indexOf(tab);
+	return SKILLS_TABS[(index + 1) % SKILLS_TABS.length] ?? 'drafts';
+}
+
+export function skillsTabFromQuery(value: string | null): SkillsTab {
+	if (value === 'skills' || value === 'archived') return value;
+	return 'drafts';
+}
 
 export type SkillsPageController = ReturnType<typeof createSkillsPageController>;
 
@@ -44,6 +57,9 @@ export function createSkillsPageController(deps: {
 	let selectedSkill = $state<SkillDetailResponse | null>(null);
 	let selectedSkillName = $state('');
 	let skillContent = $state('');
+	let selectedArchived = $state<SkillDetailResponse | null>(null);
+	let selectedArchivedName = $state('');
+	let archivedContent = $state('');
 	let skillSearch = $state('');
 	let selectedTags = $state<string[]>([]);
 	let busy = $state(false);
@@ -56,6 +72,7 @@ export function createSkillsPageController(deps: {
 	const selectedDraftId = $derived(selectedDraft?.draft.name ?? '');
 	const draftDirty = $derived(selectedDraft !== null && draftContent !== selectedDraft.content);
 	const selectedSkillId = $derived(selectedSkill?.skill.name ?? '');
+	const selectedArchivedId = $derived(selectedArchived?.skill.name ?? '');
 	const skillDirty = $derived(selectedSkill !== null && skillContent !== selectedSkill.content);
 	const canEditSkill = $derived(selectedSkill?.skill.can_edit ?? false);
 	const canDeleteSkill = $derived(selectedSkill?.skill.can_delete ?? false);
@@ -84,11 +101,42 @@ export function createSkillsPageController(deps: {
 		await refreshArchived();
 	}
 
-	async function refreshArchived() {
+	async function refreshArchived(options: { keepSelection?: boolean } = {}) {
+		busy = true;
+		status = '';
 		try {
-			archived = await listArchivedSkills();
+			const nextArchived = await listArchivedSkills();
+			archived = nextArchived;
+			if (nextArchived.length === 0) {
+				selectedArchived = null;
+				selectedArchivedName = '';
+				archivedContent = '';
+				return;
+			}
+			const preferred =
+				options.keepSelection && selectedArchivedName
+					? nextArchived.find((skill) => skill.name === selectedArchivedName)?.name
+					: '';
+			await openArchived(preferred || nextArchived[0].name);
 		} catch (err) {
 			status = err instanceof Error ? err.message : 'Failed to load archived skills';
+		} finally {
+			busy = false;
+		}
+	}
+
+	async function openArchived(name: string) {
+		selectedArchivedName = name;
+		contentBusy = true;
+		try {
+			selectedArchived = await getArchivedSkill(name);
+			archivedContent = selectedArchived.content;
+		} catch (err) {
+			selectedArchived = null;
+			archivedContent = '';
+			status = err instanceof Error ? err.message : 'Failed to load archived skill';
+		} finally {
+			contentBusy = false;
 		}
 	}
 
@@ -102,12 +150,18 @@ export function createSkillsPageController(deps: {
 	}
 
 	async function restoreArchived(name: string) {
+		if (!name) return;
+		busy = true;
+		status = '';
 		try {
 			await restoreArchivedSkill(name);
-			await refreshArchived();
+			status = `Restored ${name}.`;
+			await refreshArchived({ keepSelection: true });
 			await refreshSkills({ keepSelection: true });
 		} catch (err) {
 			status = err instanceof Error ? err.message : 'Failed to restore skill';
+		} finally {
+			busy = false;
 		}
 	}
 
@@ -186,6 +240,10 @@ export function createSkillsPageController(deps: {
 	async function refreshCurrent(options: { keepSelection?: boolean } = {}) {
 		if (deps.getTab() === 'drafts') {
 			await refreshDrafts(options);
+			return;
+		}
+		if (deps.getTab() === 'archived') {
+			await refreshArchived(options);
 			return;
 		}
 		await refreshSkills(options);
@@ -378,6 +436,18 @@ export function createSkillsPageController(deps: {
 		set skillContent(value: string) {
 			skillContent = value;
 		},
+		get selectedArchived() {
+			return selectedArchived;
+		},
+		get selectedArchivedName() {
+			return selectedArchivedName;
+		},
+		get selectedArchivedId() {
+			return selectedArchivedId;
+		},
+		get archivedContent() {
+			return archivedContent;
+		},
 		get skillSearch() {
 			return skillSearch;
 		},
@@ -435,6 +505,7 @@ export function createSkillsPageController(deps: {
 		syncSkillLinks,
 		openDraft,
 		openSkill,
+		openArchived,
 		selectSkill,
 		togglePin,
 		restoreArchived,

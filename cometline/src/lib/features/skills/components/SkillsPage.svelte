@@ -6,16 +6,17 @@
 	import ConfirmActionModal from '#lib/components/ConfirmActionModal.svelte';
 	import {
 		createSkillsPageController,
+		nextSkillsTab,
+		skillsTabFromQuery,
 		type SkillsTab
 	} from '#lib/features/skills/skills-page-controller.svelte.js';
+	import SkillArchivedView from './skills-page/SkillArchivedView.svelte';
 	import SkillDraftsView from './skills-page/SkillDraftsView.svelte';
 	import SkillsBrowseView from './skills-page/SkillsBrowseView.svelte';
 	import SkillsEmptyState from './skills-page/SkillsEmptyState.svelte';
 	import SkillsPageHeader from './skills-page/SkillsPageHeader.svelte';
 
-	let tab = $derived<SkillsTab>(
-		page.url.searchParams.get('tab') === 'skills' ? 'skills' : 'drafts'
-	);
+	let tab = $derived<SkillsTab>(skillsTabFromQuery(page.url.searchParams.get('tab')));
 	let requestedSkill = $derived(page.url.searchParams.get('skill') ?? '');
 	const controller = createSkillsPageController({
 		getTab: () => tab,
@@ -24,7 +25,7 @@
 
 	onMount(() => {
 		function onCycleTab() {
-			setTab(tab === 'drafts' ? 'skills' : 'drafts');
+			setTab(nextSkillsTab(tab));
 		}
 		window.addEventListener('cometline:cycle-skills-tab', onCycleTab);
 		void controller.load();
@@ -41,9 +42,8 @@
 
 	function setTab(next: SkillsTab) {
 		const params = [...page.url.searchParams].filter(([key]) => key !== 'tab');
-		if (next === 'skills') params.push(['tab', 'skills']);
+		if (next !== 'drafts') params.push(['tab', next]);
 		const search = new URLSearchParams(params).toString();
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- the pathname is resolved; the rule cannot follow the appended query string
 		void goto(`${resolve('skills')}${search ? `?${search}` : ''}`, {
 			replaceState: true,
 			reset: false
@@ -56,6 +56,7 @@
 		{tab}
 		status={controller.status}
 		busy={controller.busy}
+		archivedCount={controller.archived.length}
 		onSelectTab={setTab}
 		onRefresh={() => void controller.refreshCurrent({ keepSelection: true })}
 		onSync={() => void controller.syncSkillLinks()}
@@ -69,6 +70,15 @@
 			</SkillsEmptyState>
 		{:else}
 			<div class="page-layout"><SkillDraftsView {controller} /></div>
+		{/if}
+	{:else if tab === 'archived'}
+		{#if controller.archived.length === 0}
+			<SkillsEmptyState title="No archived skills">
+				Unpinned self-improvement skills move here before they are deleted. Restore one to
+				put it back in Skills.
+			</SkillsEmptyState>
+		{:else}
+			<div class="page-layout"><SkillArchivedView {controller} /></div>
 		{/if}
 	{:else if controller.skills.length === 0}
 		<SkillsEmptyState title="No skills discovered">
