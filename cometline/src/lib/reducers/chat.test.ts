@@ -310,9 +310,37 @@ describe('reduceChatState', () => {
 		expect(state.items[1].text).toContain('API key is invalid or missing');
 	});
 
+	it('keeps streaming deltas in one paragraph until a tool breaks them', () => {
+		const events: StreamEvent[] = [
+			{ type: 'text_delta', delta: 'Let me ' },
+			{ type: 'text_delta', delta: 'check.' }
+		];
+		let state = initChatState();
+		for (const event of events) {
+			state = reduceChatState(state, event);
+		}
+		expect(state.items[0]).toMatchObject({ type: 'assistant', text: 'Let me check.' });
+	});
+
+	it('does not split a sentence when reasoning starts before the next delta', () => {
+		const events: StreamEvent[] = [
+			{ type: 'text_delta', delta: 'stable' },
+			{ type: 'reasoning_start' },
+			{ type: 'text_delta', delta: ' recovered answer' }
+		];
+		let state = initChatState();
+		for (const event of events) {
+			state = reduceChatState(state, event);
+		}
+		expect(state.items[0]).toMatchObject({
+			type: 'assistant',
+			text: 'stable recovered answer'
+		});
+	});
+
 	it('separates text across tool calls in one assistant bubble', () => {
 		const events: StreamEvent[] = [
-			{ type: 'text_delta', delta: 'Let me check.' },
+			{ type: 'text_delta', delta: 'Let me check.\n' },
 			{ type: 'tool_call', id: 'tc-1', tool: 'list_dir', input: { path: '.' } },
 			{ type: 'tool_result', id: 'tc-1', tool: 'list_dir', output: 'src\nREADME.md' },
 			{ type: 'text_delta', delta: 'Found it.' },
