@@ -51,7 +51,8 @@ export function createStreamRunner(
 			abort: new AbortController(),
 			ctx: {
 				assistant: { current: null },
-				reasoning: { current: null }
+				reasoning: { current: null },
+				needsTextSeparator: false
 			}
 		};
 
@@ -175,7 +176,8 @@ export function createStreamRunner(
 			abort: new AbortController(),
 			ctx: {
 				assistant: { current: null },
-				reasoning: { current: null }
+				reasoning: { current: null },
+				needsTextSeparator: false
 			}
 		};
 		const cached = cache.getCachedItems(targetSessionID);

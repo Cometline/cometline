@@ -472,6 +472,9 @@ function applyEvent(
 		// multi-step turn keeps streaming into one assistant bubble.
 		settleTurn();
 		reasoning.current = null;
+		if (assistant.current?.text.trim()) {
+			draft.needsTextSeparator = true;
+		}
 		return;
 	}
 
