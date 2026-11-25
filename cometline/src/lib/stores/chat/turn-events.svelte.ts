@@ -76,6 +76,7 @@ export function createTurnEvents(state: ChatState, cache: SessionCache) {
 				error: sessionError,
 				assistant: ctx.assistant.current,
 				reasoning: ctx.reasoning.current,
+				needsTextSeparator: ctx.needsTextSeparator,
 				nextId: state.nextId,
 				contextBudget: state.sessionContextBudgets.get(targetSessionID) ?? null
 			},
@@ -84,6 +85,7 @@ export function createTurnEvents(state: ChatState, cache: SessionCache) {
 		state.nextId = reduced.nextId;
 		ctx.assistant.current = reduced.assistant;
 		ctx.reasoning.current = reduced.reasoning;
+		ctx.needsTextSeparator = reduced.needsTextSeparator ?? false;
 		if (reduced.contextBudget) {
 			state.sessionContextBudgets.set(targetSessionID, reduced.contextBudget);
 		} else {
